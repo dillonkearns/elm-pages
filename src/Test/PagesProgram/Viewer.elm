@@ -47,6 +47,7 @@ import Test.BackendTask.Internal as BackendTaskTest
 import Test.PagesProgram.CookieJar as CookieJar exposing (CookieEntry)
 import Test.PagesProgram.DebugParser as DebugParser
 import Test.PagesProgram.Internal exposing (AssertionSelector(..), FetcherEntry, FetcherStatus(..), NetworkEntry, NetworkSource(..), NetworkStatus(..), Snapshot, StepKind(..), TargetSelector(..))
+import Test.PagesProgram.Viewer.Icons as Icons
 import Url exposing (Url)
 
 
@@ -209,7 +210,7 @@ app tests =
                   , showFetchers = False
                   , showCookies = False
                   , previewMode = After
-                  , expandedGroups = Set.empty
+                  , expandedGroups = defaultExpandedGroups initialSnapshots
                   , modelTreeExpanded = Set.empty
                   }
                 , Cmd.none
@@ -558,14 +559,20 @@ update msg model =
                     newIndex =
                         modBy (List.length model.tests) (model.currentTestIndex + 1)
 
+                    newTest =
+                        model.tests |> List.drop newIndex |> List.head
+
                     testName =
-                        model.tests |> List.drop newIndex |> List.head |> Maybe.map .name
+                        newTest |> Maybe.map .name
+
+                    newSnapshots =
+                        newTest |> Maybe.map .snapshots |> Maybe.withDefault []
                 in
                 ( { model
                     | currentTestIndex = newIndex
                     , currentStepIndex = 0
                     , hoveredStepIndex = Nothing
-                    , expandedGroups = Set.empty
+                    , expandedGroups = defaultExpandedGroups newSnapshots
                   }
                 , Cmd.batch [ scrollToStep 0, pushTestUrl model testName ]
                 )
@@ -579,14 +586,20 @@ update msg model =
                     newIndex =
                         modBy (List.length model.tests) (model.currentTestIndex - 1 + List.length model.tests)
 
+                    newTest =
+                        model.tests |> List.drop newIndex |> List.head
+
                     testName =
-                        model.tests |> List.drop newIndex |> List.head |> Maybe.map .name
+                        newTest |> Maybe.map .name
+
+                    newSnapshots =
+                        newTest |> Maybe.map .snapshots |> Maybe.withDefault []
                 in
                 ( { model
                     | currentTestIndex = newIndex
                     , currentStepIndex = 0
                     , hoveredStepIndex = Nothing
-                    , expandedGroups = Set.empty
+                    , expandedGroups = defaultExpandedGroups newSnapshots
                   }
                 , Cmd.batch [ scrollToStep 0, pushTestUrl model testName ]
                 )
@@ -609,13 +622,16 @@ update msg model =
                     test
                         |> Maybe.andThen (\t -> t.snapshots |> List.drop stepIndex |> List.head)
                         |> Maybe.map .label
+
+                newSnapshots =
+                    test |> Maybe.map .snapshots |> Maybe.withDefault []
             in
             ( { model
                 | currentTestIndex = clampedIndex
                 , currentStepIndex = stepIndex
                 , hoveredStepIndex = Nothing
                 , sidebarMode = CommandLog
-                , expandedGroups = Set.empty
+                , expandedGroups = defaultExpandedGroups newSnapshots
               }
             , Cmd.batch
                 [ scrollToStep stepIndex
@@ -940,42 +956,9 @@ testHasError test =
         |> List.any (\s -> s.stepKind == Error)
 
 
-stepKindColor : StepKind -> String
-stepKindColor kind =
-    case kind of
-        Start ->
-            "#8899aa"
-
-        Interaction ->
-            "#4cc9f0"
-
-        Assertion ->
-            "#7ee787"
-
-        EffectResolution ->
-            "#f0c040"
-
-        Error ->
-            "#e74c3c"
-
-
-stepKindIcon : StepKind -> String
-stepKindIcon kind =
-    case kind of
-        Start ->
-            ">"
-
-        Interaction ->
-            "~"
-
-        Assertion ->
-            "?"
-
-        EffectResolution ->
-            "*"
-
-        Error ->
-            "!"
+stepKindColor : Snapshot -> String
+stepKindColor snapshot =
+    Icons.kindColor (Icons.kindFromSnapshot snapshot)
 
 
 
@@ -1315,7 +1298,21 @@ viewCommandLogSidebar model =
                                     []
 
                                 else
-                                    [ viewStepRow i snapshot model.currentStepIndex isHovering (model.hoveredStepIndex == Just i) (failureCauseIndex == Just i) isChild isGroupParent isExpanded numChildren ]
+                                    let
+                                        previousSnapshot =
+                                            if i > 0 then
+                                                snapshots |> List.drop (i - 1) |> List.head
+
+                                            else
+                                                Nothing
+
+                                        events =
+                                            computeStepEvents i snapshot previousSnapshot
+
+                                        eventDots =
+                                            viewStepEventDots model events
+                                    in
+                                    [ viewStepRow i snapshot model.currentStepIndex isHovering (model.hoveredStepIndex == Just i) (failureCauseIndex == Just i) isChild isGroupParent isExpanded numChildren eventDots ]
                         in
                         groupHeader ++ stepRow
                     )
@@ -1323,8 +1320,8 @@ viewCommandLogSidebar model =
         ]
 
 
-viewStepRow : Int -> Snapshot -> Int -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Int -> Html Msg
-viewStepRow index snapshot currentIndex isHovering isHovered isFailureCause isChild isGroupParent isExpanded numChildren =
+viewStepRow : Int -> Snapshot -> Int -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Int -> Html Msg -> Html Msg
+viewStepRow index snapshot currentIndex isHovering isHovered isFailureCause isChild isGroupParent isExpanded numChildren eventDots =
     let
         isActive =
             index == currentIndex
@@ -1333,7 +1330,7 @@ viewStepRow index snapshot currentIndex isHovering isHovered isFailureCause isCh
             index < currentIndex
 
         kindColor =
-            stepKindColor snapshot.stepKind
+            stepKindColor snapshot
     in
     Html.div
         [ Attr.classList
@@ -1356,9 +1353,10 @@ viewStepRow index snapshot currentIndex isHovering isHovered isFailureCause isCh
             [ Attr.class "step-icon"
             , Attr.style "color" kindColor
             ]
-            [ Html.text (stepKindIcon snapshot.stepKind) ]
+            [ Icons.stepKind snapshot ]
         , Html.span [ Attr.class "step-label", Attr.title snapshot.label ]
             (viewStepLabel snapshot)
+        , eventDots
         , if isGroupParent then
             Html.span
                 [ Attr.class "step-group-toggle"
@@ -1374,55 +1372,249 @@ viewStepRow index snapshot currentIndex isHovering isHovered isFailureCause isCh
                     )
                 ]
 
-          else if snapshot.hasPendingEffects then
-            Html.span [ Attr.class "step-pending-badge" ] [ Html.text "pending" ]
-
           else
             Html.text ""
         ]
 
 
-{-| Render a step label with structured formatting for assertion steps.
-For assertions, the function name is dimmed and the selector detail is highlighted.
-For other steps, the label is shown as-is.
+{-| A per-step count of events on each channel, used to render the right-edge dots.
+-}
+type alias StepEvents =
+    { networkBackend : Int
+    , networkFrontend : Int
+    , fetcher : Int
+    , cookie : Int
+    , effect : Int
+    }
+
+
+{-| Count event-channel activity introduced at this step. Uses `stepIndex` on
+`NetworkEntry` for the network split; diffs `fetcherLog` / `cookieLog` /
+`pendingEffects` against the previous snapshot for the other channels.
+-}
+computeStepEvents : Int -> Snapshot -> Maybe Snapshot -> StepEvents
+computeStepEvents index snapshot previous =
+    let
+        newNetwork =
+            snapshot.networkLog
+                |> List.filter (\e -> e.stepIndex == index)
+
+        networkBackend =
+            newNetwork
+                |> List.filter (\e -> e.source == Backend)
+                |> List.length
+
+        networkFrontend =
+            newNetwork
+                |> List.filter (\e -> e.source == Frontend)
+                |> List.length
+
+        prevFetcherSigs =
+            case previous of
+                Just prev ->
+                    prev.fetcherLog |> List.map fetcherSig
+
+                Nothing ->
+                    []
+
+        fetcher =
+            snapshot.fetcherLog
+                |> List.map fetcherSig
+                |> List.filter (\sig -> not (List.member sig prevFetcherSigs))
+                |> List.length
+
+        prevCookieSigs =
+            case previous of
+                Just prev ->
+                    prev.cookieLog |> List.map cookieSig
+
+                Nothing ->
+                    []
+
+        cookie =
+            snapshot.cookieLog
+                |> List.map cookieSig
+                |> List.filter (\sig -> not (List.member sig prevCookieSigs))
+                |> List.length
+
+        prevEffects =
+            case previous of
+                Just prev ->
+                    prev.pendingEffects
+
+                Nothing ->
+                    []
+
+        added =
+            snapshot.pendingEffects
+                |> List.filter (\e -> not (List.member e prevEffects))
+                |> List.length
+
+        resolved =
+            prevEffects
+                |> List.filter (\e -> not (List.member e snapshot.pendingEffects))
+                |> List.length
+    in
+    { networkBackend = networkBackend
+    , networkFrontend = networkFrontend
+    , fetcher = fetcher
+    , cookie = cookie
+    , effect = added + resolved
+    }
+
+
+fetcherSig : FetcherEntry -> String
+fetcherSig f =
+    f.id ++ "|" ++ fetcherStatusString f.status
+
+
+fetcherStatusString : FetcherStatus -> String
+fetcherStatusString status =
+    case status of
+        FetcherSubmitting ->
+            "submitting"
+
+        FetcherReloading ->
+            "reloading"
+
+        FetcherComplete ->
+            "complete"
+
+
+cookieSig : ( String, CookieEntry ) -> String
+cookieSig ( name, entry ) =
+    name ++ "=" ++ entry.value
+
+
+{-| Render the right-edge event dots. Hidden channels respect the same
+show-flags the toolbar uses, so toggling a channel off declutters the rail.
+A zero event count renders nothing.
+-}
+viewStepEventDots : Model -> StepEvents -> Html Msg
+viewStepEventDots model events =
+    let
+        networkBackendColor =
+            "#7dd3fc"
+
+        networkFrontendColor =
+            "#38bdf8"
+
+        fetcherColor =
+            "#86efac"
+
+        cookieColor =
+            "#fcd34d"
+
+        effectColor =
+            "#c4b5fd"
+
+        dot : Int -> String -> String -> Html Msg -> Html Msg
+        dot count label title icon =
+            if count <= 0 then
+                Html.text ""
+
+            else
+                Html.span
+                    [ Attr.class "step-event-dot"
+                    , Attr.title (String.fromInt count ++ " " ++ title)
+                    , Attr.style "color" label
+                    ]
+                    [ icon
+                    , if count > 1 then
+                        Html.span [ Attr.class "step-event-count" ]
+                            [ Html.text (String.fromInt count) ]
+
+                      else
+                        Html.text ""
+                    ]
+
+        dots =
+            [ if model.showNetworkBackend then
+                dot events.networkBackend networkBackendColor "backend network event" (Icons.eventNetwork networkBackendColor)
+
+              else
+                Html.text ""
+            , if model.showNetworkFrontend then
+                dot events.networkFrontend networkFrontendColor "frontend network event" (Icons.eventNetwork networkFrontendColor)
+
+              else
+                Html.text ""
+            , if model.showFetchers then
+                dot events.fetcher fetcherColor "fetcher event" (Icons.eventFetcher fetcherColor)
+
+              else
+                Html.text ""
+            , if model.showCookies then
+                dot events.cookie cookieColor "cookie event" (Icons.eventCookie cookieColor)
+
+              else
+                Html.text ""
+            , if model.showEffects then
+                dot events.effect effectColor "effect" (Icons.eventEffect effectColor)
+
+              else
+                Html.text ""
+            ]
+    in
+    Html.span [ Attr.class "step-event-dots" ] dots
+
+
+{-| Render a step label with structured formatting.
+For any step whose label starts with a recognized verb, the verb is dimmed and
+the remaining detail (target, selector, URL, ...) is highlighted. Falls back to
+the raw label.
 -}
 viewStepLabel : Snapshot -> List (Html Msg)
 viewStepLabel snapshot =
-    let
-        label =
-            snapshot.label
-    in
-    case snapshot.stepKind of
-        Assertion ->
-            -- Parse "ensureViewHas text \"Hello\" (within .foo)" into parts
-            case splitAssertionLabel label of
-                Just { fnName, selectorDetail, withinScope } ->
-                    [ Html.span [ Attr.class "step-label-fn" ] [ Html.text (fnName ++ " ") ]
-                    , Html.span [ Attr.class "step-label-selector" ] [ Html.text selectorDetail ]
-                    ]
-                        ++ (case withinScope of
-                                Just scope ->
-                                    [ Html.span [ Attr.class "step-label-scope" ] [ Html.text (" " ++ scope) ] ]
+    case splitAssertionLabel snapshot.label of
+        Just { fnName, selectorDetail, withinScope } ->
+            [ Html.span [ Attr.class "step-label-fn" ] [ Html.text (fnName ++ " ") ]
+            , Html.span [ Attr.class "step-label-selector" ] [ Html.text selectorDetail ]
+            ]
+                ++ (case withinScope of
+                        Just scope ->
+                            [ Html.span [ Attr.class "step-label-scope" ] [ Html.text (" " ++ scope) ] ]
 
-                                Nothing ->
-                                    []
-                           )
+                        Nothing ->
+                            []
+                   )
 
-                Nothing ->
-                    [ Html.text label ]
-
-        _ ->
-            [ Html.text label ]
+        Nothing ->
+            [ Html.text snapshot.label ]
 
 
-{-| Split an assertion label like "ensureViewHas text \"Hello\" (within .foo)"
-into its function name, selector detail, and optional scope.
+{-| Split a step label into a dim verb + highlighted target, honoring an optional
+trailing `(within ...)` scope. Recognizes assertion prefixes as well as the
+common interaction / setup / navigation verbs that appear on the step rail.
 -}
 splitAssertionLabel : String -> Maybe { fnName : String, selectorDetail : String, withinScope : Maybe String }
 splitAssertionLabel label =
     let
         prefixes =
-            [ "ensureViewHas ", "ensureViewHasNot ", "ensureView" ]
+            [ "ensureViewHas "
+            , "ensureViewHasNot "
+            , "ensureView"
+            , "ensureBrowserUrl "
+            , "expectViewHas "
+            , "expectViewHasNot "
+            , "clickButtonWith "
+            , "clickButton "
+            , "clickLinkByText "
+            , "clickLinkWith "
+            , "clickLink "
+            , "selectOption "
+            , "check "
+            , "uncheck "
+            , "fillIn "
+            , "fillInTextarea "
+            , "simulateHttpPost "
+            , "simulateHttpGet "
+            , "simulateCustom "
+            , "simulateCommand "
+            , "navigateTo "
+            , "redirected "
+            , "redirected→"
+            ]
 
         tryPrefix prefix =
             if String.startsWith prefix label then
@@ -1570,7 +1762,14 @@ viewMainPanel model =
                                 displayedStepIndex model == 0
                         in
                         Html.div [ Attr.class "main-panel-content" ]
-                            [ viewUrlBar previewSnapshot
+                            [ Html.div [ Attr.class "url-bar-row" ]
+                                [ viewUrlBar previewSnapshot
+                                , if not isStartStep && hasPrevious then
+                                    viewBeforeAfterToggle model.previewMode
+
+                                  else
+                                    Html.text ""
+                                ]
                             , viewRenderedPageWithOptions model.viewportWidth
                                 (if hasPrevious && not isStartStep then
                                     Just model.previewMode
@@ -1579,11 +1778,6 @@ viewMainPanel model =
                                     Nothing
                                 )
                                 previewSnapshot
-                            , if not isStartStep && hasPrevious then
-                                viewBeforeAfterToggle model.previewMode
-
-                              else
-                                Html.text ""
                             , if model.showFetchers then
                                 viewFetcherInspector (displayedStepIndex model) (currentSnapshots model)
 
@@ -1780,10 +1974,80 @@ viewModelInspector expandedNodes snapshot =
         ]
 
 
+{-| Step-chip vocabulary shared between the Cookie, Network, and Fetcher panels.
+-}
+type ChipKind
+    = ChipNow
+    | ChipStart
+    | ChipEnd
+    | ChipChange
+    | ChipError
+    | ChipPast
+    | ChipFuture
+
+
+chipClass : ChipKind -> String
+chipClass kind =
+    case kind of
+        ChipNow ->
+            "step-chip step-chip-now"
+
+        ChipStart ->
+            "step-chip step-chip-start"
+
+        ChipEnd ->
+            "step-chip step-chip-end"
+
+        ChipChange ->
+            "step-chip step-chip-change"
+
+        ChipError ->
+            "step-chip step-chip-error"
+
+        ChipPast ->
+            "step-chip step-chip-past"
+
+        ChipFuture ->
+            "step-chip step-chip-future"
+
+
+viewStepChip : { step : Int, kind : ChipKind, label : Maybe String } -> Html Msg
+viewStepChip { step, kind, label } =
+    Html.button
+        [ Attr.class (chipClass kind)
+        , Html.Events.onClick (GoToStep step)
+        ]
+        [ Html.span [ Attr.class "step-chip-num" ] [ Html.text (String.fromInt (step + 1)) ]
+        , case label of
+            Just text ->
+                Html.span [ Attr.class "step-chip-label" ] [ Html.text text ]
+
+            Nothing ->
+                Html.text ""
+        ]
+
+
+viewChipTimeline : List { step : Int, kind : ChipKind, label : Maybe String } -> Html Msg
+viewChipTimeline items =
+    Html.span [ Attr.class "step-chip-timeline" ]
+        (items
+            |> List.indexedMap
+                (\i it ->
+                    if i == 0 then
+                        viewStepChip it
+
+                    else
+                        Html.span [ Attr.class "step-chip-group" ]
+                            [ Html.span [ Attr.class "step-chip-arrow" ] [ Html.text "→" ]
+                            , viewStepChip it
+                            ]
+                )
+        )
+
+
 viewFetcherInspector : Int -> List Snapshot -> Html Msg
 viewFetcherInspector currentStep allSnapshots =
     let
-        -- Collect all unique fetcher IDs across all snapshots
         allFetcherIds =
             allSnapshots
                 |> List.concatMap (.fetcherLog >> List.map .id)
@@ -1797,7 +2061,6 @@ viewFetcherInspector currentStep allSnapshots =
                     )
                     []
 
-        -- For each fetcher, build its timeline: list of (stepIndex, FetcherEntry)
         fetcherTimeline : String -> List ( Int, FetcherEntry )
         fetcherTimeline fetcherId =
             allSnapshots
@@ -1809,133 +2072,201 @@ viewFetcherInspector currentStep allSnapshots =
                             |> Maybe.map (\entry -> ( i, entry ))
                     )
                 |> List.filterMap identity
+                |> dedupeFetcherTimeline
 
-        -- Deduplicate consecutive entries with the same status
-        dedupeTimeline : List ( Int, FetcherEntry ) -> List ( Int, FetcherEntry )
-        dedupeTimeline entries =
-            entries
-                |> List.foldl
-                    (\( i, entry ) acc ->
-                        case acc of
-                            ( _, prev ) :: _ ->
-                                if prev.status == entry.status then
-                                    acc
-
-                                else
-                                    ( i, entry ) :: acc
-
-                            [] ->
-                                [ ( i, entry ) ]
-                    )
-                    []
+        activeEntry : String -> Maybe ( Int, FetcherEntry )
+        activeEntry fetcherId =
+            fetcherTimeline fetcherId
+                |> List.filter (\( idx, _ ) -> idx <= currentStep)
                 |> List.reverse
+                |> List.head
 
-        statusIcon status =
+        isLiveFetcher fetcherId =
+            case activeEntry fetcherId of
+                Just ( _, entry ) ->
+                    entry.status == FetcherSubmitting || entry.status == FetcherReloading
+
+                Nothing ->
+                    False
+
+        liveCount =
+            allFetcherIds |> List.filter isLiveFetcher |> List.length
+
+        statusChipKind : Int -> FetcherStatus -> ChipKind
+        statusChipKind stepIdx status =
+            if stepIdx > currentStep then
+                ChipFuture
+
+            else
+                case status of
+                    FetcherSubmitting ->
+                        ChipStart
+
+                    FetcherReloading ->
+                        ChipChange
+
+                    FetcherComplete ->
+                        ChipEnd
+
+        statusWord status =
             case status of
                 FetcherSubmitting ->
-                    Html.span [ Attr.class "fetcher-status-icon fetcher-submitting" ] [ Html.text "▶" ]
+                    "submit"
 
                 FetcherReloading ->
-                    Html.span [ Attr.class "fetcher-status-icon fetcher-reloading" ] [ Html.text "↻" ]
+                    "reload"
 
                 FetcherComplete ->
-                    Html.span [ Attr.class "fetcher-status-icon fetcher-complete" ] [ Html.text "✓" ]
-
-        statusLabel status =
-            case status of
-                FetcherSubmitting ->
-                    "Submitting"
-
-                FetcherReloading ->
-                    "Reloading"
-
-                FetcherComplete ->
-                    "Complete"
+                    "done"
 
         viewFetcherCard fetcherId =
             let
                 timeline =
-                    dedupeTimeline (fetcherTimeline fetcherId)
+                    fetcherTimeline fetcherId
 
                 firstEntry =
                     timeline |> List.head |> Maybe.map Tuple.second
 
-                -- Find the "active" entry: the most recent entry at or before currentStep.
-                -- This makes the current state "sticky" between transitions.
-                activeStepIdx =
+                currentEntry =
+                    activeEntry fetcherId
+
+                isLive =
+                    isLiveFetcher fetcherId
+
+                submitEntry : Maybe ( Int, FetcherEntry )
+                submitEntry =
                     timeline
-                        |> List.filter (\( idx, _ ) -> idx <= currentStep)
-                        |> List.reverse
+                        |> List.filter (\( _, e ) -> e.status == FetcherSubmitting)
                         |> List.head
-                        |> Maybe.map Tuple.first
-            in
-            Html.div [ Attr.class "fetcher-card" ]
-                [ Html.div [ Attr.class "fetcher-card-header" ]
-                    [ Html.span [ Attr.class "fetcher-id" ] [ Html.text ("\"" ++ fetcherId ++ "\"") ]
-                    , case firstEntry of
-                        Just entry ->
-                            Html.span [ Attr.class "fetcher-action" ]
-                                [ Html.text (entry.method ++ " " ++ entry.action) ]
 
-                        Nothing ->
-                            Html.text ""
-                    ]
-                , Html.div [ Attr.class "fetcher-timeline" ]
-                    (timeline
-                        |> List.map
-                            (\( stepIdx, entry ) ->
-                                let
-                                    isActive =
-                                        activeStepIdx == Just stepIdx
+                submitFields : List ( String, String )
+                submitFields =
+                    submitEntry
+                        |> Maybe.map (Tuple.second >> .fields)
+                        |> Maybe.withDefault []
 
-                                    isInFlight =
-                                        isActive && entry.status /= FetcherComplete
+                resolveEntries : List ( Int, FetcherEntry )
+                resolveEntries =
+                    timeline
+                        |> List.filter (\( _, e ) -> e.status /= FetcherSubmitting)
 
-                                    temporal =
-                                        if isActive then
-                                            "fetcher-timeline-current"
+                overallBadge : Html Msg
+                overallBadge =
+                    if isLive then
+                        Html.span [ Attr.class "fetcher-live-badge" ]
+                            [ Html.text "● LIVE" ]
 
-                                        else if stepIdx < currentStep then
-                                            "fetcher-timeline-past"
+                    else
+                        case currentEntry of
+                            Just ( _, entry ) ->
+                                case entry.status of
+                                    FetcherComplete ->
+                                        Html.span
+                                            [ Attr.class "fetcher-done-badge" ]
+                                            [ Html.text "✓ done" ]
 
-                                        else
-                                            "fetcher-timeline-future"
-                                in
-                                Html.div
-                                    [ Attr.classList
-                                        [ ( "fetcher-timeline-entry", True )
-                                        , ( temporal, True )
-                                        , ( "fetcher-in-flight", isInFlight )
-                                        ]
-                                    ]
-                                    [ Html.span [ Attr.class "fetcher-step" ]
-                                        [ Html.text ("Step " ++ String.fromInt (stepIdx + 1)) ]
-                                    , statusIcon entry.status
-                                    , Html.span [ Attr.class "fetcher-status-label" ]
-                                        [ Html.text (statusLabel entry.status) ]
-                                    , if entry.status == FetcherSubmitting && not (List.isEmpty entry.fields) then
-                                        Html.span [ Attr.class "fetcher-fields" ]
+                                    _ ->
+                                        Html.span [ Attr.class "fetcher-state-label" ]
+                                            [ Html.text (statusWord entry.status) ]
+
+                            Nothing ->
+                                Html.text ""
+
+                submitLaneBody : Html Msg
+                submitLaneBody =
+                    case submitEntry of
+                        Just ( stepIdx, _ ) ->
+                            Html.div [ Attr.class "fetcher-lane-body" ]
+                                [ viewStepChip
+                                    { step = stepIdx
+                                    , kind = statusChipKind stepIdx FetcherSubmitting
+                                    , label = Just "step"
+                                    }
+                                , if List.isEmpty submitFields then
+                                    Html.text ""
+
+                                  else
+                                    Html.span [ Attr.class "fetcher-fields" ]
+                                        [ Html.text "optimistic: "
+                                        , Html.span [ Attr.class "fetcher-fields-payload" ]
                                             [ Html.text
-                                                (entry.fields
+                                                (submitFields
                                                     |> List.map (\( k, v ) -> k ++ "=" ++ v)
                                                     |> String.join ", "
                                                 )
                                             ]
+                                        ]
+                                ]
 
-                                      else
-                                        Html.text ""
-                                    ]
-                            )
-                    )
+                        Nothing ->
+                            Html.div [ Attr.class "fetcher-lane-body fetcher-lane-empty" ]
+                                [ Html.text "—" ]
+
+                resolveLaneBody : Html Msg
+                resolveLaneBody =
+                    if List.isEmpty resolveEntries then
+                        Html.div [ Attr.class "fetcher-lane-body fetcher-lane-empty" ]
+                            [ Html.text "pending…" ]
+
+                    else
+                        Html.div [ Attr.class "fetcher-lane-body" ]
+                            [ viewChipTimeline
+                                (resolveEntries
+                                    |> List.map
+                                        (\( stepIdx, entry ) ->
+                                            { step = stepIdx
+                                            , kind = statusChipKind stepIdx entry.status
+                                            , label = Just (statusWord entry.status)
+                                            }
+                                        )
+                                )
+                            ]
+            in
+            Html.div
+                [ Attr.classList
+                    [ ( "fetcher-card", True )
+                    , ( "fetcher-card-live", isLive )
+                    ]
+                ]
+                [ Html.div [ Attr.class "fetcher-card-header" ]
+                    [ case firstEntry of
+                        Just entry ->
+                            Html.span [ Attr.class "net-method net-method-http" ]
+                                [ Html.text entry.method ]
+
+                        Nothing ->
+                            Html.text ""
+                    , Html.span [ Attr.class "fetcher-id" ] [ Html.text ("\"" ++ fetcherId ++ "\"") ]
+                    , Html.span [ Attr.class "fetcher-spacer" ] []
+                    , overallBadge
+                    ]
+                , Html.div [ Attr.class "fetcher-lanes" ]
+                    [ Html.div [ Attr.class "fetcher-lane fetcher-lane-submit" ]
+                        [ Html.span [ Attr.class "fetcher-lane-label" ]
+                            [ Html.text "SUBMIT ↑" ]
+                        , submitLaneBody
+                        ]
+                    , Html.div [ Attr.class "fetcher-lane fetcher-lane-resolve" ]
+                        [ Html.span [ Attr.class "fetcher-lane-label" ]
+                            [ Html.text "RESOLVE ↓" ]
+                        , resolveLaneBody
+                        ]
+                    ]
                 ]
     in
     Html.div [ Attr.class "fetcher-inspector" ]
         [ Html.div [ Attr.class "inspector-header" ]
-            [ Html.text
-                ("Fetchers ("
-                    ++ String.fromInt (List.length allFetcherIds)
-                    ++ ")"
-                )
+            [ Html.span [ Attr.class "sidebar-title" ]
+                [ Html.text "Fetchers" ]
+            , Html.span [ Attr.class "sidebar-subtitle" ]
+                [ Html.text (String.fromInt (List.length allFetcherIds) ++ " · step " ++ String.fromInt (currentStep + 1))
+                , if liveCount > 0 then
+                    Html.span [ Attr.class "fetcher-live-count" ]
+                        [ Html.text (" · " ++ String.fromInt liveCount ++ " live") ]
+
+                  else
+                    Html.text ""
+                ]
             ]
         , if List.isEmpty allFetcherIds then
             Html.div [ Attr.class "fetcher-empty" ]
@@ -1945,6 +2276,26 @@ viewFetcherInspector currentStep allSnapshots =
             Html.div [ Attr.class "fetcher-list" ]
                 (allFetcherIds |> List.map viewFetcherCard)
         ]
+
+
+dedupeFetcherTimeline : List ( Int, FetcherEntry ) -> List ( Int, FetcherEntry )
+dedupeFetcherTimeline entries =
+    entries
+        |> List.foldl
+            (\( i, entry ) acc ->
+                case acc of
+                    ( _, prev ) :: _ ->
+                        if prev.status == entry.status then
+                            acc
+
+                        else
+                            ( i, entry ) :: acc
+
+                    [] ->
+                        [ ( i, entry ) ]
+            )
+            []
+        |> List.reverse
 
 
 viewEffectInspector : Snapshot -> Html Msg
@@ -1994,72 +2345,151 @@ viewEffectInspector snapshot =
 
 
 
+{-| Network entry with its life-span across the snapshot stream: the step at
+which it was first observed, and (if any) the step at which its status became
+`Stubbed`. `endStep == Nothing` at the current step means the request is still
+in flight.
+-}
+type alias NetworkLane =
+    { entry : NetworkEntry
+    , startStep : Int
+    , endStep : Maybe Int
+    }
+
+
+{-| Compute the end step for each unique network entry by walking the cumulative
+snapshot logs. The *first* snapshot in which the entry's status becomes
+`Stubbed` is its end step.
+-}
+buildNetworkLanes : List Snapshot -> List NetworkLane
+buildNetworkLanes allSnapshots =
+    let
+        laneKey entry =
+            entry.url ++ ":" ++ String.fromInt entry.stepIndex
+
+        endStepOf : NetworkEntry -> Maybe Int
+        endStepOf entry =
+            allSnapshots
+                |> List.indexedMap Tuple.pair
+                |> List.filterMap
+                    (\( i, snap ) ->
+                        snap.networkLog
+                            |> List.filter
+                                (\e ->
+                                    e.url == entry.url
+                                        && e.stepIndex == entry.stepIndex
+                                        && e.status
+                                        == Stubbed
+                                )
+                            |> List.head
+                            |> Maybe.map (\_ -> i)
+                    )
+                |> List.head
+    in
+    allSnapshots
+        |> List.concatMap .networkLog
+        |> List.foldl
+            (\entry ( seenKeys, acc ) ->
+                let
+                    key =
+                        laneKey entry
+                in
+                if List.member key seenKeys then
+                    ( seenKeys, acc )
+
+                else
+                    ( key :: seenKeys
+                    , { entry = entry, startStep = entry.stepIndex, endStep = endStepOf entry } :: acc
+                    )
+            )
+            ( [], [] )
+        |> Tuple.second
+        |> List.reverse
+
+
+type LaneState
+    = LaneFuture
+    | LaneInFlight
+    | LaneResolving
+    | LaneResolved
+
+
+laneStateAt : Int -> NetworkLane -> LaneState
+laneStateAt step lane =
+    if step < lane.startStep then
+        LaneFuture
+
+    else
+        case lane.endStep of
+            Nothing ->
+                LaneInFlight
+
+            Just end ->
+                if step < end then
+                    LaneInFlight
+
+                else if step == end then
+                    LaneResolving
+
+                else
+                    LaneResolved
+
+
 viewNetworkSidebar : Model -> Int -> List Snapshot -> Html Msg
 viewNetworkSidebar model currentStep allSnapshots =
     let
-        -- Collect all unique network entries across all snapshots (by url + stepIndex of first appearance).
-        -- Use the final snapshot's log as the complete list, since it's cumulative.
-        allEntries =
-            allSnapshots
-                |> List.concatMap .networkLog
-                |> dedupeNetworkEntries
-
-        -- For the current step, find each entry's status at that point.
-        currentLog =
-            allSnapshots
-                |> List.take (currentStep + 1)
-                |> List.concatMap .networkLog
-                |> dedupeNetworkEntries
-
-        -- Build a lookup of url -> status at current step
-        currentStatusOf entry =
-            currentLog
-                |> List.filter (\e -> e.url == entry.url && e.stepIndex == entry.stepIndex)
-                |> List.head
-                |> Maybe.map .status
-
-        -- An entry is "future" if it doesn't exist in the current step's log yet
-        entryAtCurrentStep entry =
-            case currentStatusOf entry of
-                Just status ->
-                    { entry | status = status }
-
-                Nothing ->
-                    -- Not yet created at this step -- show as a dimmed future entry
-                    { entry | status = Pending }
-
-        entriesWithStatus =
-            allEntries |> List.map entryAtCurrentStep
-
-        -- Whether this entry has appeared by the current step
-        isVisible entry =
-            currentLog |> List.any (\e -> e.url == entry.url && e.stepIndex == entry.stepIndex)
+        allLanes =
+            buildNetworkLanes allSnapshots
 
         hasBackend =
-            List.any (\e -> e.source == Backend) allEntries
+            List.any (\l -> l.entry.source == Backend) allLanes
 
         hasFrontend =
-            List.any (\e -> e.source == Frontend) allEntries
+            List.any (\l -> l.entry.source == Frontend) allLanes
 
-        hasBoth =
-            hasBackend && hasFrontend
-
-        filtered =
-            entriesWithStatus
+        visibleLanes =
+            allLanes
                 |> List.filter
-                    (\entry ->
-                        case entry.source of
+                    (\l ->
+                        case l.entry.source of
                             Backend ->
                                 model.showNetworkBackend
 
                             Frontend ->
                                 model.showNetworkFrontend
                     )
+
+        liveCount =
+            visibleLanes
+                |> List.filter
+                    (\l ->
+                        case laneStateAt currentStep l of
+                            LaneInFlight ->
+                                True
+
+                            LaneResolving ->
+                                True
+
+                            _ ->
+                                False
+                    )
+                |> List.length
     in
     Html.div [ Attr.class "network-sidebar" ]
         [ Html.div [ Attr.class "network-sidebar-header" ]
-            [ Html.span [ Attr.class "sidebar-title" ]
-                [ Html.text ("Network (" ++ String.fromInt (List.length filtered) ++ ")") ]
+            [ Html.div [ Attr.class "network-sidebar-title-row" ]
+                [ Html.span [ Attr.class "sidebar-title" ]
+                    [ Html.text "Network" ]
+                , Html.span [ Attr.class "sidebar-subtitle" ]
+                    [ Html.text (String.fromInt (List.length visibleLanes))
+                    , if liveCount > 0 then
+                        Html.span [ Attr.class "net-live-count" ]
+                            [ Html.text (" · " ++ String.fromInt liveCount ++ " live") ]
+
+                      else
+                        Html.text ""
+                    ]
+                ]
             , if hasBackend || hasFrontend then
                 Html.div [ Attr.class "net-filter-buttons" ]
                     [ Html.button
@@ -2083,10 +2513,10 @@ viewNetworkSidebar model currentStep allSnapshots =
               else
                 Html.text ""
             ]
-        , if List.isEmpty filtered then
+        , if List.isEmpty visibleLanes then
             Html.div [ Attr.class "network-empty" ]
                 [ Html.text
-                    (if List.isEmpty allEntries then
+                    (if List.isEmpty allLanes then
                         "No HTTP requests recorded."
 
                      else
@@ -2096,144 +2526,200 @@ viewNetworkSidebar model currentStep allSnapshots =
 
           else
             Html.div [ Attr.class "network-list" ]
-                (filtered
-                    |> List.map
-                        (\entry ->
-                            let
-                                appeared =
-                                    isVisible entry
-
-                                entryStatus =
-                                    if appeared then
-                                        entry.status
-
-                                    else
-                                        Pending
-                            in
-                            Html.div
-                                [ Attr.classList
-                                    [ ( "network-row", True )
-                                    , ( "network-row-pending", entryStatus == Pending )
-                                    , ( "network-row-future", not appeared )
-                                    , ( "network-row-backend", entry.source == Backend )
-                                    , ( "network-row-frontend", entry.source == Frontend )
-                                    ]
-                                ]
-                                ([ Html.div [ Attr.class "network-row-top" ]
-                                    [ case entryStatus of
-                                        Stubbed ->
-                                            Html.span [ Attr.class "net-status-icon net-status-stubbed" ]
-                                                [ Html.text "\u{2713}" ]
-
-                                        Pending ->
-                                            if appeared then
-                                                Html.span [ Attr.class "net-status-icon net-status-pending" ]
-                                                    [ Html.text "\u{25B6}" ]
-
-                                            else
-                                                Html.span [ Attr.class "net-status-icon net-status-future" ]
-                                                    [ Html.text "\u{25CB}" ]
-                                    , if hasBoth then
-                                        Html.span
-                                            [ Attr.class
-                                                (case entry.source of
-                                                    Backend ->
-                                                        "net-source-badge net-source-backend"
-
-                                                    Frontend ->
-                                                        "net-source-badge net-source-frontend"
-                                                )
-                                            ]
-                                            [ Html.text
-                                                (case entry.source of
-                                                    Backend ->
-                                                        "BE"
-
-                                                    Frontend ->
-                                                        "FE"
-                                                )
-                                            ]
-
-                                      else
-                                        Html.text ""
-                                    , Html.span [ Attr.class "net-method" ]
-                                        [ Html.text entry.method ]
-                                    , Html.span [ Attr.class "net-step" ]
-                                        [ Html.text ("step " ++ String.fromInt (entry.stepIndex + 1)) ]
-                                    ]
-                                 , Html.div [ Attr.class "net-url", Attr.title entry.url ]
-                                    [ Html.text
-                                        (case entry.portName of
-                                            Just name ->
-                                                name
-
-                                            Nothing ->
-                                                entry.url
-                                        )
-                                    ]
-                                 ]
-                                    ++ (if appeared then
-                                            List.filterMap identity
-                                                [ -- Request headers (only if non-empty)
-                                                  if List.isEmpty entry.requestHeaders then
-                                                    Nothing
-
-                                                  else
-                                                    Just
-                                                        (Html.details [ Attr.class "net-response-details" ]
-                                                            [ Html.summary [ Attr.class "net-response-summary net-headers-summary" ]
-                                                                [ Html.text ("Headers (" ++ String.fromInt (List.length entry.requestHeaders) ++ ")") ]
-                                                            , Html.div [ Attr.class "net-headers-list" ]
-                                                                (entry.requestHeaders
-                                                                    |> List.map
-                                                                        (\( name, value ) ->
-                                                                            Html.div [ Attr.class "net-header-row" ]
-                                                                                [ Html.span [ Attr.class "net-header-name" ] [ Html.text (name ++ ": ") ]
-                                                                                , Html.span [ Attr.class "net-header-value" ] [ Html.text value ]
-                                                                                ]
-                                                                        )
-                                                                )
-                                                            ]
-                                                        )
-
-                                                -- Request body
-                                                , entry.requestBody
-                                                    |> Maybe.map
-                                                        (\body ->
-                                                            Html.details [ Attr.class "net-response-details" ]
-                                                                [ Html.summary [ Attr.class "net-response-summary net-request-summary" ]
-                                                                    [ Html.text "Request Body" ]
-                                                                , Html.pre [ Attr.class "net-response-body" ]
-                                                                    [ Html.text (formatJsonPreview body) ]
-                                                                ]
-                                                        )
-
-                                                -- Response body
-                                                , entry.responsePreview
-                                                    |> Maybe.map
-                                                        (\preview ->
-                                                            Html.details [ Attr.class "net-response-details" ]
-                                                                [ Html.summary [ Attr.class "net-response-summary" ]
-                                                                    [ Html.text "Response" ]
-                                                                , Html.pre [ Attr.class "net-response-body" ]
-                                                                    [ Html.text (formatJsonPreview preview) ]
-                                                                ]
-                                                        )
-                                                ]
-
-                                        else
-                                            []
-                                       )
-                                )
-                        )
-                )
+                (List.map (\l -> viewNetworkRow currentStep l) visibleLanes)
         ]
 
 
-type CookieDiff
-    = CookieNew
-    | CookieChanged
-    | CookieUnchanged
+viewNetworkRow : Int -> NetworkLane -> Html Msg
+viewNetworkRow currentStep lane =
+    let
+        state =
+            laneStateAt currentStep lane
+
+        stateClass =
+            case state of
+                LaneFuture ->
+                    "net-row-future"
+
+                LaneInFlight ->
+                    "net-row-inflight"
+
+                LaneResolving ->
+                    "net-row-resolving"
+
+                LaneResolved ->
+                    "net-row-resolved"
+
+        isPort =
+            lane.entry.portName /= Nothing
+
+        methodClass =
+            if isPort then
+                "net-method-port"
+
+            else
+                "net-method-http"
+
+        pathLabel =
+            case lane.entry.portName of
+                Just name ->
+                    name
+
+                Nothing ->
+                    lane.entry.url
+
+        hasDetails =
+            not (List.isEmpty lane.entry.requestHeaders)
+                || lane.entry.requestBody
+                /= Nothing
+                || lane.entry.responsePreview
+                /= Nothing
+
+        summaryContent =
+            [ Html.div [ Attr.class "net-row-head" ]
+                [ viewNetStateBadge state
+                , Html.span [ Attr.class ("net-method " ++ methodClass) ]
+                    [ Html.text lane.entry.method ]
+                , Html.span [ Attr.class "net-row-path", Attr.title lane.entry.url ]
+                    [ Html.text pathLabel ]
+                ]
+            , Html.div [ Attr.class "net-row-chips" ]
+                (viewStepChip { step = lane.startStep, kind = ChipStart, label = Just "start" }
+                    :: (case lane.endStep of
+                            Just end ->
+                                [ Html.span [ Attr.class "step-chip-arrow" ] [ Html.text "→" ]
+                                , viewStepChip { step = end, kind = ChipEnd, label = Just "end" }
+                                ]
+
+                            Nothing ->
+                                [ Html.span [ Attr.class "step-chip-arrow net-row-chip-arrow-live" ] [ Html.text "→" ]
+                                , Html.span [ Attr.class "net-row-inflight-text" ] [ Html.text "in flight…" ]
+                                ]
+                       )
+                    ++ [ case state of
+                            LaneInFlight ->
+                                Html.span [ Attr.class "net-row-live-badge" ]
+                                    [ Html.text "● LIVE" ]
+
+                            _ ->
+                                Html.text ""
+                       ]
+                )
+            ]
+    in
+    if hasDetails then
+        Html.details
+            [ Attr.classList
+                [ ( "net-row", True )
+                , ( stateClass, True )
+                ]
+            ]
+            (Html.summary [ Attr.class "net-row-summary" ] summaryContent
+                :: [ viewNetRowDetails lane.entry ]
+            )
+
+    else
+        Html.div
+            [ Attr.classList
+                [ ( "net-row", True )
+                , ( stateClass, True )
+                ]
+            ]
+            summaryContent
+
+
+viewNetStateBadge : LaneState -> Html Msg
+viewNetStateBadge state =
+    let
+        ( cls, label, icon ) =
+            case state of
+                LaneFuture ->
+                    ( "net-state-future", "future", "○" )
+
+                LaneInFlight ->
+                    ( "net-state-inflight", "in flight", "●" )
+
+                LaneResolving ->
+                    ( "net-state-resolving", "resolved", "✓" )
+
+                LaneResolved ->
+                    ( "net-state-past", "past", "✓" )
+    in
+    Html.span [ Attr.class ("net-state-badge " ++ cls) ]
+        [ Html.span [ Attr.class "net-state-icon" ] [ Html.text icon ]
+        , Html.text label
+        ]
+
+
+viewNetRowDetails : NetworkEntry -> Html Msg
+viewNetRowDetails entry =
+    Html.div [ Attr.class "net-row-details" ]
+        (List.filterMap identity
+            [ if List.isEmpty entry.requestHeaders then
+                Nothing
+
+              else
+                Just
+                    (Html.details [ Attr.class "net-response-details" ]
+                        [ Html.summary [ Attr.class "net-response-summary net-headers-summary" ]
+                            [ Html.text ("Headers (" ++ String.fromInt (List.length entry.requestHeaders) ++ ")") ]
+                        , Html.div [ Attr.class "net-headers-list" ]
+                            (entry.requestHeaders
+                                |> List.map
+                                    (\( name, value ) ->
+                                        Html.div [ Attr.class "net-header-row" ]
+                                            [ Html.span [ Attr.class "net-header-name" ] [ Html.text (name ++ ": ") ]
+                                            , Html.span [ Attr.class "net-header-value" ] [ Html.text value ]
+                                            ]
+                                    )
+                            )
+                        ]
+                    )
+            , entry.requestBody
+                |> Maybe.map
+                    (\body ->
+                        Html.details [ Attr.class "net-response-details" ]
+                            [ Html.summary [ Attr.class "net-response-summary net-request-summary" ]
+                                [ Html.text "Request Body" ]
+                            , Html.pre [ Attr.class "net-response-body" ]
+                                [ Html.text (formatJsonPreview body) ]
+                            ]
+                    )
+            , entry.responsePreview
+                |> Maybe.map
+                    (\preview ->
+                        Html.details [ Attr.class "net-response-details" ]
+                            [ Html.summary [ Attr.class "net-response-summary" ]
+                                [ Html.text "Response" ]
+                            , Html.pre [ Attr.class "net-response-body" ]
+                                [ Html.text (formatJsonPreview preview) ]
+                            ]
+                    )
+            ]
+        )
+
+
+{-| A change event in a cookie's history — one stack-card in Variant B.
+`CookieSet` is the first appearance; `CookieUpdated` is a distinct later value;
+`CookieRemoved` is the step where the cookie disappears from the jar.
+-}
+type CookieEvent
+    = CookieSet CookieEntry
+    | CookieUpdated CookieEntry
+    | CookieRemoved
+
+
+cookieEventEntry : CookieEvent -> Maybe CookieEntry
+cookieEventEntry ev =
+    case ev of
+        CookieSet e ->
+            Just e
+
+        CookieUpdated e ->
+            Just e
+
+        CookieRemoved ->
+            Nothing
 
 
 viewCookieSidebar : Int -> List Snapshot -> Html Msg
@@ -2253,39 +2739,40 @@ viewCookieSidebar currentStep allSnapshots =
                     )
                     []
 
-        timeline : String -> List ( Int, CookieEntry )
-        timeline name =
-            allSnapshots
-                |> List.indexedMap
-                    (\i snap ->
-                        snap.cookieLog
-                            |> List.filter (\( n, _ ) -> n == name)
-                            |> List.head
-                            |> Maybe.map (\( _, entry ) -> ( i, entry ))
-                    )
-                |> List.filterMap identity
-                |> dedupeEntryTimeline
+        cookieEvents : String -> List ( Int, CookieEvent )
+        cookieEvents name =
+            buildCookieEvents name allSnapshots
 
-        activeAtStep : Int -> List ( Int, CookieEntry ) -> Maybe ( Int, CookieEntry )
-        activeAtStep step tl =
-            tl
-                |> List.filter (\( idx, _ ) -> idx <= step)
-                |> List.reverse
-                |> List.head
+        totalSteps =
+            List.length allSnapshots
 
-        visibleCount : Int
-        visibleCount =
-            allNames
-                |> List.filter
-                    (\n ->
-                        activeAtStep currentStep (timeline n) /= Nothing
-                    )
-                |> List.length
+        isChangingCookie : String -> Bool
+        isChangingCookie name =
+            let
+                events =
+                    cookieEvents name
+
+                signed =
+                    activeCookieEvent currentStep events
+                        |> Maybe.andThen (Tuple.second >> cookieEventEntry)
+                        |> Maybe.map .value
+                        |> Maybe.andThen BackendTaskTest.mockUnsignValue
+                        |> (/=) Nothing
+            in
+            List.length events > 1 || signed
+
+        changing =
+            allNames |> List.filter isChangingCookie
+
+        noChange =
+            allNames |> List.filter (\n -> not (isChangingCookie n))
     in
     Html.div [ Attr.class "cookie-sidebar" ]
         [ Html.div [ Attr.class "cookie-sidebar-header" ]
             [ Html.span [ Attr.class "sidebar-title" ]
-                [ Html.text ("Cookies (" ++ String.fromInt visibleCount ++ ")") ]
+                [ Html.text "Cookies" ]
+            , Html.span [ Attr.class "sidebar-subtitle" ]
+                [ Html.text "diff · box pills" ]
             ]
         , if List.isEmpty allNames then
             Html.div [ Attr.class "cookie-empty" ]
@@ -2293,46 +2780,140 @@ viewCookieSidebar currentStep allSnapshots =
 
           else
             Html.div [ Attr.class "cookie-list" ]
-                (allNames
+                ((changing
                     |> List.map
                         (\name ->
-                            let
-                                tl : List ( Int, CookieEntry )
-                                tl =
-                                    timeline name
-
-                                active : Maybe ( Int, CookieEntry )
-                                active =
-                                    activeAtStep currentStep tl
-
-                                previous : Maybe CookieEntry
-                                previous =
-                                    if currentStep <= 0 then
-                                        Nothing
-
-                                    else
-                                        activeAtStep (currentStep - 1) tl
-                                            |> Maybe.map Tuple.second
-                            in
-                            viewCookieCard currentStep name tl active previous
+                            viewCookieStack currentStep totalSteps name (cookieEvents name)
                         )
+                 )
+                    ++ (if List.isEmpty noChange then
+                            []
+
+                        else
+                            [ Html.div [ Attr.class "cookie-nochange-section" ]
+                                (Html.div [ Attr.class "cookie-nochange-header" ]
+                                    [ Html.text "— no-change cookies —" ]
+                                    :: (noChange
+                                            |> List.map
+                                                (\name ->
+                                                    viewNoChangeCookie currentStep name (cookieEvents name)
+                                                )
+                                       )
+                                )
+                            ]
+                       )
                 )
         ]
 
 
-viewCookieCard : Int -> String -> List ( Int, CookieEntry ) -> Maybe ( Int, CookieEntry ) -> Maybe CookieEntry -> Html Msg
-viewCookieCard currentStep name tl active previous =
+viewNoChangeCookie : Int -> String -> List ( Int, CookieEvent ) -> Html Msg
+viewNoChangeCookie currentStep name events =
     let
-        setAtStep : Maybe Int
-        setAtStep =
-            tl |> List.head |> Maybe.map Tuple.first
+        activeEntry =
+            activeCookieEvent currentStep events
+                |> Maybe.andThen (Tuple.second >> cookieEventEntry)
 
-        changedAtStep : Maybe Int
-        changedAtStep =
-            case active of
-                Just ( idx, _ ) ->
-                    if Just idx /= setAtStep then
-                        Just idx
+        valueText =
+            case activeEntry of
+                Just e ->
+                    e.value
+
+                Nothing ->
+                    "—"
+    in
+    Html.div [ Attr.class "cookie-nochange-row" ]
+        [ Html.span [ Attr.class "cookie-name" ] [ Html.text name ]
+        , Html.span [ Attr.class "cookie-nochange-sep" ] [ Html.text "·" ]
+        , Html.span [ Attr.class "cookie-nochange-value" ] [ Html.text valueText ]
+        ]
+
+
+{-| Walk the snapshot stream and turn it into a list of change events for one
+cookie. Consecutive snapshots with identical entries collapse; removal is
+detected when the cookie disappears from the jar after having been present.
+-}
+buildCookieEvents : String -> List Snapshot -> List ( Int, CookieEvent )
+buildCookieEvents name allSnapshots =
+    let
+        lookup snap =
+            snap.cookieLog
+                |> List.filter (\( n, _ ) -> n == name)
+                |> List.head
+                |> Maybe.map Tuple.second
+
+        step :
+            ( Int, Snapshot )
+            -> { prev : Maybe CookieEntry, acc : List ( Int, CookieEvent ) }
+            -> { prev : Maybe CookieEntry, acc : List ( Int, CookieEvent ) }
+        step ( i, snap ) state =
+            case ( state.prev, lookup snap ) of
+                ( Nothing, Just entry ) ->
+                    { prev = Just entry, acc = ( i, CookieSet entry ) :: state.acc }
+
+                ( Just prevEntry, Just entry ) ->
+                    if prevEntry == entry then
+                        { state | prev = Just entry }
+
+                    else
+                        { prev = Just entry, acc = ( i, CookieUpdated entry ) :: state.acc }
+
+                ( Just _, Nothing ) ->
+                    { prev = Nothing, acc = ( i, CookieRemoved ) :: state.acc }
+
+                ( Nothing, Nothing ) ->
+                    state
+
+        final =
+            allSnapshots
+                |> List.indexedMap Tuple.pair
+                |> List.foldl step { prev = Nothing, acc = [] }
+    in
+    List.reverse final.acc
+
+
+hasActiveCookieAt : Int -> List ( Int, CookieEvent ) -> Bool
+hasActiveCookieAt step events =
+    case activeCookieEvent step events of
+        Just ( _, CookieSet _ ) ->
+            True
+
+        Just ( _, CookieUpdated _ ) ->
+            True
+
+        _ ->
+            False
+
+
+activeCookieEvent : Int -> List ( Int, CookieEvent ) -> Maybe ( Int, CookieEvent )
+activeCookieEvent step events =
+    events
+        |> List.filter (\( i, _ ) -> i <= step)
+        |> List.reverse
+        |> List.head
+
+
+viewCookieStack : Int -> Int -> String -> List ( Int, CookieEvent ) -> Html Msg
+viewCookieStack currentStep totalSteps name events =
+    let
+        currentEventIdx : Maybe Int
+        currentEventIdx =
+            events
+                |> List.indexedMap Tuple.pair
+                |> List.filter (\( _, ( step, _ ) ) -> step <= currentStep)
+                |> List.reverse
+                |> List.head
+                |> Maybe.map Tuple.first
+
+        activeEvent : Maybe ( Int, CookieEvent )
+        activeEvent =
+            activeCookieEvent currentStep events
+
+        previousEventTuple : Maybe ( Int, CookieEvent )
+        previousEventTuple =
+            case currentEventIdx of
+                Just idx ->
+                    if idx > 0 then
+                        events |> List.drop (idx - 1) |> List.head
 
                     else
                         Nothing
@@ -2340,73 +2921,64 @@ viewCookieCard currentStep name tl active previous =
                 Nothing ->
                     Nothing
 
-        isFuture : Bool
-        isFuture =
-            active == Nothing
+        previousEventEntry : Maybe CookieEntry
+        previousEventEntry =
+            previousEventTuple |> Maybe.andThen (Tuple.second >> cookieEventEntry)
 
-        shownEntry : Maybe CookieEntry
-        shownEntry =
-            case active of
-                Just ( _, entry ) ->
-                    Just entry
-
-                Nothing ->
-                    tl |> List.head |> Maybe.map Tuple.second
+        previousEventStep : Maybe Int
+        previousEventStep =
+            previousEventTuple |> Maybe.map Tuple.first
 
         signed : Maybe { secret : String, values : Encode.Value }
         signed =
-            shownEntry
+            activeEvent
+                |> Maybe.andThen (Tuple.second >> cookieEventEntry)
                 |> Maybe.map .value
                 |> Maybe.andThen BackendTaskTest.mockUnsignValue
-
-        -- Step 0 is the baseline: everything is "there since the start",
-        -- so we suppress diff highlighting rather than marking every cookie NEW.
-        diff : CookieDiff
-        diff =
-            if currentStep <= 0 || isFuture then
-                CookieUnchanged
-
-            else
-                case ( active, previous ) of
-                    ( Just ( _, curr ), Nothing ) ->
-                        CookieNew
-
-                    ( Just ( _, curr ), Just prev ) ->
-                        if curr == prev then
-                            CookieUnchanged
-
-                        else
-                            CookieChanged
-
-                    ( Nothing, _ ) ->
-                        CookieUnchanged
 
         previousSigned : Maybe Encode.Value
         previousSigned =
-            previous
+            previousEventEntry
                 |> Maybe.map .value
                 |> Maybe.andThen BackendTaskTest.mockUnsignValue
                 |> Maybe.map .values
-    in
-    Html.div
-        [ Attr.classList
-            [ ( "cookie-row", True )
-            , ( "cookie-row-future", isFuture )
-            , ( "cookie-row-new", diff == CookieNew )
-            , ( "cookie-row-changed", diff == CookieChanged )
-            ]
-        ]
-        ([ Html.div [ Attr.class "cookie-row-top" ]
-            [ Html.span [ Attr.class "cookie-name" ] [ Html.text name ]
-            , case diff of
-                CookieNew ->
-                    Html.span [ Attr.class "cookie-diff-badge cookie-diff-new" ] [ Html.text "new" ]
 
-                CookieChanged ->
-                    Html.span [ Attr.class "cookie-diff-badge cookie-diff-changed" ] [ Html.text "changed" ]
+        activeEntry =
+            activeEvent |> Maybe.andThen (Tuple.second >> cookieEventEntry)
 
-                CookieUnchanged ->
+        eventCount =
+            List.length events
+
+        hasCurrent =
+            currentEventIdx /= Nothing
+
+        isRemovedNow =
+            case activeEvent of
+                Just ( _, CookieRemoved ) ->
+                    True
+
+                _ ->
+                    False
+
+        -- Only show the SET/CHANGED/REMOVED pill in the header when the active
+        -- event's step is literally the current step — this tells the reader
+        -- "something happened to this cookie right now".
+        headerEventPill : Html Msg
+        headerEventPill =
+            case activeEvent of
+                Just ( evStep, ev ) ->
+                    if evStep == currentStep then
+                        viewCookieEventBadge ev
+
+                    else
+                        Html.text ""
+
+                Nothing ->
                     Html.text ""
+    in
+    Html.div [ Attr.class "cookie-stack" ]
+        [ Html.div [ Attr.class "cookie-stack-header" ]
+            [ Html.span [ Attr.class "cookie-name" ] [ Html.text name ]
             , case signed of
                 Just _ ->
                     Html.span [ Attr.class "cookie-signed-badge" ]
@@ -2414,73 +2986,268 @@ viewCookieCard currentStep name tl active previous =
 
                 Nothing ->
                     Html.text ""
-            , case setAtStep of
-                Just s ->
-                    Html.span [ Attr.class "cookie-step" ]
-                        [ Html.text
-                            ("set at step "
-                                ++ String.fromInt (s + 1)
-                                ++ (case changedAtStep of
-                                        Just c ->
-                                            " (changed at step " ++ String.fromInt (c + 1) ++ ")"
+            , headerEventPill
+            , Html.span [ Attr.class "cookie-stack-count" ]
+                [ Html.text
+                    (String.fromInt eventCount
+                        ++ (if eventCount == 1 then
+                                " value"
 
-                                        Nothing ->
-                                            ""
-                                   )
-                            )
-                        ]
-
-                Nothing ->
-                    Html.text ""
+                            else
+                                " values"
+                           )
+                    )
+                ]
             ]
-         , case signed of
+        , case signed of
             Just { secret } ->
                 Html.div [ Attr.class "cookie-secret-label" ]
                     [ Html.text "signed with "
                     , Html.code [] [ Html.text ("\"" ++ secret ++ "\"") ]
+                    , Html.span [ Attr.class "cookie-fnv-note" ]
+                        [ Html.text "fnv1a (dev)" ]
                     ]
 
             Nothing ->
                 Html.text ""
-         ]
-            ++ (case shownEntry of
-                    Just entry ->
-                        [ viewCookieAttrs entry
-                        , Html.details [ Attr.class "cookie-details" ]
-                            [ Html.summary [ Attr.class "cookie-details-summary" ]
-                                [ Html.text "Raw value" ]
-                            , Html.pre [ Attr.class "cookie-raw-value" ]
-                                [ Html.text entry.value ]
-                            ]
+        , if eventCount > 1 then
+            viewCookiePillRow currentStep currentEventIdx events
+
+          else
+            Html.text ""
+        , case activeEvent of
+            Just ( evStep, ev ) ->
+                if evStep == currentStep then
+                    viewCookieDiffCard
+                        { currentStep = currentStep
+                        , eventStep = evStep
+                        , event = ev
+                        , isFirstEvent = currentEventIdx == Just 0
+                        , previousEventEntry = previousEventEntry
+                        , previousEventStep = previousEventStep
+                        , signed = signed
+                        , previousSigned = previousSigned
+                        }
+
+                else
+                    -- The cookie hasn't changed at the current step; the diff
+                    -- would just echo an old change. Leave the pills and the
+                    -- Attributes + raw value accordion to carry the current
+                    -- state.
+                    Html.text ""
+
+            Nothing ->
+                Html.div [ Attr.class "cookie-stack-empty" ] [ Html.text "not set yet" ]
+        , if hasCurrent && not isRemovedNow then
+            case activeEntry of
+                Just entry ->
+                    Html.details [ Attr.class "cookie-details" ]
+                        [ Html.summary [ Attr.class "cookie-details-summary" ]
+                            [ Html.text "Attributes + raw value" ]
+                        , viewCookieAttrTable entry
+                        , Html.pre [ Attr.class "cookie-raw-value" ]
+                            [ Html.text entry.value ]
                         ]
-                            ++ (case signed of
-                                    Just result ->
-                                        [ viewDecodedPayload currentStep previousSigned result.values ]
 
-                                    Nothing ->
-                                        []
-                               )
+                Nothing ->
+                    Html.text ""
 
-                    Nothing ->
-                        []
-               )
+          else
+            Html.text ""
+        ]
+
+
+viewCookieEventBadge : CookieEvent -> Html Msg
+viewCookieEventBadge ev =
+    let
+        ( cls, label ) =
+            case ev of
+                CookieSet _ ->
+                    ( "cookie-event-badge-set", "SET" )
+
+                CookieUpdated _ ->
+                    ( "cookie-event-badge-changed", "CHANGED" )
+
+                CookieRemoved ->
+                    ( "cookie-event-badge-removed", "REMOVED" )
+    in
+    Html.span
+        [ Attr.classList
+            [ ( "cookie-event-badge", True )
+            , ( cls, True )
+            ]
+        ]
+        [ Html.text label ]
+
+
+{-| C3 "box-pills" step selector. One pill per value-change event; left border
+colored by event kind (set = green, updated = yellow, removed = red). The pill
+matching the current event is filled cyan; the pill whose step equals the
+global step also shows a `·now` marker. Clicking a pill jumps the viewer to
+that change point.
+-}
+viewCookiePillRow : Int -> Maybe Int -> List ( Int, CookieEvent ) -> Html Msg
+viewCookiePillRow currentStep currentEventIdx events =
+    Html.div [ Attr.class "cookie-pill-row" ]
+        (events
+            |> List.indexedMap
+                (\idx ( evStep, ev ) ->
+                    let
+                        kindClass =
+                            case ev of
+                                CookieSet _ ->
+                                    "cookie-pill-kind-set"
+
+                                CookieUpdated _ ->
+                                    "cookie-pill-kind-changed"
+
+                                CookieRemoved ->
+                                    "cookie-pill-kind-removed"
+
+                        isActive =
+                            currentEventIdx == Just idx
+
+                        isNow =
+                            evStep == currentStep
+                    in
+                    Html.button
+                        [ Attr.classList
+                            [ ( "cookie-box-pill", True )
+                            , ( kindClass, True )
+                            , ( "cookie-box-pill-active", isActive )
+                            ]
+                        , Html.Events.onClick (GoToStep evStep)
+                        ]
+                        [ Html.span [ Attr.class "cookie-box-pill-step" ]
+                            [ Html.text (String.fromInt (evStep + 1)) ]
+                        , if isNow then
+                            Html.span [ Attr.class "cookie-box-pill-now" ]
+                                [ Html.text "·now" ]
+
+                          else
+                            Html.text ""
+                        ]
+                )
         )
 
 
-viewCookieAttrs : CookieEntry -> Html Msg
-viewCookieAttrs entry =
-    Html.details [ Attr.class "cookie-details" ]
-        [ Html.summary [ Attr.class "cookie-details-summary" ]
-            [ Html.text "Attributes" ]
-        , Html.div [ Attr.class "cookie-attr-table" ]
-            [ attrRow "Path" (entry.path |> Maybe.withDefault unsetMarker)
-            , attrRow "Domain" (entry.domain |> Maybe.withDefault unsetMarker)
-            , attrRow "Expires" (entry.expires |> Maybe.withDefault unsetMarker)
-            , attrRow "Max-Age" (entry.maxAge |> Maybe.map String.fromInt |> Maybe.withDefault unsetMarker)
-            , attrRow "Secure" (boolMarker entry.secure)
-            , attrRow "HttpOnly" (boolMarker entry.httpOnly)
-            , attrRow "SameSite" (entry.sameSite |> Maybe.withDefault unsetMarker)
-            ]
+{-| A single panel that shows the current event as either `INITIAL · step N`
+(first event, no previous to diff against) or `DIFF · prev → cur`. For signed
+cookies the body is the PERSISTENT + FLASH sections with per-key +/-/→ rows.
+For unsigned cookies the body is the raw value with a `+` / `-` prefix.
+-}
+viewCookieDiffCard :
+    { currentStep : Int
+    , eventStep : Int
+    , event : CookieEvent
+    , isFirstEvent : Bool
+    , previousEventEntry : Maybe CookieEntry
+    , previousEventStep : Maybe Int
+    , signed : Maybe { secret : String, values : Encode.Value }
+    , previousSigned : Maybe Encode.Value
+    }
+    -> Html Msg
+viewCookieDiffCard cfg =
+    let
+        prevStepLabel =
+            case cfg.previousEventStep of
+                Just p ->
+                    String.fromInt (p + 1)
+
+                Nothing ->
+                    "?"
+
+        titleText =
+            case cfg.event of
+                CookieSet _ ->
+                    if cfg.isFirstEvent then
+                        "INITIAL · step " ++ String.fromInt (cfg.eventStep + 1)
+
+                    else
+                        "RE-SET · step " ++ String.fromInt (cfg.eventStep + 1)
+
+                CookieUpdated _ ->
+                    "DIFF · " ++ prevStepLabel ++ " → " ++ String.fromInt (cfg.eventStep + 1)
+
+                CookieRemoved ->
+                    "REMOVED · step " ++ String.fromInt (cfg.eventStep + 1)
+
+        bodyRows : List (Html Msg)
+        bodyRows =
+            case ( cfg.signed, cfg.event ) of
+                ( Just sig, CookieRemoved ) ->
+                    viewDecodedPayloadRows cfg.currentStep (Just sig.values) Encode.null
+
+                ( Just sig, _ ) ->
+                    viewDecodedPayloadRows cfg.currentStep cfg.previousSigned sig.values
+
+                ( Nothing, _ ) ->
+                    viewRawDiffRows cfg.event cfg.previousEventEntry
+    in
+    Html.div [ Attr.class "cookie-diff-card" ]
+        (Html.div [ Attr.class "cookie-diff-card-title" ] [ Html.text titleText ]
+            :: bodyRows
+        )
+
+
+{-| Raw-value diff rendering for unsigned cookies.
+
+* `CookieSet` → `+ value`
+* `CookieUpdated` → `- prev` then `+ new`
+* `CookieRemoved` → `- prev`
+
+-}
+viewRawDiffRows : CookieEvent -> Maybe CookieEntry -> List (Html Msg)
+viewRawDiffRows event previousEntry =
+    case event of
+        CookieSet entry ->
+            [ rawAddedRow entry.value ]
+
+        CookieUpdated entry ->
+            case previousEntry of
+                Just prev ->
+                    [ rawRemovedRow prev.value
+                    , rawAddedRow entry.value
+                    ]
+
+                Nothing ->
+                    [ rawAddedRow entry.value ]
+
+        CookieRemoved ->
+            case previousEntry of
+                Just prev ->
+                    [ rawRemovedRow prev.value ]
+
+                Nothing ->
+                    []
+
+
+rawAddedRow : String -> Html Msg
+rawAddedRow value =
+    Html.div [ Attr.class "cookie-raw-row cookie-raw-row-added" ]
+        [ Html.span [ Attr.class "cookie-raw-sign" ] [ Html.text "+" ]
+        , Html.span [ Attr.class "cookie-raw-value-text" ] [ Html.text value ]
+        ]
+
+
+rawRemovedRow : String -> Html Msg
+rawRemovedRow value =
+    Html.div [ Attr.class "cookie-raw-row cookie-raw-row-removed" ]
+        [ Html.span [ Attr.class "cookie-raw-sign" ] [ Html.text "−" ]
+        , Html.span [ Attr.class "cookie-raw-value-text" ] [ Html.text value ]
+        ]
+
+
+viewCookieAttrTable : CookieEntry -> Html Msg
+viewCookieAttrTable entry =
+    Html.div [ Attr.class "cookie-attr-table" ]
+        [ attrRow "Path" (entry.path |> Maybe.withDefault unsetMarker)
+        , attrRow "Domain" (entry.domain |> Maybe.withDefault unsetMarker)
+        , attrRow "Expires" (entry.expires |> Maybe.withDefault unsetMarker)
+        , attrRow "Max-Age" (entry.maxAge |> Maybe.map String.fromInt |> Maybe.withDefault unsetMarker)
+        , attrRow "Secure" (boolMarker entry.secure)
+        , attrRow "HttpOnly" (boolMarker entry.httpOnly)
+        , attrRow "SameSite" (entry.sameSite |> Maybe.withDefault unsetMarker)
         ]
 
 
@@ -2568,210 +3335,137 @@ diffPairs previous current =
     currentRows ++ removedRows
 
 
-viewDecodedPayload : Int -> Maybe Encode.Value -> Encode.Value -> Html Msg
-viewDecodedPayload currentStep previousValues values =
-    case Decode.decodeValue (Decode.keyValuePairs Decode.string) values of
-        Ok pairs ->
-            let
-                ( flash, persistent ) =
-                    List.partition (\( k, _ ) -> String.startsWith BackendTaskTest.sessionFlashPrefix k) pairs
+{-| Decode a signed cookie's JSON payload into `PERSISTENT` and `FLASH`
+sections, each rendered as a +/-/change diff against the previous payload.
+Returns the list of section nodes (no outer wrapper) so the caller can embed
+them in a diff card.
 
-                flashStripped : List ( String, String )
-                flashStripped =
-                    flash
-                        |> List.map
-                            (\( k, v ) ->
-                                ( String.dropLeft (String.length BackendTaskTest.sessionFlashPrefix) k, v )
-                            )
-
-                previousPairs : List ( String, String )
-                previousPairs =
-                    previousValues
-                        |> Maybe.map decodeStringPairs
-                        |> Maybe.withDefault []
-
-                ( prevFlash, prevPersistent ) =
-                    List.partition (\( k, _ ) -> String.startsWith BackendTaskTest.sessionFlashPrefix k) previousPairs
-
-                prevFlashStripped : List ( String, String )
-                prevFlashStripped =
-                    prevFlash
-                        |> List.map
-                            (\( k, v ) ->
-                                ( String.dropLeft (String.length BackendTaskTest.sessionFlashPrefix) k, v )
-                            )
-
-                -- At step 0 we're establishing the baseline, so don't highlight
-                -- anything as new/changed.
-                diffEnabled : Bool
-                diffEnabled =
-                    currentStep > 0
-
-                persistentRows : List ( String, String, KeyDiff )
-                persistentRows =
-                    if diffEnabled then
-                        diffPairs prevPersistent persistent
-
-                    else
-                        persistent |> List.map (\( k, v ) -> ( k, v, KeyUnchanged ))
-
-                flashRows : List ( String, String, KeyDiff )
-                flashRows =
-                    if diffEnabled then
-                        diffPairs prevFlashStripped flashStripped
-
-                    else
-                        flashStripped |> List.map (\( k, v ) -> ( k, v, KeyUnchanged ))
-            in
-            Html.details [ Attr.class "cookie-details", Attr.attribute "open" "" ]
-                [ Html.summary [ Attr.class "cookie-details-summary" ]
-                    [ Html.text "Decoded" ]
-                , if List.isEmpty flashRows then
-                    -- No flash values: show a flat list, no subsection header.
-                    Html.div [ Attr.class "cookie-session-section" ]
-                        (List.map (sessionRow Nothing) persistentRows)
-
-                  else
-                    Html.div []
-                        [ if List.isEmpty persistentRows then
-                            Html.text ""
-
-                          else
-                            Html.div [ Attr.class "cookie-session-section" ]
-                                (Html.div [ Attr.class "cookie-session-header" ]
-                                    [ Html.text "Persistent" ]
-                                    :: List.map (sessionRow Nothing) persistentRows
-                                )
-                        , Html.div [ Attr.class "cookie-session-section" ]
-                            (Html.div [ Attr.class "cookie-session-header" ]
-                                [ Html.text "Flash (one-shot)" ]
-                                :: List.map (sessionRow (Just "flash")) flashRows
-                            )
-                        ]
-                ]
-
-        Err _ ->
-            Html.div [ Attr.class "cookie-session-section" ]
-                [ Html.text "signed payload isn't a { String : String } object" ]
-
-
-sessionRow : Maybe String -> ( String, String, KeyDiff ) -> Html Msg
-sessionRow badge ( key, value, diff ) =
-    Html.div
-        [ Attr.classList
-            [ ( "cookie-session-row", True )
-            , ( "cookie-session-row-new", diff == KeyNew )
-            , ( "cookie-session-row-changed", isChanged diff )
-            , ( "cookie-session-row-removed", isRemoved diff )
-            ]
-        ]
-        [ Html.span [ Attr.class "cookie-session-key" ] [ Html.text key ]
-        , case diff of
-            KeyNew ->
-                Html.span [ Attr.class "cookie-diff-badge cookie-diff-new" ] [ Html.text "new" ]
-
-            KeyChanged _ ->
-                Html.span [ Attr.class "cookie-diff-badge cookie-diff-changed" ] [ Html.text "changed" ]
-
-            KeyRemoved _ ->
-                Html.span [ Attr.class "cookie-diff-badge cookie-diff-removed" ] [ Html.text "removed" ]
-
-            KeyUnchanged ->
-                Html.text ""
-        , case badge of
-            Just label ->
-                Html.span [ Attr.class "cookie-flash-badge" ] [ Html.text label ]
-
-            Nothing ->
-                Html.text ""
-        , case diff of
-            KeyChanged prevValue ->
-                Html.span [ Attr.class "cookie-session-value" ]
-                    [ Html.span [ Attr.class "cookie-session-value-prev" ] [ Html.text prevValue ]
-                    , Html.text " → "
-                    , Html.text value
-                    ]
-
-            KeyRemoved prevValue ->
-                Html.span [ Attr.class "cookie-session-value cookie-session-value-removed" ]
-                    [ Html.text prevValue ]
-
-            _ ->
-                Html.span [ Attr.class "cookie-session-value" ] [ Html.text value ]
-        ]
-
-
-isChanged : KeyDiff -> Bool
-isChanged d =
-    case d of
-        KeyChanged _ ->
-            True
-
-        _ ->
-            False
-
-
-isRemoved : KeyDiff -> Bool
-isRemoved d =
-    case d of
-        KeyRemoved _ ->
-            True
-
-        _ ->
-            False
-
-
-dedupeEntryTimeline : List ( Int, CookieEntry ) -> List ( Int, CookieEntry )
-dedupeEntryTimeline entries =
-    entries
-        |> List.foldl
-            (\( i, entry ) acc ->
-                case acc of
-                    ( _, prev ) :: _ ->
-                        if prev == entry then
-                            acc
-
-                        else
-                            ( i, entry ) :: acc
-
-                    [] ->
-                        [ ( i, entry ) ]
-            )
-            []
-        |> List.reverse
-
-
-{-| Deduplicate network entries, keeping the latest version of each unique entry
-(identified by url + stepIndex of first appearance).
+`CookieRemoved` events come in as `values = Encode.null`, producing a full
+"removed everything" diff.
 -}
-dedupeNetworkEntries : List NetworkEntry -> List NetworkEntry
-dedupeNetworkEntries entries =
-    entries
-        |> List.foldl
-            (\entry ( seen, acc ) ->
-                let
-                    key =
-                        entry.url ++ ":" ++ String.fromInt entry.stepIndex
-                in
-                if List.member key seen then
-                    -- Update existing entry with latest status
-                    ( seen
-                    , acc
-                        |> List.map
-                            (\e ->
-                                if e.url == entry.url && e.stepIndex == entry.stepIndex then
-                                    entry
+viewDecodedPayloadRows : Int -> Maybe Encode.Value -> Encode.Value -> List (Html Msg)
+viewDecodedPayloadRows currentStep previousValues values =
+    let
+        decodePairs v =
+            Decode.decodeValue (Decode.keyValuePairs Decode.string) v
+                |> Result.withDefault []
 
-                                else
-                                    e
-                            )
-                    )
+        currentPairs : List ( String, String )
+        currentPairs =
+            decodePairs values
 
-                else
-                    ( key :: seen, acc ++ [ entry ] )
+        previousPairs : List ( String, String )
+        previousPairs =
+            previousValues
+                |> Maybe.map decodeStringPairs
+                |> Maybe.withDefault []
+
+        ( currentFlash, currentPersistent ) =
+            List.partition (\( k, _ ) -> String.startsWith BackendTaskTest.sessionFlashPrefix k) currentPairs
+
+        ( prevFlash, prevPersistent ) =
+            List.partition (\( k, _ ) -> String.startsWith BackendTaskTest.sessionFlashPrefix k) previousPairs
+
+        stripFlash : List ( String, String ) -> List ( String, String )
+        stripFlash =
+            List.map
+                (\( k, v ) ->
+                    ( String.dropLeft (String.length BackendTaskTest.sessionFlashPrefix) k, v )
+                )
+
+        -- Step 0 is the baseline, so don't highlight anything as new/changed.
+        diffEnabled =
+            currentStep > 0
+
+        persistentRows =
+            if diffEnabled then
+                diffPairs prevPersistent currentPersistent
+
+            else
+                currentPersistent |> List.map (\( k, v ) -> ( k, v, KeyNew ))
+
+        flashRows =
+            if diffEnabled then
+                diffPairs (stripFlash prevFlash) (stripFlash currentFlash)
+
+            else
+                stripFlash currentFlash |> List.map (\( k, v ) -> ( k, v, KeyNew ))
+    in
+    [ viewPayloadSection "PERSISTENT" Nothing persistentRows
+    , viewPayloadSection "FLASH" (Just "ONE-SHOT") flashRows
+    ]
+
+
+{-| Render one named section of a decoded signed-cookie payload. Hidden when
+the row list is empty so we don't stamp an empty header.
+-}
+viewPayloadSection : String -> Maybe String -> List ( String, String, KeyDiff ) -> Html Msg
+viewPayloadSection title pillText rows =
+    if List.isEmpty rows then
+        Html.text ""
+
+    else
+        Html.div [ Attr.class "cookie-diff-section" ]
+            (Html.div [ Attr.class "cookie-diff-section-header" ]
+                [ Html.span [ Attr.class "cookie-diff-section-title" ] [ Html.text title ]
+                , case pillText of
+                    Just t ->
+                        Html.span [ Attr.class "cookie-diff-section-pill" ] [ Html.text t ]
+
+                    Nothing ->
+                        Html.text ""
+                ]
+                :: List.concatMap diffKeyRows rows
             )
-            ( [], [] )
-        |> Tuple.second
+
+
+{-| Render one key/value pair as 1 or 2 diff rows.
+-}
+diffKeyRows : ( String, String, KeyDiff ) -> List (Html Msg)
+diffKeyRows ( key, value, diff ) =
+    case diff of
+        KeyNew ->
+            [ keyAddedRow key value ]
+
+        KeyUnchanged ->
+            [ keyUnchangedRow key value ]
+
+        KeyChanged prevValue ->
+            [ keyRemovedRow key prevValue
+            , keyAddedRow key value
+            ]
+
+        KeyRemoved prevValue ->
+            [ keyRemovedRow key prevValue ]
+
+
+keyAddedRow : String -> String -> Html Msg
+keyAddedRow key value =
+    Html.div [ Attr.class "cookie-kv-row cookie-kv-row-added" ]
+        [ Html.span [ Attr.class "cookie-raw-sign" ] [ Html.text "+" ]
+        , Html.span [ Attr.class "cookie-kv-key" ] [ Html.text (key ++ ":") ]
+        , Html.span [ Attr.class "cookie-kv-value" ] [ Html.text value ]
+        ]
+
+
+keyRemovedRow : String -> String -> Html Msg
+keyRemovedRow key value =
+    Html.div [ Attr.class "cookie-kv-row cookie-kv-row-removed" ]
+        [ Html.span [ Attr.class "cookie-raw-sign" ] [ Html.text "−" ]
+        , Html.span [ Attr.class "cookie-kv-key" ] [ Html.text (key ++ ":") ]
+        , Html.span [ Attr.class "cookie-kv-value" ] [ Html.text value ]
+        ]
+
+
+keyUnchangedRow : String -> String -> Html Msg
+keyUnchangedRow key value =
+    Html.div [ Attr.class "cookie-kv-row cookie-kv-row-unchanged" ]
+        [ Html.span [ Attr.class "cookie-raw-sign" ] [ Html.text " " ]
+        , Html.span [ Attr.class "cookie-kv-key" ] [ Html.text (key ++ ":") ]
+        , Html.span [ Attr.class "cookie-kv-value" ] [ Html.text value ]
+        ]
+
+
 
 
 
@@ -3127,6 +3821,18 @@ computeNamedGroupStarts snapshots =
             Set.empty
 
 
+{-| Initial `expandedGroups` set so every named group is expanded on load.
+Uses the negated-key convention the named-group toggle uses: key `-(i + 1)`
+for the snapshot at index `i` that starts the group.
+-}
+defaultExpandedGroups : List Snapshot -> Set Int
+defaultExpandedGroups snapshots =
+    computeNamedGroupStarts snapshots
+        |> Set.toList
+        |> List.map (\i -> -(i + 1))
+        |> Set.fromList
+
+
 {-| Find the index of the first snapshot in the same named group.
 -}
 namedGroupStart : Int -> List Snapshot -> Int
@@ -3214,7 +3920,7 @@ viewNamedGroupHeader groupStartIndex name isExpanded count =
         , Html.span [ Attr.class "named-group-name" ]
             [ Html.text name ]
         , Html.span [ Attr.class "named-group-count" ]
-            [ Html.text (String.fromInt count) ]
+            [ Html.text ("(" ++ String.fromInt count ++ ")") ]
         ]
 
 
@@ -3413,9 +4119,16 @@ body {
     border-left-color: #e74c3c;
 }
 
+/* Step that caused the failure — the step *before* the error. Reads as
+   amber so it's distinct from the red error row itself. */
 .step-row-failure-cause {
-    border-left-color: #e74c3c;
-    background: rgba(231, 76, 60, 0.05);
+    border-left-color: #fcd34d;
+    background: rgba(252, 211, 77, 0.06);
+    box-shadow: inset 0 -1px 0 rgba(252, 211, 77, 0.18);
+}
+
+.step-row-failure-cause .step-label-selector {
+    color: #fcd34d;
 }
 
 .step-row-child {
@@ -3442,11 +4155,49 @@ body {
 }
 
 .step-icon {
-    font-family: "SF Mono", "Fira Code", monospace;
-    font-size: 12px;
-    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     min-width: 14px;
-    text-align: center;
+    width: 18px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+.step-icon svg {
+    display: block;
+    overflow: visible;
+}
+
+.step-event-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: 6px;
+    flex-shrink: 0;
+    opacity: 0.85;
+}
+
+.step-row:hover .step-event-dots,
+.step-row-active .step-event-dots {
+    opacity: 1;
+}
+
+.step-event-dot {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.step-event-dot svg {
+    display: block;
+}
+
+.step-event-count {
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", monospace;
+    font-size: 9px;
+    font-weight: 600;
+    line-height: 1;
 }
 
 .step-label {
@@ -3588,16 +4339,6 @@ body {
     color: #8899aa;
 }
 
-.step-pending-badge {
-    font-size: 9px;
-    color: #f0c040;
-    background: rgba(240, 192, 64, 0.15);
-    padding: 1px 5px;
-    border-radius: 3px;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-}
-
 .step-group-toggle {
     font-size: 10px;
     color: #556677;
@@ -3620,37 +4361,45 @@ body {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 12px;
+    padding: 8px 10px 6px 12px;
     cursor: pointer;
-    background: rgba(76, 201, 240, 0.04);
-    border-left: 3px solid #0f3460;
-    font-size: 11px;
-    color: #8899aa;
+    background: transparent;
+    border-left: 3px solid transparent;
+    background-image: linear-gradient(180deg, rgba(125, 211, 252, 0.25), rgba(134, 239, 172, 0.18));
+    background-repeat: no-repeat;
+    background-size: 3px 100%;
+    background-position: left center;
+    font-size: 10px;
+    color: #8b99ad;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.12em;
+    font-weight: 600;
+    margin-top: 4px;
 }
 
 .named-group-header:hover {
-    background: rgba(76, 201, 240, 0.08);
+    background-color: rgba(125, 211, 252, 0.04);
 }
 
 .named-group-icon {
-    font-size: 10px;
-    color: #556677;
+    font-size: 8px;
+    opacity: 0.6;
+    color: currentColor;
 }
 
 .named-group-name {
     font-weight: 600;
-    color: #6ba3c0;
+    color: #e6ecf4;
 }
 
 .named-group-count {
     margin-left: auto;
-    font-size: 10px;
-    color: #556677;
-    background: rgba(76, 201, 240, 0.1);
-    padding: 1px 6px;
-    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 400;
+    color: inherit;
+    opacity: 0.55;
+    background: transparent;
+    padding: 0;
 }
 
 /* === MAIN PANEL === */
@@ -3671,6 +4420,19 @@ body {
 }
 
 /* === URL BAR === */
+
+.url-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 12px 0;
+    flex-shrink: 0;
+}
+
+.url-bar-row .url-bar {
+    flex: 1;
+    margin: 0;
+}
 
 .url-bar {
     display: flex;
@@ -3788,24 +4550,42 @@ body {
     color: #7ee787;
 }
 
-/* === NETWORK SIDEBAR === */
+/* === NETWORK SIDEBAR (N1 · list with live state chips) === */
 
 .network-sidebar {
-    width: 300px;
-    min-width: 300px;
+    width: 340px;
+    min-width: 340px;
     display: flex;
     flex-direction: column;
-    background: #16213e;
-    border-left: 1px solid #0f3460;
+    background: #141a22;
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
     overflow: hidden;
+    font-family: "JetBrains Mono", "SF Mono", monospace;
 }
 
 .network-sidebar-header {
-    padding: 10px 12px 8px;
-    border-bottom: 1px solid #0f3460;
+    padding: 10px 14px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: column;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.network-sidebar-title-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.sidebar-subtitle {
+    font-size: 11px;
+    color: #5c6a7e;
+}
+
+.net-live-count {
+    color: #86efac;
+    font-weight: 600;
 }
 
 .net-filter-buttons {
@@ -3817,9 +4597,9 @@ body {
     font-size: 10px;
     padding: 2px 8px;
     border-radius: 10px;
-    border: 1px solid #30363d;
+    border: 1px solid rgba(255, 255, 255, 0.12);
     background: transparent;
-    color: #556677;
+    color: #5c6a7e;
     cursor: pointer;
     font-family: inherit;
 }
@@ -3830,46 +4610,20 @@ body {
 }
 
 .net-filter-backend.net-filter-active {
-    background: rgba(168, 85, 247, 0.15);
-    border-color: #a855f7;
-    color: #d2a8ff;
+    background: rgba(244, 114, 182, 0.15);
+    border-color: #f472b6;
+    color: #f472b6;
 }
 
 .net-filter-frontend.net-filter-active {
-    background: rgba(56, 189, 248, 0.15);
-    border-color: #38bdf8;
+    background: rgba(125, 211, 252, 0.15);
+    border-color: #7dd3fc;
     color: #7dd3fc;
-}
-
-.net-source-badge {
-    font-size: 9px;
-    font-weight: 700;
-    padding: 1px 5px;
-    border-radius: 3px;
-    letter-spacing: 0.5px;
-}
-
-.net-source-backend {
-    background: rgba(168, 85, 247, 0.2);
-    color: #d2a8ff;
-}
-
-.net-source-frontend {
-    background: rgba(56, 189, 248, 0.2);
-    color: #7dd3fc;
-}
-
-.network-row-backend {
-    border-left: 2px solid rgba(168, 85, 247, 0.4);
-}
-
-.network-row-frontend {
-    border-left: 2px solid rgba(56, 189, 248, 0.4);
 }
 
 .network-empty {
-    padding: 12px;
-    color: #556677;
+    padding: 14px;
+    color: #5c6a7e;
     font-size: 12px;
     font-style: italic;
 }
@@ -3877,76 +4631,178 @@ body {
 .network-list {
     flex: 1;
     overflow-y: auto;
-    padding: 4px 0;
+    padding: 0;
 }
 
-.network-row {
-    padding: 6px 12px;
-    border-bottom: 1px solid rgba(15, 52, 96, 0.3);
+.net-row {
+    padding: 6px 14px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    position: relative;
     transition: background 0.08s;
 }
 
-.network-row:hover {
-    background: rgba(76, 201, 240, 0.05);
+.net-row[open] > .net-row-summary,
+.net-row.net-row-summary {
+    list-style: none;
 }
 
-.network-row-pending {
-    opacity: 0.7;
+.net-row-summary {
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
 }
 
-.network-row-top {
+.net-row-summary::-webkit-details-marker {
+    display: none;
+}
+
+.net-row-summary::marker {
+    content: "";
+}
+
+.net-row-summary:hover {
+    color: #c9d1d9;
+}
+
+.net-row-future {
+    opacity: 0.5;
+}
+
+.net-row-inflight {
+    background: rgba(134, 239, 172, 0.05);
+}
+
+.net-row-inflight::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #86efac;
+    animation: net-pulse 1.2s ease-in-out infinite;
+}
+
+.net-row-resolving {
+    background: rgba(125, 211, 252, 0.05);
+}
+
+.net-row-head {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 2px;
+    gap: 6px;
+    margin-bottom: 3px;
+}
+
+.net-row-chips {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 18px;
+    flex-wrap: wrap;
+}
+
+.net-row-path {
+    font-size: 11px;
+    color: #e6ecf4;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.net-row-future .net-row-path {
+    color: #5c6a7e;
 }
 
 .net-method {
-    font-family: "SF Mono", "Fira Code", monospace;
-    font-size: 12px;
-    color: #4cc9f0;
-    font-weight: 600;
-}
-
-.net-url {
-    font-family: "SF Mono", "Fira Code", monospace;
-    font-size: 11px;
-    color: #8899aa;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.net-step {
-    font-size: 10px;
-    color: #556677;
-    margin-left: auto;
-}
-
-.net-status-icon {
-    font-size: 11px;
-    width: 16px;
-    text-align: center;
-    letter-spacing: 0.3px;
-    font-weight: 600;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 2px;
     flex-shrink: 0;
+    letter-spacing: 0.02em;
 }
 
-.net-status-stubbed {
-    color: #7ee787;
+.net-method-port {
+    background: rgba(244, 114, 182, 0.15);
+    color: #f472b6;
 }
 
-.net-status-pending {
-    color: #f0c040;
-    animation: fetcher-pulse 1.2s ease-in-out infinite;
+.net-method-http {
+    background: rgba(125, 211, 252, 0.15);
+    color: #7dd3fc;
 }
 
-.net-status-future {
-    color: #30363d;
+.net-state-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    border-radius: 2px;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 1px 4px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-family: "JetBrains Mono", monospace;
 }
 
-.network-row-future {
-    opacity: 0.35;
+.net-state-icon {
+    font-size: 9px;
+    line-height: 1;
+}
+
+.net-state-future {
+    background: transparent;
+    color: #5c6a7e;
+}
+
+.net-state-inflight {
+    background: rgba(134, 239, 172, 0.15);
+    color: #86efac;
+}
+
+.net-state-resolving {
+    background: rgba(125, 211, 252, 0.15);
+    color: #7dd3fc;
+}
+
+.net-state-past {
+    background: transparent;
+    color: #8b99ad;
+}
+
+.net-row-inflight-text {
+    font-size: 9px;
+    color: #86efac;
+    font-family: "JetBrains Mono", monospace;
+    font-style: italic;
+}
+
+.net-row-chip-arrow-live {
+    color: #86efac;
+    opacity: 0.7;
+}
+
+.net-row-live-badge {
+    margin-left: auto;
+    font-size: 9px;
+    color: #86efac;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
+.net-row-details {
+    padding: 6px 0 2px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+@keyframes net-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
 }
 
 .net-response-details {
@@ -4012,19 +4868,20 @@ body {
 /* === BEFORE/AFTER TOGGLE === */
 
 .before-after-toggle {
-    display: flex;
-    justify-content: center;
-    gap: 2px;
-    padding: 6px 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
     flex-shrink: 0;
 }
 
 .ba-btn {
-    padding: 4px 14px;
+    padding: 4px 10px;
     border: 1px solid #0f3460;
     background: #16213e;
     color: #8899aa;
-    font-size: 12px;
+    font-size: 11px;
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", monospace;
+    letter-spacing: 0.04em;
     cursor: pointer;
     transition: all 0.1s;
 }
@@ -4049,129 +4906,343 @@ body {
     font-weight: 600;
 }
 
-/* === COOKIE SIDEBAR === */
+/* === COOKIE SIDEBAR (Variant B · stacked value history) === */
 
 .cookie-sidebar {
-    width: 320px;
-    min-width: 320px;
+    width: 340px;
+    min-width: 340px;
     display: flex;
     flex-direction: column;
-    background: #16213e;
-    border-left: 1px solid #0f3460;
+    background: #141a22;
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
     overflow: hidden;
+    font-family: "JetBrains Mono", "SF Mono", monospace;
 }
 
 .cookie-sidebar-header {
-    padding: 10px 12px 8px;
-    border-bottom: 1px solid #0f3460;
+    padding: 10px 14px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    flex-shrink: 0;
 }
 
 .cookie-empty {
-    padding: 12px;
-    color: #556677;
+    padding: 14px;
+    color: #5c6a7e;
     font-size: 12px;
     font-style: italic;
 }
 
 .cookie-list {
     overflow-y: auto;
-    padding: 4px 0 8px;
+    padding: 0;
 }
 
-.cookie-row {
-    padding: 8px 12px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-    font-size: 12px;
-    color: #c9d1d9;
+.cookie-stack {
+    padding: 10px 14px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.cookie-row-future {
-    opacity: 0.4;
-}
-
-.cookie-row-new {
-    border-left: 3px solid rgba(126, 231, 135, 0.65);
-    padding-left: 9px;
-}
-
-.cookie-row-changed {
-    border-left: 3px solid rgba(234, 179, 8, 0.65);
-    padding-left: 9px;
-}
-
-.cookie-diff-badge {
-    font-size: 9px;
-    font-weight: 700;
-    padding: 1px 5px;
-    border-radius: 3px;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-}
-
-.cookie-diff-new {
-    background: rgba(126, 231, 135, 0.2);
-    color: #7ee787;
-    border: 1px solid rgba(126, 231, 135, 0.4);
-}
-
-.cookie-diff-changed {
-    background: rgba(234, 179, 8, 0.15);
-    color: #fde68a;
-    border: 1px solid rgba(234, 179, 8, 0.35);
-}
-
-.cookie-diff-removed {
-    background: rgba(231, 76, 60, 0.15);
-    color: #fca5a5;
-    border: 1px solid rgba(231, 76, 60, 0.35);
-}
-
-.cookie-row-top {
+.cookie-stack-header {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
 }
 
 .cookie-name {
-    font-family: "SF Mono", "Fira Code", monospace;
-    font-weight: 700;
-    color: #e6edf3;
-}
-
-.cookie-step {
-    font-size: 10px;
-    color: #7d8590;
-    margin-left: auto;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: #7dd3fc;
 }
 
 .cookie-signed-badge {
     font-size: 9px;
-    font-weight: 700;
-    padding: 1px 6px;
+    font-weight: 600;
+    padding: 1px 5px;
     border-radius: 3px;
-    letter-spacing: 0.5px;
-    background: rgba(234, 179, 8, 0.2);
-    color: #fde68a;
-    border: 1px solid rgba(234, 179, 8, 0.4);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: rgba(125, 211, 252, 0.14);
+    color: #7dd3fc;
+}
+
+.cookie-stack-count {
+    margin-left: auto;
+    font-size: 10px;
+    color: #5c6a7e;
 }
 
 .cookie-secret-label {
-    font-size: 11px;
-    color: #9ca3af;
-    margin: 2px 0 4px;
+    font-size: 10px;
+    color: #8b99ad;
+    margin: 0 0 8px;
+    display: flex;
+    gap: 4px;
+    align-items: baseline;
 }
 
 .cookie-secret-label code {
-    background: rgba(234, 179, 8, 0.1);
-    color: #fde68a;
-    padding: 1px 5px;
+    background: rgba(125, 211, 252, 0.08);
+    color: #7dd3fc;
+    padding: 1px 4px;
     border-radius: 3px;
-    font-family: "SF Mono", "Fira Code", monospace;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+}
+
+.cookie-fnv-note {
+    font-size: 9px;
+    color: #5c6a7e;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-family: "JetBrains Mono", monospace;
+    padding: 1px 4px;
+    border: 1px dashed rgba(255, 255, 255, 0.12);
+    border-radius: 3px;
+}
+
+.cookie-stack-empty {
     font-size: 11px;
+    color: #5c6a7e;
+    font-style: italic;
+    padding: 4px 0 0 4px;
+}
+
+/* C3 "box pills" step selector that sits above the stacked value rows. */
+.cookie-pill-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-bottom: 8px;
+}
+
+.cookie-box-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-left-width: 3px;
+    background: transparent;
+    color: #8b99ad;
+    padding: 2px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+.cookie-box-pill:hover {
+    color: #e6ecf4;
+    border-color: rgba(255, 255, 255, 0.18);
+}
+
+.cookie-box-pill-kind-set {
+    border-left-color: #86efac;
+}
+
+.cookie-box-pill-kind-changed {
+    border-left-color: #fcd34d;
+}
+
+.cookie-box-pill-kind-removed {
+    border-left-color: #fca5a5;
+}
+
+/* Active pill: set the three non-left borders explicitly so the left border
+   keeps the event-kind color set by the `.cookie-box-pill-kind-*` class. */
+.cookie-box-pill-active {
+    background: rgba(125, 211, 252, 0.12);
+    border-top-color: #7dd3fc;
+    border-right-color: #7dd3fc;
+    border-bottom-color: #7dd3fc;
+    color: #7dd3fc;
+    font-weight: 600;
+}
+
+.cookie-box-pill-step {
+    font-variant-numeric: tabular-nums;
+}
+
+.cookie-box-pill-now {
+    font-size: 8px;
+    color: #5c6a7e;
+    letter-spacing: 0.04em;
+}
+
+.cookie-box-pill-active .cookie-box-pill-now {
+    color: #7dd3fc;
+}
+
+/* Header event pill on the cookie name row (SET / CHANGED / REMOVED). */
+.cookie-event-badge {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: "JetBrains Mono", monospace;
+    text-transform: uppercase;
+}
+
+.cookie-event-badge-set {
+    background: rgba(134, 239, 172, 0.14);
+    color: #86efac;
+}
+
+.cookie-event-badge-changed {
+    background: rgba(252, 211, 77, 0.14);
+    color: #fcd34d;
+}
+
+.cookie-event-badge-removed {
+    background: rgba(252, 165, 165, 0.14);
+    color: #fca5a5;
+}
+
+/* Single diff card per cookie: INITIAL / DIFF / REMOVED panel. */
+.cookie-diff-card {
+    background: #141a22;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 5px;
+    padding: 10px 12px;
+    font-family: "JetBrains Mono", monospace;
+}
+
+.cookie-diff-card-title {
+    font-size: 10px;
+    color: #5c6a7e;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.cookie-diff-section {
+    margin-bottom: 8px;
+}
+
+.cookie-diff-section:last-child {
+    margin-bottom: 0;
+}
+
+.cookie-diff-section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    color: #8b99ad;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.cookie-diff-section-pill {
+    font-size: 8px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 2px;
+    background: rgba(196, 181, 253, 0.18);
+    color: #c4b5fd;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.cookie-kv-row,
+.cookie-raw-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    padding: 1px 0;
+}
+
+.cookie-raw-sign {
+    font-weight: 700;
+    font-size: 12px;
+    min-width: 10px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.cookie-kv-row-added .cookie-raw-sign,
+.cookie-raw-row-added .cookie-raw-sign,
+.cookie-kv-row-added .cookie-kv-key,
+.cookie-kv-row-added .cookie-kv-value,
+.cookie-raw-row-added .cookie-raw-value-text {
+    color: #86efac;
+}
+
+.cookie-kv-row-removed .cookie-raw-sign,
+.cookie-raw-row-removed .cookie-raw-sign,
+.cookie-kv-row-removed .cookie-kv-key,
+.cookie-kv-row-removed .cookie-kv-value,
+.cookie-raw-row-removed .cookie-raw-value-text {
+    color: #fca5a5;
+    text-decoration: line-through;
+}
+
+.cookie-kv-row-unchanged .cookie-kv-key {
+    color: #8b99ad;
+}
+
+.cookie-kv-row-unchanged .cookie-kv-value {
+    color: #c9d1d9;
+}
+
+.cookie-kv-key {
+    font-weight: 600;
+}
+
+.cookie-kv-value {
+    word-break: break-all;
+}
+
+.cookie-raw-value-text {
+    word-break: break-all;
+}
+
+/* No-change cookies section at the bottom of the sidebar. */
+.cookie-nochange-section {
+    padding: 10px 14px 14px;
+}
+
+.cookie-nochange-header {
+    font-size: 10px;
+    color: #5c6a7e;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+    font-family: "JetBrains Mono", monospace;
+}
+
+.cookie-nochange-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 11px;
+    color: #8b99ad;
+    padding: 2px 0;
+    font-family: "JetBrains Mono", monospace;
+}
+
+.cookie-nochange-row .cookie-name {
+    font-size: 11px;
+    color: #7dd3fc;
+    font-weight: 600;
+}
+
+.cookie-nochange-sep {
+    color: #5c6a7e;
+}
+
+.cookie-nochange-value {
+    color: #c9d1d9;
+    word-break: break-all;
 }
 
 .cookie-attr-table {
@@ -4235,88 +5306,125 @@ body {
     overflow: auto;
 }
 
-.cookie-session-section {
-    margin-top: 4px;
-    padding: 6px 8px;
-    background: rgba(13, 17, 23, 0.5);
-    border-radius: 4px;
+/* === STEP CHIP (shared: cookie/network/fetcher) === */
+
+.step-chip-timeline {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    flex-wrap: wrap;
 }
 
-.cookie-session-section + .cookie-session-section {
-    margin-top: 4px;
+.step-chip-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
 }
 
-.cookie-session-header {
+.step-chip-arrow {
+    color: rgba(255, 255, 255, 0.25);
+    font-size: 10px;
+    margin: 0 1px;
+}
+
+.step-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-left-width: 3px;
+    background: transparent;
+    padding: 1px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.02em;
+    font-weight: 500;
+    line-height: 1.4;
+    color: #8b99ad;
+}
+
+.step-chip:hover {
+    background: rgba(125, 211, 252, 0.08);
+}
+
+.step-chip-num {
+    font-variant-numeric: tabular-nums;
+}
+
+.step-chip-label {
+    opacity: 0.75;
     font-size: 9px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #7d8590;
-    margin-bottom: 3px;
 }
 
-.cookie-session-row {
-    display: flex;
-    gap: 6px;
-    align-items: baseline;
-    font-family: "SF Mono", "Fira Code", monospace;
-    font-size: 11px;
-    padding: 1px 0;
-}
-
-.cookie-session-row-removed .cookie-session-key {
-    text-decoration: line-through;
-    color: #fca5a5;
-}
-
-.cookie-session-key {
-    color: #7ee787;
+.step-chip-now {
+    background: rgba(125, 211, 252, 0.14);
+    border-color: rgba(125, 211, 252, 0.4);
+    border-left-color: #7dd3fc;
+    color: #7dd3fc;
     font-weight: 600;
 }
 
-.cookie-session-value {
-    color: #c9d1d9;
-    word-break: break-all;
+.step-chip-start {
+    border-left-color: #86efac;
+    color: #86efac;
 }
 
-.cookie-session-value-prev {
-    color: #6b7280;
-    text-decoration: line-through;
+.step-chip-end {
+    border-left-color: #7dd3fc;
+    color: #7dd3fc;
 }
 
-.cookie-session-value-removed {
-    color: #6b7280;
-    text-decoration: line-through;
+.step-chip-change {
+    border-left-color: #fcd34d;
+    color: #fcd34d;
 }
 
-.cookie-flash-badge {
-    font-size: 8px;
-    font-weight: 700;
-    padding: 0 4px;
-    border-radius: 2px;
-    background: rgba(147, 51, 234, 0.2);
-    color: #d8b4fe;
-    border: 1px solid rgba(147, 51, 234, 0.4);
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
+.step-chip-error {
+    background: rgba(252, 165, 165, 0.10);
+    border-left-color: #fca5a5;
+    color: #fca5a5;
 }
 
-/* === EFFECT INSPECTOR === */
+.step-chip-past {
+    border-left-color: rgba(255, 255, 255, 0.12);
+    color: #8b99ad;
+}
 
-/* === FETCHER INSPECTOR === */
+.step-chip-future {
+    border-left-color: rgba(255, 255, 255, 0.06);
+    color: #5c6a7e;
+}
+
+/* === FETCHER INSPECTOR (F1 · chip timeline) === */
 
 .fetcher-inspector {
     flex-shrink: 0;
-    max-height: 240px;
+    max-height: 260px;
     overflow: auto;
-    background: #0d1117;
-    border-top: 1px solid #0f3460;
+    background: #141a22;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
     margin: 0 12px;
     border-radius: 6px 6px 0 0;
+    font-family: "JetBrains Mono", "SF Mono", monospace;
+}
+
+.fetcher-inspector .inspector-header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 8px 14px 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    text-transform: none;
+    letter-spacing: normal;
+    color: inherit;
+    font-size: inherit;
 }
 
 .fetcher-empty {
-    padding: 8px 12px 12px;
-    color: #556677;
+    padding: 10px 14px 12px;
+    color: #5c6a7e;
     font-size: 12px;
     font-style: italic;
 }
@@ -4326,124 +5434,136 @@ body {
 }
 
 .fetcher-card {
-    padding: 4px 12px 8px;
+    padding: 8px 14px 8px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    position: relative;
 }
 
-.fetcher-card + .fetcher-card {
-    border-top: 1px solid rgba(255,255,255,0.05);
-    margin-top: 4px;
-    padding-top: 8px;
+.fetcher-card-live {
+    background: rgba(134, 239, 172, 0.04);
+}
+
+.fetcher-card-live::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #86efac;
+    animation: net-pulse 1.2s ease-in-out infinite;
 }
 
 .fetcher-card-header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 4px;
+    gap: 6px;
+    margin-bottom: 6px;
 }
 
 .fetcher-id {
-    font-family: "SF Mono", "Fira Code", monospace;
-    font-size: 12px;
-    color: #a855f7;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: #e6ecf4;
+}
+
+.fetcher-spacer {
+    flex: 1;
+}
+
+.fetcher-live-badge {
+    font-size: 9px;
+    color: #86efac;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
+.fetcher-done-badge {
+    font-size: 9px;
+    color: #7dd3fc;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: rgba(125, 211, 252, 0.14);
+    text-transform: uppercase;
+    font-family: "JetBrains Mono", monospace;
+}
+
+.fetcher-live-count {
+    color: #86efac;
     font-weight: 600;
 }
 
-.fetcher-action {
-    font-family: "SF Mono", "Fira Code", monospace;
-    font-size: 11px;
-    color: #556677;
+.fetcher-state-label {
+    font-size: 9px;
+    color: #5c6a7e;
+    letter-spacing: 0.05em;
+    text-transform: lowercase;
+    font-family: "JetBrains Mono", monospace;
 }
 
-.fetcher-timeline {
-    padding-left: 8px;
-    border-left: 2px solid rgba(255,255,255,0.06);
+.fetcher-lanes {
+    display: grid;
+    grid-template-columns: 62px 1fr;
+    row-gap: 3px;
+    column-gap: 8px;
+    align-items: center;
 }
 
-.fetcher-timeline-entry {
+.fetcher-lane {
+    display: contents;
+}
+
+.fetcher-lane-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+}
+
+.fetcher-lane-submit .fetcher-lane-label {
+    color: #86efac;
+}
+
+.fetcher-lane-resolve .fetcher-lane-label {
+    color: #7dd3fc;
+}
+
+.fetcher-lane-body {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 2px 0 2px 8px;
-    font-size: 12px;
-    opacity: 0.6;
-}
-
-.fetcher-timeline-entry.fetcher-timeline-past {
-    opacity: 0.35;
-}
-
-.fetcher-timeline-entry.fetcher-timeline-current {
-    opacity: 1;
-    background: rgba(168, 85, 247, 0.12);
+    padding: 3px 6px;
     border-radius: 3px;
-    margin-left: -2px;
-    padding-left: 10px;
-    font-weight: 600;
+    flex-wrap: wrap;
+    min-height: 20px;
 }
 
-.fetcher-timeline-entry.fetcher-timeline-future {
-    opacity: 0.4;
-    border-left: 2px dashed rgba(255,255,255,0.1);
-    margin-left: -2px;
-    padding-left: 6px;
+.fetcher-lane-submit .fetcher-lane-body {
+    background: rgba(134, 239, 172, 0.06);
 }
 
-.fetcher-step {
-    color: #556677;
-    font-size: 11px;
-    min-width: 48px;
+.fetcher-lane-resolve .fetcher-lane-body {
+    background: rgba(125, 211, 252, 0.06);
 }
 
-.fetcher-status-icon {
-    font-size: 11px;
-}
-
-.fetcher-submitting {
-    color: #f0c040;
-}
-
-.fetcher-reloading {
-    color: #4cc9f0;
-}
-
-.fetcher-complete {
-    color: #7ee787;
-}
-
-.fetcher-status-label {
-    color: #8899aa;
-    font-size: 12px;
+.fetcher-lane-empty {
+    color: #5c6a7e;
+    font-size: 10px;
+    font-style: italic;
 }
 
 .fetcher-fields {
-    font-family: "SF Mono", "Fira Code", monospace;
-    font-size: 11px;
-    color: #556677;
-    margin-left: 4px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: #8b99ad;
+    font-style: italic;
 }
 
-@keyframes fetcher-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
-}
-
-.fetcher-in-flight {
-    animation: fetcher-pulse 2s ease-in-out infinite;
-}
-
-.fetcher-in-flight .fetcher-status-icon {
-    display: inline-block;
-    animation: fetcher-pulse 1.2s ease-in-out infinite;
-}
-
-.fetcher-in-flight .fetcher-reloading {
-    animation: spin 1.5s linear infinite;
-}
-
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+.fetcher-fields-payload {
+    color: #e6ecf4;
+    font-style: normal;
 }
 
 .effect-inspector {
