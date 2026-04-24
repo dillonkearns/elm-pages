@@ -2495,8 +2495,6 @@ viewNetworkSidebar model currentStep allSnapshots =
                 [ Icons.eventNetworkSized 16 Icons.channelColorNetworkBackend
                 , Html.span [ Attr.class "sidebar-title" ]
                     [ Html.text "Network" ]
-                , Html.span [ Attr.class "sidebar-subtitle" ]
-                    [ Html.text (String.fromInt (List.length visibleLanes)) ]
                 ]
             , if hasBackend || hasFrontend then
                 Html.div [ Attr.class "net-filter-buttons" ]
@@ -4809,10 +4807,6 @@ body {
     background: transparent;
     animation: net-pulse 1.2s ease-in-out infinite;
     pointer-events: none;
-}
-
-.net-row-inflight {
-    background: rgba(134, 239, 172, 0.12);
 }
 
 .net-row-inflight::before {
