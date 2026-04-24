@@ -1045,38 +1045,30 @@ viewHeader model =
                 TestList ->
                     Html.text ""
             , viewViewportPicker model.viewportWidth
-            , Html.button
-                [ Attr.classList
-                    [ ( "toggle-button", True )
-                    , ( "toggle-active", model.showNetwork )
-                    ]
-                , Html.Events.onClick ToggleNetwork
-                ]
-                [ Html.text "Network" ]
-            , Html.button
-                [ Attr.classList
-                    [ ( "toggle-button", True )
-                    , ( "toggle-active", model.showFetchers )
-                    ]
-                , Html.Events.onClick ToggleFetchers
-                ]
-                [ Html.text "Fetchers" ]
-            , Html.button
-                [ Attr.classList
-                    [ ( "toggle-button", True )
-                    , ( "toggle-active", model.showCookies )
-                    ]
-                , Html.Events.onClick ToggleCookies
-                ]
-                [ Html.text "Cookies" ]
-            , Html.button
-                [ Attr.classList
-                    [ ( "toggle-button", True )
-                    , ( "toggle-active", model.showEffects )
-                    ]
-                , Html.Events.onClick ToggleEffects
-                ]
-                [ Html.text "Effects" ]
+            , viewChannelToggle
+                { on = model.showNetwork
+                , msg = ToggleNetwork
+                , label = "Network"
+                , icon = Icons.eventNetworkSized
+                }
+            , viewChannelToggle
+                { on = model.showFetchers
+                , msg = ToggleFetchers
+                , label = "Fetchers"
+                , icon = Icons.eventFetcherSized
+                }
+            , viewChannelToggle
+                { on = model.showCookies
+                , msg = ToggleCookies
+                , label = "Cookies"
+                , icon = Icons.eventCookieSized
+                }
+            , viewChannelToggle
+                { on = model.showEffects
+                , msg = ToggleEffects
+                , label = "Effects"
+                , icon = Icons.eventEffectSized
+                }
             , Html.button
                 [ Attr.classList
                     [ ( "toggle-button", True )
@@ -1086,6 +1078,39 @@ viewHeader model =
                 ]
                 [ Html.text "Model" ]
             ]
+        ]
+
+
+{-| A header toggle with a channel glyph + label. The glyph takes the
+button's own active / inactive color (not the channel color) so the
+toolbar reads as a uniform strip; the channel color lives on the rail
+dots and panel headers instead.
+-}
+viewChannelToggle :
+    { on : Bool
+    , msg : Msg
+    , label : String
+    , icon : Int -> String -> Html Msg
+    }
+    -> Html Msg
+viewChannelToggle cfg =
+    let
+        iconColor =
+            if cfg.on then
+                "#4cc9f0"
+
+            else
+                "#556677"
+    in
+    Html.button
+        [ Attr.classList
+            [ ( "toggle-button", True )
+            , ( "toggle-active", cfg.on )
+            ]
+        , Html.Events.onClick cfg.msg
+        ]
+        [ cfg.icon 12 iconColor
+        , Html.text cfg.label
         ]
 
 
@@ -1494,19 +1519,19 @@ viewStepEventDots : Model -> StepEvents -> Html Msg
 viewStepEventDots model events =
     let
         networkBackendColor =
-            "#7dd3fc"
+            Icons.channelColorNetworkBackend
 
         networkFrontendColor =
-            "#38bdf8"
+            Icons.channelColorNetworkFrontend
 
         fetcherColor =
-            "#86efac"
+            Icons.channelColorFetcher
 
         cookieColor =
-            "#fcd34d"
+            Icons.channelColorCookie
 
         effectColor =
-            "#c4b5fd"
+            Icons.channelColorEffect
 
         dot : Int -> String -> String -> Html Msg -> Html Msg
         dot count label title icon =
@@ -2243,12 +2268,16 @@ viewFetcherInspector currentStep allSnapshots =
                 , Html.div [ Attr.class "fetcher-lanes" ]
                     [ Html.div [ Attr.class "fetcher-lane fetcher-lane-submit" ]
                         [ Html.span [ Attr.class "fetcher-lane-label" ]
-                            [ Html.text "SUBMIT ↑" ]
+                            [ Icons.eventFetcherSubmit 10 Icons.channelColorFetcher
+                            , Html.text "SUBMIT"
+                            ]
                         , submitLaneBody
                         ]
                     , Html.div [ Attr.class "fetcher-lane fetcher-lane-resolve" ]
                         [ Html.span [ Attr.class "fetcher-lane-label" ]
-                            [ Html.text "RESOLVE ↓" ]
+                            [ Icons.eventFetcherResolve 10 Icons.channelColorNetworkBackend
+                            , Html.text "RESOLVE"
+                            ]
                         , resolveLaneBody
                         ]
                     ]
@@ -2256,7 +2285,8 @@ viewFetcherInspector currentStep allSnapshots =
     in
     Html.div [ Attr.class "fetcher-inspector" ]
         [ Html.div [ Attr.class "inspector-header" ]
-            [ Html.span [ Attr.class "sidebar-title" ]
+            [ Icons.eventFetcherSized 14 Icons.channelColorFetcher
+            , Html.span [ Attr.class "sidebar-title" ]
                 [ Html.text "Fetchers" ]
             , Html.span [ Attr.class "sidebar-subtitle" ]
                 [ Html.text (String.fromInt (List.length allFetcherIds) ++ " · step " ++ String.fromInt (currentStep + 1))
@@ -2270,7 +2300,10 @@ viewFetcherInspector currentStep allSnapshots =
             ]
         , if List.isEmpty allFetcherIds then
             Html.div [ Attr.class "fetcher-empty" ]
-                [ Html.text "No fetcher submissions in this test." ]
+                [ Html.div [ Attr.class "channel-empty-icon" ]
+                    [ Icons.eventFetcherSized 40 Icons.channelColorFetcher ]
+                , Html.text "No fetcher submissions in this test."
+                ]
 
           else
             Html.div [ Attr.class "fetcher-list" ]
@@ -2302,15 +2335,18 @@ viewEffectInspector : Snapshot -> Html Msg
 viewEffectInspector snapshot =
     Html.div [ Attr.class "effect-inspector" ]
         [ Html.div [ Attr.class "inspector-header" ]
-            [ Html.text
-                ("Effects ("
-                    ++ String.fromInt (List.length snapshot.pendingEffects)
-                    ++ ")"
-                )
+            [ Icons.eventEffectSized 14 Icons.channelColorEffect
+            , Html.span [ Attr.class "sidebar-title" ]
+                [ Html.text "Effects" ]
+            , Html.span [ Attr.class "sidebar-subtitle" ]
+                [ Html.text (String.fromInt (List.length snapshot.pendingEffects) ++ " pending") ]
             ]
         , if List.isEmpty snapshot.pendingEffects then
             Html.div [ Attr.class "effect-empty" ]
-                [ Html.text "No pending effects at this step." ]
+                [ Html.div [ Attr.class "channel-empty-icon" ]
+                    [ Icons.eventEffectSized 40 Icons.channelColorEffect ]
+                , Html.text "No pending effects at this step."
+                ]
 
           else
             Html.div [ Attr.class "effect-list" ]
@@ -2478,7 +2514,8 @@ viewNetworkSidebar model currentStep allSnapshots =
     Html.div [ Attr.class "network-sidebar" ]
         [ Html.div [ Attr.class "network-sidebar-header" ]
             [ Html.div [ Attr.class "network-sidebar-title-row" ]
-                [ Html.span [ Attr.class "sidebar-title" ]
+                [ Icons.eventNetworkSized 14 Icons.channelColorNetworkBackend
+                , Html.span [ Attr.class "sidebar-title" ]
                     [ Html.text "Network" ]
                 , Html.span [ Attr.class "sidebar-subtitle" ]
                     [ Html.text (String.fromInt (List.length visibleLanes))
@@ -2515,7 +2552,9 @@ viewNetworkSidebar model currentStep allSnapshots =
             ]
         , if List.isEmpty visibleLanes then
             Html.div [ Attr.class "network-empty" ]
-                [ Html.text
+                [ Html.div [ Attr.class "channel-empty-icon" ]
+                    [ Icons.eventNetworkSized 40 Icons.channelColorNetworkBackend ]
+                , Html.text
                     (if List.isEmpty allLanes then
                         "No HTTP requests recorded."
 
@@ -2769,14 +2808,18 @@ viewCookieSidebar currentStep allSnapshots =
     in
     Html.div [ Attr.class "cookie-sidebar" ]
         [ Html.div [ Attr.class "cookie-sidebar-header" ]
-            [ Html.span [ Attr.class "sidebar-title" ]
+            [ Icons.eventCookieSized 14 Icons.channelColorCookie
+            , Html.span [ Attr.class "sidebar-title" ]
                 [ Html.text "Cookies" ]
             , Html.span [ Attr.class "sidebar-subtitle" ]
                 [ Html.text "diff · box pills" ]
             ]
         , if List.isEmpty allNames then
             Html.div [ Attr.class "cookie-empty" ]
-                [ Html.text "No cookies set by this test." ]
+                [ Html.div [ Attr.class "channel-empty-icon" ]
+                    [ Icons.eventCookieSized 40 Icons.channelColorCookie ]
+                , Html.text "No cookies set by this test."
+                ]
 
           else
             Html.div [ Attr.class "cookie-list" ]
@@ -4111,6 +4154,9 @@ body {
 }
 
 .toggle-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     padding: 4px 10px;
     border: 1px solid #0f3460;
     background: transparent;
@@ -4656,7 +4702,7 @@ body {
 
 .network-sidebar-title-row {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 8px;
 }
 
@@ -4703,11 +4749,24 @@ body {
     color: #7dd3fc;
 }
 
-.network-empty {
-    padding: 14px;
+.network-empty,
+.cookie-empty,
+.fetcher-empty,
+.effect-empty {
+    padding: 28px 14px 24px;
     color: #5c6a7e;
     font-size: 12px;
     font-style: italic;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.channel-empty-icon {
+    opacity: 0.25;
+    line-height: 0;
 }
 
 .network-list {
@@ -5013,17 +5072,11 @@ body {
     padding: 10px 14px 8px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 8px;
     flex-shrink: 0;
 }
 
-.cookie-empty {
-    padding: 14px;
-    color: #5c6a7e;
-    font-size: 12px;
-    font-style: italic;
-}
 
 .cookie-list {
     overflow-y: auto;
@@ -5512,12 +5565,6 @@ body {
     font-size: inherit;
 }
 
-.fetcher-empty {
-    padding: 10px 14px 12px;
-    color: #5c6a7e;
-    font-size: 12px;
-    font-style: italic;
-}
 
 .fetcher-list {
     padding: 4px 0 8px;
@@ -5616,6 +5663,9 @@ body {
 }
 
 .fetcher-lane-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     font-family: "JetBrains Mono", monospace;
     font-size: 9px;
     font-weight: 700;
@@ -5676,12 +5726,6 @@ body {
     border-radius: 6px 6px 0 0;
 }
 
-.effect-empty {
-    padding: 8px 12px 12px;
-    color: #556677;
-    font-size: 12px;
-    font-style: italic;
-}
 
 .effect-list {
     padding: 4px 0 8px;
@@ -5724,6 +5768,9 @@ body {
     text-transform: uppercase;
     letter-spacing: 0.5px;
     padding: 8px 12px 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .inspector-body {

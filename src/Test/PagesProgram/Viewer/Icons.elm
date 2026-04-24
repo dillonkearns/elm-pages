@@ -1,9 +1,20 @@
 module Test.PagesProgram.Viewer.Icons exposing
     ( Kind(..)
+    , channelColorCookie
+    , channelColorEffect
+    , channelColorFetcher
+    , channelColorNetworkBackend
+    , channelColorNetworkFrontend
     , eventCookie
+    , eventCookieSized
     , eventEffect
+    , eventEffectSized
     , eventFetcher
+    , eventFetcherResolve
+    , eventFetcherSized
+    , eventFetcherSubmit
     , eventNetwork
+    , eventNetworkSized
     , kindColor
     , kindFromSnapshot
     , stepKind
@@ -255,12 +266,24 @@ iconWarn color =
 
 
 
--- EVENT-CHANNEL ICONS (size 10, rendered on the right edge of the step row)
+-- EVENT-CHANNEL ICONS (shared glyphs for rail dots, toolbar toggles,
+-- panel headers, and empty states). The bare `eventX` helpers are
+-- kept as 10px shortcuts for the rail; `eventXSized` takes an explicit
+-- pixel size for the larger contexts.
 
 
 eventNetwork : String -> Html msg
 eventNetwork color =
-    strokeSvg "10" "10" "0 0 12 12" color "1.4"
+    eventNetworkSized 10 color
+
+
+eventNetworkSized : Int -> String -> Html msg
+eventNetworkSized size color =
+    let
+        s =
+            String.fromInt size
+    in
+    strokeSvg s s "0 0 12 12" color "1.4"
         [ circle [ attr "cx" "6", attr "cy" "6", attr "r" "4.2" ]
         , path [ attr "d" "M1.8 6h8.4M6 1.8c1.5 1.7 1.5 6.7 0 8.4M6 1.8c-1.5 1.7-1.5 6.7 0 8.4" ]
         ]
@@ -268,15 +291,59 @@ eventNetwork color =
 
 eventFetcher : String -> Html msg
 eventFetcher color =
-    strokeSvg "10" "10" "0 0 12 12" color "1.5"
+    eventFetcherSized 10 color
+
+
+eventFetcherSized : Int -> String -> Html msg
+eventFetcherSized size color =
+    let
+        s =
+            String.fromInt size
+    in
+    strokeSvg s s "0 0 12 12" color "1.5"
         [ path [ attr "d" "M4 2v8M2.5 3.5L4 2l1.5 1.5" ]
         , path [ attr "d" "M8 10V2M6.5 8.5L8 10l1.5-1.5" ]
         ]
 
 
+{-| Half of the fetcher glyph — only the up-arrow. For SUBMIT lane labels
+where the "up" direction carries the semantics.
+-}
+eventFetcherSubmit : Int -> String -> Html msg
+eventFetcherSubmit size color =
+    let
+        s =
+            String.fromInt size
+    in
+    strokeSvg s s "0 0 12 12" color "1.5"
+        [ path [ attr "d" "M6 2v8M4.5 3.5L6 2l1.5 1.5" ] ]
+
+
+{-| Half of the fetcher glyph — only the down-arrow. For RESOLVE lane
+labels.
+-}
+eventFetcherResolve : Int -> String -> Html msg
+eventFetcherResolve size color =
+    let
+        s =
+            String.fromInt size
+    in
+    strokeSvg s s "0 0 12 12" color "1.5"
+        [ path [ attr "d" "M6 10V2M4.5 8.5L6 10l1.5-1.5" ] ]
+
+
 eventCookie : String -> Html msg
 eventCookie color =
-    strokeSvg "10" "10" "0 0 12 12" color "1.2"
+    eventCookieSized 10 color
+
+
+eventCookieSized : Int -> String -> Html msg
+eventCookieSized size color =
+    let
+        s =
+            String.fromInt size
+    in
+    strokeSvg s s "0 0 12 12" color "1.2"
         [ path [ attr "d" "M6 1.5a4.5 4.5 0 1 0 4.5 4.5c-1 0-1.8-.8-1.8-1.8 0-.9-.8-1.7-1.7-1.7-.6 0-1-.4-1-1z" ]
         , circle [ attr "cx" "4.5", attr "cy" "6", attr "r" "0.5", attr "fill" color ]
         , circle [ attr "cx" "6.5", attr "cy" "8", attr "r" "0.5", attr "fill" color ]
@@ -286,7 +353,16 @@ eventCookie color =
 
 eventEffect : String -> Html msg
 eventEffect color =
-    svg "10" "10" "0 0 12 12"
+    eventEffectSized 10 color
+
+
+eventEffectSized : Int -> String -> Html msg
+eventEffectSized size color =
+    let
+        s =
+            String.fromInt size
+    in
+    svg s s "0 0 12 12"
         [ path
             [ attr "d" "M6 1.5l.9 2.6L9.5 5l-2.6.9L6 8.5l-.9-2.6L2.5 5l2.6-.9z"
             , attr "fill" color
@@ -296,6 +372,37 @@ eventEffect color =
             , attr "fill" color
             ]
         ]
+
+
+{-| Channel color tokens. Each channel has one canonical color for
+rail dots, panel headers, and empty-state glyphs. The toolbar is the
+exception — toolbar buttons paint the glyph with the button's own
+active/inactive color instead of the channel color, so all toggle
+buttons read as a uniform row.
+-}
+channelColorNetworkBackend : String
+channelColorNetworkBackend =
+    "#7dd3fc"
+
+
+channelColorNetworkFrontend : String
+channelColorNetworkFrontend =
+    "#38bdf8"
+
+
+channelColorFetcher : String
+channelColorFetcher =
+    "#86efac"
+
+
+channelColorCookie : String
+channelColorCookie =
+    "#fcd34d"
+
+
+channelColorEffect : String
+channelColorEffect =
+    "#c4b5fd"
 
 
 
