@@ -3030,11 +3030,11 @@ viewCookieStack currentStep totalSteps name events =
                         }
 
                 else
-                    -- The cookie hasn't changed at the current step; the diff
-                    -- would just echo an old change. Leave the pills and the
-                    -- Attributes + raw value accordion to carry the current
-                    -- state.
-                    Html.text ""
+                    viewCookieCurrentCard
+                        { eventStep = evStep
+                        , event = ev
+                        , signed = signed
+                        }
 
             Nothing ->
                 Html.div [ Attr.class "cookie-stack-empty" ] [ Html.text "not set yet" ]
@@ -3238,6 +3238,59 @@ rawRemovedRow value =
         ]
 
 
+rawCurrentRow : String -> Html Msg
+rawCurrentRow value =
+    Html.div [ Attr.class "cookie-raw-row cookie-raw-row-current" ]
+        [ Html.span [ Attr.class "cookie-raw-sign" ] [ Html.text " " ]
+        , Html.span [ Attr.class "cookie-raw-value-text" ] [ Html.text value ]
+        ]
+
+
+{-| The "held value" panel shown on steps where nothing changed at the
+current step. Title tells the reader when the value was last written;
+the body shows the current contents with no +/- markers so the reader
+sees this as a state snapshot, not a diff.
+
+For `CookieRemoved` events on non-change steps (i.e. the cookie has been
+gone for a while) we render nothing — the box-pill row already tells the
+story.
+
+-}
+viewCookieCurrentCard :
+    { eventStep : Int
+    , event : CookieEvent
+    , signed : Maybe { secret : String, values : Encode.Value }
+    }
+    -> Html Msg
+viewCookieCurrentCard cfg =
+    case cfg.event of
+        CookieRemoved ->
+            Html.text ""
+
+        _ ->
+            let
+                titleText =
+                    "CURRENT · held since step " ++ String.fromInt (cfg.eventStep + 1)
+
+                bodyRows =
+                    case cfg.signed of
+                        Just sig ->
+                            viewDecodedPayloadStatic sig.values
+
+                        Nothing ->
+                            case cookieEventEntry cfg.event of
+                                Just entry ->
+                                    [ rawCurrentRow entry.value ]
+
+                                Nothing ->
+                                    []
+            in
+            Html.div [ Attr.class "cookie-diff-card cookie-current-card" ]
+                (Html.div [ Attr.class "cookie-diff-card-title" ] [ Html.text titleText ]
+                    :: bodyRows
+                )
+
+
 viewCookieAttrTable : CookieEntry -> Html Msg
 viewCookieAttrTable entry =
     Html.div [ Attr.class "cookie-attr-table" ]
@@ -3393,6 +3446,35 @@ viewDecodedPayloadRows currentStep previousValues values =
     in
     [ viewPayloadSection "PERSISTENT" Nothing persistentRows
     , viewPayloadSection "FLASH" (Just "ONE-SHOT") flashRows
+    ]
+
+
+{-| Static (non-diff) rendering of a signed cookie's decoded payload. All rows
+are `KeyUnchanged` so nothing shows a +/- sign or diff color — just the
+current contents, split into PERSISTENT + FLASH sections.
+-}
+viewDecodedPayloadStatic : Encode.Value -> List (Html Msg)
+viewDecodedPayloadStatic values =
+    let
+        pairs =
+            Decode.decodeValue (Decode.keyValuePairs Decode.string) values
+                |> Result.withDefault []
+
+        ( flash, persistent ) =
+            List.partition (\( k, _ ) -> String.startsWith BackendTaskTest.sessionFlashPrefix k) pairs
+
+        flashStripped =
+            flash
+                |> List.map
+                    (\( k, v ) ->
+                        ( String.dropLeft (String.length BackendTaskTest.sessionFlashPrefix) k, v )
+                    )
+
+        asUnchanged =
+            List.map (\( k, v ) -> ( k, v, KeyUnchanged ))
+    in
+    [ viewPayloadSection "PERSISTENT" Nothing (asUnchanged persistent)
+    , viewPayloadSection "FLASH" (Just "ONE-SHOT") (asUnchanged flashStripped)
     ]
 
 
