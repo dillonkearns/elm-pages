@@ -2098,7 +2098,7 @@ viewRenderedPageWithOptions viewportWidth maybePreviewMode snapshot =
                 , Html.span [ Attr.class "dot dot-yellow" ] []
                 , Html.span [ Attr.class "dot dot-green" ] []
                 ]
-            , Html.text snapshot.title
+            , Html.span [ Attr.class "page-title-text" ] [ Html.text snapshot.title ]
             , case maybePreviewMode of
                 Just Before ->
                     Html.span [ Attr.class "preview-mode-badge preview-mode-before" ] [ Html.text "BEFORE" ]
@@ -4440,14 +4440,23 @@ body {
     outline: none;
 }
 
+/* Fixed-column grid keeps every step row's verb-icon, arg-cell, and
+   channel-gutter at the same x-coordinates regardless of label width.
+   Columns: [step-number 22px] [verb-icon 18px] [arg cell 1fr]
+            [channel-gutter 76px]. The 1fr cell needs `min-width: 0` on
+   its child for ellipsis to work — otherwise the label content forces
+   the column wider and breaks alignment for every other row. */
 .step-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: 22px 18px 1fr 76px;
     align-items: center;
-    gap: 8px;
-    padding: 6px 12px 6px 10px;
+    column-gap: 7px;
+    padding: 4px 10px 4px 4px;
     cursor: pointer;
     border-left: 2px solid transparent;
     transition: background 0.08s, border-color 0.08s, color 0.08s;
+    position: relative;
+    line-height: 1.3;
 }
 
 .step-row:hover {
@@ -4495,7 +4504,7 @@ body {
 }
 
 .step-row-child {
-    padding-left: 28px;
+    padding-left: 24px;
     font-size: 11px;
 }
 
@@ -4512,7 +4521,6 @@ body {
 .step-number {
     font-size: 11px;
     color: #556677;
-    min-width: 22px;
     text-align: right;
     font-variant-numeric: tabular-nums;
 }
@@ -4521,10 +4529,7 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 18px;
-    width: 18px;
     height: 16px;
-    flex-shrink: 0;
     color: #8896a6;
 }
 
@@ -4547,37 +4552,44 @@ body {
     color: #e74c3c;
 }
 
-/* Rail header — once at the top of the rail, columns aligned with the
-   gutter cells below so the four-channel layout is learnable without a
-   legend. */
+/* Rail header — sticky at the top of the rail, on the same 4-col grid
+   as the step rows so the channel glyphs sit exactly above the gutter
+   cells in the data rows below. */
 
 .rail-column-header {
-    display: flex;
-    justify-content: flex-end;
-    padding: 6px 12px 4px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    display: grid;
+    grid-template-columns: 22px 18px 1fr 76px;
+    align-items: center;
+    column-gap: 7px;
+    padding: 6px 10px 4px 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     margin-bottom: 2px;
-    opacity: 0.6;
+    position: sticky;
+    top: 0;
+    background: #16213e;
+    z-index: 1;
+    opacity: 0.75;
 }
 
 .rail-column-header-gutter {
+    grid-column: 4;
     margin-left: 0;
     opacity: 1;
 }
 
-/* 4-cell channel-activity gutter on the right edge of every step row.
+/* 4-cell channel-activity gutter, occupying column 4 of the row grid.
    Cells share a fixed x-coordinate so the eye can scan straight down a
    single channel column without horizontal jitter. Empty cells render a
-   tiny dim dot rather than collapsing — the column has to stay aligned. */
+   tiny dim dot rather than collapsing. `justify-content: end` hugs the
+   gutter to the right edge of its 76px column. */
 
 .step-channel-gutter {
-    display: inline-grid;
+    display: grid;
     grid-template-columns: repeat(4, 14px);
+    column-gap: 2px;
     align-items: center;
     justify-items: center;
-    column-gap: 4px;
-    margin-left: 8px;
-    flex-shrink: 0;
+    justify-content: end;
     opacity: 0.85;
 }
 
@@ -4624,7 +4636,7 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    flex: 1;
+    min-width: 0;
 }
 
 .step-row-active .step-label {
@@ -4767,6 +4779,9 @@ body {
     color: #8899aa;
 }
 
+/* Group-parent rows: when present, the toggle is the 5th child of the
+   4-column grid. Position it absolutely so it doesn't wrap onto an
+   implicit grid row and break alignment for the row's other cells. */
 .step-group-toggle {
     font-size: 10px;
     color: #556677;
@@ -4774,8 +4789,11 @@ body {
     padding: 1px 6px;
     border-radius: 3px;
     cursor: pointer;
-    margin-left: auto;
     white-space: nowrap;
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
 }
 
 .step-group-toggle:hover {
@@ -4785,12 +4803,14 @@ body {
 
 /* Named group headers */
 
+/* Section header — same 4-col grid as step rows so the title aligns
+   with step labels and the count sits in the channel-gutter column. */
 .named-group-header {
-    display: flex;
+    display: grid;
+    grid-template-columns: 22px 18px 1fr 76px;
     align-items: center;
-    justify-content: space-between;
-    gap: 6px;
-    padding: 10px 14px 3px;
+    column-gap: 7px;
+    padding: 10px 10px 3px 4px;
     cursor: pointer;
     background: transparent;
     border-left: 2px solid transparent;
@@ -4808,20 +4828,26 @@ body {
 }
 
 .named-group-icon {
+    grid-column: 1;
+    justify-self: end;
     font-size: 8px;
     opacity: 0.7;
     color: currentColor;
-    margin-right: 2px;
 }
 
 .named-group-name {
-    flex: 1;
+    grid-column: 2 / 4;
     font-weight: 600;
     color: inherit;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .named-group-count {
-    margin-left: auto;
+    grid-column: 4;
+    text-align: right;
     font-size: 9px;
     font-weight: 400;
     color: inherit;
@@ -4912,6 +4938,20 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
+    min-width: 0;
+    overflow: hidden;
+}
+
+/* Ellipsis on the title so a long URL or test name can't shove the
+   BEFORE/AFTER badge past the iframe's right edge on narrow viewports.
+   The wrapping `.rendered-page` already has `overflow: hidden`, but
+   without ellipsis here the badge would just clip mid-character. */
+.page-title-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .page-title-dots {
@@ -4960,7 +5000,7 @@ body {
 }
 
 .preview-mode-badge {
-    margin-left: auto;
+    flex-shrink: 0;
     font-size: 10px;
     font-weight: 700;
     padding: 1px 8px;
