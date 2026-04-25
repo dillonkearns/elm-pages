@@ -333,6 +333,20 @@ function testAppModule(templates) {
 `;
   }
 
+  // Per-route prefix strips. `Main.PageData` / `Main.PageModel` aren't
+  // exposed with their variants, so we can't pattern-match on them from
+  // TestApp. Instead, we run `Debug.toString` and strip the leading
+  // generated constructor name (e.g. "DataLogin ") so the user only
+  // sees the inner record they actually wrote. The `> "" ` ordering
+  // matters: longer/more-specific names go first to avoid shadowing.
+  const pageModelStrips = templates
+    .map((name) => `                |> String.replace "Model${name.join("__")} " ""`)
+    .join("\n");
+
+  const pageDataStrips = templates
+    .map((name) => `                |> String.replace "Data${name.join("__")} " ""`)
+    .join("\n");
+
   return `module TestApp exposing (start, ProgramTest)
 
 {-| Generated test module for elm-pages route testing.
@@ -420,8 +434,61 @@ it alongside the initial path:
         |> PagesProgram.done
 
 -}
-start =
-    Test.PagesProgram.start Effect.testPerform Main.config
+start initialPath testSetup =
+    let
+        baseConfig =
+            Main.config
+    in
+    Test.PagesProgram.start
+        Effect.testPerform
+        -- Override the codegen stub for pageModelToString (which
+        -- production builds set to a no-op so Debug.toString doesn't
+        -- ship to optimized bundles). The test viewer is a dev-only
+        -- artifact, so we can use Debug.toString here to populate
+        -- the Model inspector with the real user model at every step.
+        { baseConfig | pageModelToString = Debug.toString }
+        initialPath
+        testSetup
+        |> Test.PagesProgram.withModelInspector viewerStateString
+
+
+{-| Build the snapshot string the visual test runner shows in the
+Model tab. Surfaces the three things the test author actually cares
+about — the resolved Data, the route module's Model, and Shared.Model
+— while hiding the framework's internal wrappers (current, pageUrl,
+metadata, ModelVisibility__-style variants, etc.) that aren't
+user-defined.
+-}
+viewerStateString : { wrappedModel | platformModel : Pages.Internal.Platform.Model Main.Model Main.PageData Main.ActionData Shared.Data } -> String
+viewerStateString wm =
+    case wm.platformModel.pageData of
+        Ok pd ->
+            "{ data = "
+                ++ stripDataPrefix (Debug.toString pd.pageData)
+                ++ ", model = "
+                ++ stripModelPrefix (Debug.toString pd.userModel.page)
+                ++ ", shared = "
+                ++ Debug.toString pd.userModel.global
+                ++ " }"
+
+        Err err ->
+            "(error: " ++ err ++ ")"
+
+
+stripModelPrefix : String -> String
+stripModelPrefix s =
+    s
+${pageModelStrips}
+                |> String.replace "ModelErrorPage____ " ""
+                |> String.replace "NotFound" "(not-found)"
+
+
+stripDataPrefix : String -> String
+stripDataPrefix s =
+    s
+${pageDataStrips}
+                |> String.replace "Data404NotFoundPage____" "(404)"
+                |> String.replace "DataErrorPage____ " ""
 `;
 }
 
