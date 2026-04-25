@@ -2759,9 +2759,23 @@ viewModelInspectorBody expandedNodes previousSnapshot snapshot =
 
                                 Nothing ->
                                     Dict.empty
+
+                        -- Auto-expand the path to every changed line so the
+                        -- user actually sees the marks while scrolling. The
+                        -- user's manual expanded set is kept separate; the
+                        -- two are unioned at render time. Collapsing a node
+                        -- that has a change inside it will spring back open
+                        -- on the next step transition (auto-expand wins),
+                        -- but that's the right call — the diff is the most
+                        -- relevant signal at the moment of transition.
+                        autoExpanded =
+                            autoExpandedFromDiffs diffs
+
+                        effectiveExpanded =
+                            Set.union expandedNodes autoExpanded
                     in
                     DebugParser.viewValue
-                        { expanded = expandedNodes
+                        { expanded = effectiveExpanded
                         , onToggle = ToggleModelNode
                         , diffs = diffs
                         }
@@ -2774,6 +2788,34 @@ viewModelInspectorBody expandedNodes previousSnapshot snapshot =
                             [ Html.text "DebugParser couldn't parse this snapshot — falling back to raw text. Copy the contents below and share them so the parser can be patched." ]
                         , Html.pre [ Attr.class "model-parse-error-raw" ] [ Html.text modelStr ]
                         ]
+
+
+{-| For every changed path in the diff, emit the path itself and all
+of its ancestors. Without this the user would only see the change
+mark if the containing record / list / variant was already expanded
+in their session.
+
+E.g. a change at `root.app.data.entries.0.completed` returns
+`{root, root.app, root.app.data, root.app.data.entries,
+root.app.data.entries.0, root.app.data.entries.0.completed}`. The
+leaf path is harmless — leaves don't render a toggle anyway.
+-}
+autoExpandedFromDiffs : Dict String DebugParser.DiffKind -> Set String
+autoExpandedFromDiffs diffs =
+    diffs
+        |> Dict.keys
+        |> List.concatMap pathAndAncestors
+        |> Set.fromList
+
+
+pathAndAncestors : String -> List String
+pathAndAncestors path =
+    let
+        parts =
+            String.split "." path
+    in
+    List.range 1 (List.length parts)
+        |> List.map (\n -> parts |> List.take n |> String.join ".")
 
 
 {-| Icon-event chip vocabulary shared by the Network and Fetcher panels.
