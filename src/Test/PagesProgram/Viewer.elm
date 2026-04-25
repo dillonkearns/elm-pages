@@ -993,6 +993,84 @@ testHasError test =
         |> List.any (\s -> s.stepKind == Error)
 
 
+{-| Split a `Module.Name.testName` style identifier into its module path
+and the test function name. Used by the suite overview to group tests
+under their owning module.
+-}
+splitTestName : String -> { module_ : String, name : String }
+splitTestName fullName =
+    case String.split "." fullName |> List.reverse of
+        last :: revRest ->
+            { module_ = revRest |> List.reverse |> String.join "."
+            , name = last
+            }
+
+        [] ->
+            { module_ = "", name = fullName }
+
+
+{-| Group tests by their module name, preserving each test's original
+index in the test list (so click-to-open still navigates correctly).
+Groups appear in first-encounter order; tests within a group preserve
+declaration order with failing tests bubbled to the top.
+-}
+groupTestsByModule : List NamedTest -> List ( String, List ( Int, NamedTest ) )
+groupTestsByModule tests =
+    let
+        ordered =
+            tests
+                |> List.indexedMap Tuple.pair
+                |> List.foldl
+                    (\( idx, t ) acc ->
+                        let
+                            mod =
+                                (splitTestName t.name).module_
+                        in
+                        case List.partition (\( m, _ ) -> m == mod) acc of
+                            ( [ ( _, existing ) ], rest ) ->
+                                rest ++ [ ( mod, existing ++ [ ( idx, t ) ] ) ]
+
+                            _ ->
+                                acc ++ [ ( mod, [ ( idx, t ) ] ) ]
+                    )
+                    []
+    in
+    ordered
+        |> List.map
+            (\( mod, members ) ->
+                ( mod
+                , members
+                    |> List.sortBy
+                        (\( _, t ) ->
+                            if testHasError t then
+                                0
+
+                            else
+                                1
+                        )
+                )
+            )
+
+
+{-| Locate the snapshot that triggered a test failure. Returns the
+1-indexed step number plus the error message if found.
+-}
+firstErrorAt : NamedTest -> Maybe { atStep : Int, errorMsg : String }
+firstErrorAt test =
+    test.snapshots
+        |> List.indexedMap Tuple.pair
+        |> List.filterMap
+            (\( i, s ) ->
+                case ( s.stepKind, s.errorMessage ) of
+                    ( Error, Just msg ) ->
+                        Just { atStep = i + 1, errorMsg = msg }
+
+                    _ ->
+                        Nothing
+            )
+        |> List.head
+
+
 -- VIEW
 
 
@@ -1002,28 +1080,49 @@ view model =
     , body =
         [ Html.node "style" [] [ Html.text css ]
         , Html.div [ Attr.class "viewer" ]
-            [ viewHeader model
-            , Html.div [ Attr.class "viewer-body" ]
-                [ viewSidebar model
-                , viewMainPanel model
-                , if model.showNetwork then
-                    viewNetworkSidebar model
-                        (displayedStepIndex model)
-                        (currentSnapshots model)
+            (case model.sidebarMode of
+                TestList ->
+                    viewSuiteOverview model
 
-                  else
-                    Html.text ""
-                , if model.showCookies then
-                    viewCookieSidebar
-                        (displayedStepIndex model)
-                        (currentSnapshots model)
-
-                  else
-                    Html.text ""
-                ]
-            ]
+                CommandLog ->
+                    viewCommandLogShell model
+            )
         ]
     }
+
+
+viewSuiteOverview : Model -> List (Html Msg)
+viewSuiteOverview model =
+    [ viewHeader model
+    , Html.div [ Attr.class "viewer-body suite-overview-body" ]
+        [ viewTestListSidebar model
+        , viewSuiteMain model
+        ]
+    ]
+
+
+viewCommandLogShell : Model -> List (Html Msg)
+viewCommandLogShell model =
+    [ viewHeader model
+    , Html.div [ Attr.class "viewer-body" ]
+        [ viewSidebar model
+        , viewMainPanel model
+        , if model.showNetwork then
+            viewNetworkSidebar model
+                (displayedStepIndex model)
+                (currentSnapshots model)
+
+          else
+            Html.text ""
+        , if model.showCookies then
+            viewCookieSidebar
+                (displayedStepIndex model)
+                (currentSnapshots model)
+
+          else
+            Html.text ""
+        ]
+    ]
 
 
 viewHeader : Model -> Html Msg
@@ -1203,85 +1302,123 @@ viewSidebar model =
 viewTestListSidebar : Model -> Html Msg
 viewTestListSidebar model =
     let
-        filteredTests =
-            if String.isEmpty model.searchQuery then
-                model.tests |> List.indexedMap Tuple.pair
+        q =
+            String.toLower model.searchQuery
+
+        matchesFilter t =
+            String.isEmpty q || String.contains q (String.toLower t.name)
+
+        filteredGroups =
+            groupTestsByModule model.tests
+                |> List.filterMap
+                    (\( mod, members ) ->
+                        case List.filter (\( _, t ) -> matchesFilter t) members of
+                            [] ->
+                                Nothing
+
+                            kept ->
+                                Just ( mod, kept )
+                    )
+
+        totalTests =
+            List.length model.tests
+    in
+    Html.aside [ Attr.class "suite-sidebar" ]
+        [ Html.div [ Attr.class "suite-sidebar-header" ]
+            [ Html.div [ Attr.class "suite-sidebar-title" ]
+                [ Html.text (String.fromInt totalTests ++ " tests") ]
+            , Html.input
+                [ Attr.class "suite-filter-input"
+                , Attr.placeholder "Filter tests…"
+                , Attr.value model.searchQuery
+                , Html.Events.onInput UpdateSearch
+                ]
+                []
+            ]
+        , Html.div [ Attr.class "suite-sidebar-list" ]
+            (if List.isEmpty filteredGroups then
+                [ Html.div [ Attr.class "suite-sidebar-empty" ]
+                    [ Html.text "No tests match" ]
+                ]
+
+             else
+                filteredGroups |> List.map (viewSuiteSidebarGroup model)
+            )
+        ]
+
+
+viewSuiteSidebarGroup : Model -> ( String, List ( Int, NamedTest ) ) -> Html Msg
+viewSuiteSidebarGroup model ( mod, members ) =
+    let
+        total =
+            List.length members
+
+        failing =
+            members |> List.filter (\( _, t ) -> testHasError t) |> List.length
+
+        statusBadge =
+            if failing > 0 then
+                Html.span [ Attr.class "suite-group-count suite-group-count-failing" ]
+                    [ Html.text ("✗ " ++ String.fromInt failing ++ " / " ++ String.fromInt total) ]
 
             else
-                let
-                    q =
-                        String.toLower model.searchQuery
-                in
-                model.tests
-                    |> List.indexedMap Tuple.pair
-                    |> List.filter (\( _, t ) -> String.contains q (String.toLower t.name))
+                Html.span [ Attr.class "suite-group-count suite-group-count-passing" ]
+                    [ Html.text ("✓ " ++ String.fromInt total) ]
     in
-    Html.div [ Attr.class "sidebar" ]
-        [ Html.div [ Attr.class "sidebar-header" ]
-            [ Html.span [ Attr.class "sidebar-title" ]
-                [ Html.text
-                    (String.fromInt (List.length model.tests) ++ " Tests")
-                ]
-            , if List.length model.tests > 3 then
-                Html.input
-                    [ Attr.class "search-input"
-                    , Attr.placeholder "Filter tests..."
-                    , Attr.value model.searchQuery
-                    , Html.Events.onInput UpdateSearch
-                    ]
-                    []
-
-              else
-                Html.text ""
+    Html.div [ Attr.class "suite-group" ]
+        [ Html.div [ Attr.class "suite-group-header" ]
+            [ Html.span [ Attr.class "suite-group-name" ] [ Html.text mod ]
+            , statusBadge
             ]
-        , Html.div [ Attr.class "sidebar-steps", Attr.id "sidebar-steps" ]
-            (filteredTests
-                |> List.map
-                    (\( i, test ) ->
-                        let
-                            hasError =
-                                testHasError test
+        , Html.div [ Attr.class "suite-group-tests" ]
+            (members |> List.map (viewSuiteSidebarTestRow model))
+        ]
 
-                            stepCount =
-                                List.length test.snapshots
 
-                            isSelected =
-                                i == model.currentTestIndex
-                        in
-                        Html.div
-                            [ Attr.classList
-                                [ ( "test-list-row", True )
-                                , ( "test-list-row-selected", isSelected )
-                                , ( "test-list-row-error", hasError )
-                                ]
-                            , Html.Events.onClick (GoToTest i)
-                            ]
-                            [ Html.span
-                                [ Attr.class "test-list-indicator"
-                                , Attr.style "color"
-                                    (if hasError then
-                                        "#e74c3c"
+viewSuiteSidebarTestRow : Model -> ( Int, NamedTest ) -> Html Msg
+viewSuiteSidebarTestRow model ( idx, test ) =
+    let
+        hasError =
+            testHasError test
 
-                                     else
-                                        "#7ee787"
-                                    )
-                                ]
-                                [ Html.text
-                                    (if hasError then
-                                        "x"
+        stepCount =
+            List.length test.snapshots
 
-                                     else
-                                        "o"
-                                    )
-                                ]
-                            , Html.div [ Attr.class "test-list-info" ]
-                                [ Html.div [ Attr.class "test-list-name", Attr.title test.name ] [ Html.text test.name ]
-                                , Html.div [ Attr.class "test-list-meta" ]
-                                    [ Html.text (String.fromInt stepCount ++ " steps") ]
-                                ]
-                            ]
-                    )
-            )
+        nameOnly =
+            (splitTestName test.name).name
+
+        meta =
+            case firstErrorAt test of
+                Just { atStep } ->
+                    Html.span [ Attr.class "suite-test-meta" ]
+                        [ Html.text (String.fromInt stepCount ++ " steps")
+                        , Html.span [ Attr.class "suite-test-meta-failure" ]
+                            [ Html.text (" · failed at " ++ String.fromInt atStep) ]
+                        ]
+
+                Nothing ->
+                    Html.span [ Attr.class "suite-test-meta" ]
+                        [ Html.text (String.fromInt stepCount ++ " steps") ]
+
+        statusGlyph =
+            if hasError then
+                Html.span [ Attr.class "suite-test-status suite-test-status-fail" ] [ Html.text "✗" ]
+
+            else
+                Html.span [ Attr.class "suite-test-status suite-test-status-pass" ] [ Html.text "✓" ]
+    in
+    Html.button
+        [ Attr.classList
+            [ ( "suite-test-row", True )
+            , ( "suite-test-row-fail", hasError )
+            ]
+        , Html.Events.onClick (GoToTest idx)
+        ]
+        [ statusGlyph
+        , Html.div [ Attr.class "suite-test-body" ]
+            [ Html.div [ Attr.class "suite-test-name" ] [ Html.text nameOnly ]
+            , meta
+            ]
         ]
 
 
@@ -2167,6 +2304,124 @@ firstJust f list =
 
                 Nothing ->
                     firstJust f rest
+
+
+{-| Right-area content for the suite overview. Renders the calm
+PassingCard when every test is green, or a stack of FailureCards
+when any test fails. Empty suite (no tests) gets its own card.
+-}
+viewSuiteMain : Model -> Html Msg
+viewSuiteMain model =
+    let
+        failingTests =
+            model.tests
+                |> List.indexedMap Tuple.pair
+                |> List.filter (\( _, t ) -> testHasError t)
+
+        passingCount =
+            List.length model.tests - List.length failingTests
+    in
+    Html.div [ Attr.class "suite-main" ]
+        [ if List.isEmpty model.tests then
+            viewSuiteEmptyCard
+
+          else if List.isEmpty failingTests then
+            viewPassingCard passingCount
+
+          else
+            viewFailureReport failingTests model
+        ]
+
+
+viewSuiteEmptyCard : Html Msg
+viewSuiteEmptyCard =
+    Html.div [ Attr.class "suite-card suite-card-empty" ]
+        [ Html.div [ Attr.class "suite-card-body-text" ]
+            [ Html.text "No tests yet. Add a test to your suite to see it here." ]
+        ]
+
+
+viewPassingCard : Int -> Html Msg
+viewPassingCard count =
+    Html.div [ Attr.class "suite-card suite-card-passing" ]
+        [ Html.div [ Attr.class "suite-card-badge" ]
+            [ Html.span [ Attr.class "suite-card-check" ] [ Html.text "✓" ] ]
+        , Html.h2 [ Attr.class "suite-card-heading" ]
+            [ Html.text (String.fromInt count ++ " tests passing") ]
+        , Html.p [ Attr.class "suite-card-body-text" ]
+            [ Html.text "Suite is healthy. Pick any test on the left to step through it." ]
+        ]
+
+
+viewFailureReport : List ( Int, NamedTest ) -> Model -> Html Msg
+viewFailureReport failingTests _ =
+    let
+        n =
+            List.length failingTests
+    in
+    Html.div [ Attr.class "suite-failure-report" ]
+        [ Html.div [ Attr.class "suite-failure-strip" ]
+            [ Html.text ("Failure report · " ++ String.fromInt n ++ " failing") ]
+        , Html.div [ Attr.class "suite-failure-stack" ]
+            (failingTests |> List.map viewFailureCard)
+        ]
+
+
+viewFailureCard : ( Int, NamedTest ) -> Html Msg
+viewFailureCard ( idx, test ) =
+    let
+        split =
+            splitTestName test.name
+
+        totalSteps =
+            List.length test.snapshots
+
+        atInfo =
+            firstErrorAt test
+    in
+    Html.div [ Attr.class "suite-failure-card" ]
+        [ Html.div [ Attr.class "suite-failure-card-header" ]
+            [ Html.span [ Attr.class "suite-failure-x" ] [ Html.text "✗" ]
+            , Html.div [ Attr.class "suite-failure-card-title-block" ]
+                [ Html.div [ Attr.class "suite-failure-card-title" ]
+                    [ Html.span [ Attr.class "suite-failure-card-module" ]
+                        [ Html.text (split.module_ ++ ".") ]
+                    , Html.span [ Attr.class "suite-failure-card-name" ]
+                        [ Html.text split.name ]
+                    ]
+                , case atInfo of
+                    Just { atStep } ->
+                        Html.div [ Attr.class "suite-failure-card-at-step" ]
+                            [ Html.text
+                                ("failed at step "
+                                    ++ String.fromInt atStep
+                                    ++ " of "
+                                    ++ String.fromInt totalSteps
+                                )
+                            ]
+
+                    Nothing ->
+                        Html.text ""
+                ]
+            , Html.button
+                [ Attr.class "suite-failure-card-open"
+                , Html.Events.onClick (GoToTest idx)
+                ]
+                [ Html.text "Open test →" ]
+            ]
+        , case atInfo of
+            Just { errorMsg } ->
+                Html.div [ Attr.class "suite-failure-card-body" ]
+                    [ Html.div [ Attr.class "suite-failure-row" ]
+                        [ Html.span [ Attr.class "suite-failure-label" ] [ Html.text "Error" ]
+                        , Html.pre [ Attr.class "suite-failure-value suite-failure-value-actual" ]
+                            [ Html.text errorMsg ]
+                        ]
+                    ]
+
+            Nothing ->
+                Html.text ""
+        ]
 
 
 viewMainPanel : Model -> Html Msg
@@ -5048,61 +5303,367 @@ body {
     color: #fcd34d;
 }
 
-/* === TEST LIST === */
+/* === SUITE OVERVIEW === */
 
-.test-list-row {
+.suite-overview-body {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    cursor: pointer;
-    border-left: 3px solid transparent;
-    transition: background 0.08s;
+    flex: 1;
+    min-height: 0;
 }
 
-.test-list-row:hover {
-    background: rgba(76, 201, 240, 0.06);
+.suite-sidebar {
+    width: 260px;
+    flex-shrink: 0;
+    background: #0f1620;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
-.test-list-row-selected {
-    background: rgba(76, 201, 240, 0.1);
-    border-left-color: #4cc9f0;
+.suite-sidebar-header {
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    flex-shrink: 0;
 }
 
-.test-list-row-error {
-    border-left-color: #e74c3c;
-}
-
-.test-list-indicator {
-    font-family: "SF Mono", "Fira Code", monospace;
-    font-size: 12px;
+.suite-sidebar-title {
+    font-size: 9.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #8896a6;
     font-weight: 700;
-    min-width: 16px;
+    margin-bottom: 8px;
+}
+
+.suite-filter-input {
+    width: 100%;
+    padding: 6px 8px;
+    background: #0d1117;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 5px;
+    color: #c8d3e0;
+    font-size: 12px;
+    font-family: inherit;
+}
+
+.suite-filter-input:focus {
+    outline: none;
+    border-color: rgba(125, 211, 252, 0.4);
+}
+
+.suite-sidebar-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0 12px;
+}
+
+.suite-sidebar-empty {
+    padding: 24px 14px;
+    color: #8896a6;
+    font-size: 12px;
     text-align: center;
 }
 
-.test-list-info {
+.suite-group {
+    padding: 4px 0;
+}
+
+.suite-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px 14px 6px;
+}
+
+.suite-group-name {
+    flex: 1;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #a4b1c2;
+    white-space: normal;
+    word-break: normal;
+    line-height: 1.35;
+}
+
+.suite-group-count {
+    flex-shrink: 0;
+    font-family: "JetBrains Mono", "SF Mono", monospace;
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.suite-group-count-passing {
+    color: #86efac;
+}
+
+.suite-group-count-failing {
+    color: #fca5a5;
+}
+
+.suite-group-tests {
+    padding-left: 14px;
+}
+
+.suite-test-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 14px 8px 14px;
+    background: transparent;
+    border: none;
+    border-left: 2px solid transparent;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.08s, border-color 0.08s;
+}
+
+.suite-test-row:hover {
+    background: rgba(125, 211, 252, 0.05);
+}
+
+.suite-test-status {
+    font-family: "JetBrains Mono", "SF Mono", monospace;
+    font-weight: 700;
+    font-size: 11px;
+    margin-top: 3px;
+    width: 12px;
+    flex-shrink: 0;
+}
+
+.suite-test-status-pass {
+    color: #86efac;
+}
+
+.suite-test-status-fail {
+    color: #fca5a5;
+}
+
+.suite-test-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.suite-test-name {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #c8d3e0;
+    word-break: break-word;
+    line-height: 1.35;
+}
+
+.suite-test-row-fail .suite-test-name {
+    color: #fca5a5;
+}
+
+.suite-test-meta {
+    font-family: "JetBrains Mono", "SF Mono", monospace;
+    font-size: 10.5px;
+    font-variant-numeric: tabular-nums;
+    color: #8896a6;
+}
+
+.suite-test-meta-failure {
+    color: #fca5a5;
+}
+
+/* === SUITE MAIN (right area) === */
+
+.suite-main {
+    flex: 1;
+    overflow-y: auto;
+    background: #0d1117;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 32px 40px 48px;
+    min-width: 0;
+}
+
+.suite-card {
+    background: #0f1620;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 40px 56px;
+    max-width: 420px;
+    width: 100%;
+    text-align: center;
+}
+
+.suite-card-passing {
+    margin-top: 80px;
+}
+
+.suite-card-empty {
+    margin-top: 80px;
+}
+
+.suite-card-badge {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: rgba(134, 239, 172, 0.12);
+    border: 1px solid rgba(134, 239, 172, 0.30);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+}
+
+.suite-card-check {
+    color: #86efac;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.suite-card-heading {
+    color: #86efac;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    margin-bottom: 12px;
+}
+
+.suite-card-body-text {
+    color: #a4b1c2;
+    font-size: 13px;
+    line-height: 1.5;
+    max-width: 320px;
+    margin: 0 auto;
+}
+
+/* Failure report (loud state) */
+
+.suite-failure-report {
+    width: 100%;
+    max-width: 720px;
+}
+
+.suite-failure-strip {
+    color: #fca5a5;
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    margin-bottom: 16px;
+}
+
+.suite-failure-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.suite-failure-card {
+    background: #0f1620;
+    border: 1px solid rgba(252, 165, 165, 0.25);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.suite-failure-card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 18px;
+    background: rgba(252, 165, 165, 0.10);
+    border-bottom: 1px solid rgba(252, 165, 165, 0.18);
+}
+
+.suite-failure-x {
+    color: #fca5a5;
+    font-size: 14px;
+    font-weight: 700;
+    margin-top: 2px;
+}
+
+.suite-failure-card-title-block {
     flex: 1;
     min-width: 0;
 }
 
-.test-list-name {
-    font-size: 13px;
-    color: #c0c8d0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.suite-failure-card-title {
+    font-size: 14px;
+    font-weight: 600;
 }
 
-.test-list-row-selected .test-list-name {
-    color: #e0e8f0;
+.suite-failure-card-module {
+    color: #8896a6;
+}
+
+.suite-failure-card-name {
+    color: #c8d3e0;
+}
+
+.suite-failure-card-at-step {
+    margin-top: 4px;
+    font-family: "JetBrains Mono", "SF Mono", monospace;
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+    color: #fca5a5;
     font-weight: 500;
 }
 
-.test-list-meta {
+.suite-failure-card-open {
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid rgba(252, 165, 165, 0.35);
+    color: #fca5a5;
     font-size: 11px;
-    color: #556677;
-    margin-top: 2px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    padding: 6px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.suite-failure-card-open:hover {
+    background: rgba(252, 165, 165, 0.10);
+}
+
+.suite-failure-card-body {
+    padding: 14px 18px;
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    column-gap: 14px;
+    row-gap: 4px;
+    align-items: baseline;
+}
+
+.suite-failure-row {
+    display: contents;
+}
+
+.suite-failure-label {
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #a4b1c2;
+}
+
+.suite-failure-value {
+    font-family: "JetBrains Mono", "SF Mono", monospace;
+    font-size: 12.5px;
+    line-height: 1.5;
+    word-break: break-word;
+    white-space: pre-wrap;
+    margin: 0;
+}
+
+.suite-failure-value-actual {
+    color: #fca5a5;
 }
 
 .search-input {
