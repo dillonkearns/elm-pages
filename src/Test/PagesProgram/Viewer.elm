@@ -2833,7 +2833,7 @@ viewEventChip cfg =
                     ]
                 , Html.Events.onClick (GoToStep cfg.step)
                 ]
-                [ eventKindGlyph cfg.kind 9 "currentColor"
+                [ eventKindGlyph cfg.kind 11 "currentColor"
                 , Html.text (String.fromInt (cfg.step + 1))
                 ]
     in
@@ -3060,7 +3060,7 @@ viewFetcherInspector currentStep allSnapshots =
     in
     Html.div [ Attr.class "fetcher-inspector" ]
         [ Html.div [ Attr.class "inspector-header" ]
-            [ Icons.eventFetcherSized 16 Icons.channelColorFetcher
+            [ Icons.eventFetcherSized 20 Icons.channelColorFetcher
             , Html.span [ Attr.class "sidebar-title" ]
                 [ Html.text "Fetchers" ]
             ]
@@ -3101,7 +3101,7 @@ viewEffectInspector : Snapshot -> Html Msg
 viewEffectInspector snapshot =
     Html.div [ Attr.class "effect-inspector" ]
         [ Html.div [ Attr.class "inspector-header" ]
-            [ Icons.eventEffectSized 16 Icons.channelColorEffect
+            [ Icons.eventEffectSized 20 Icons.channelColorEffect
             , Html.span [ Attr.class "sidebar-title" ]
                 [ Html.text "Effects" ]
             , Html.span [ Attr.class "sidebar-subtitle" ]
@@ -3268,7 +3268,7 @@ viewNetworkSidebar model currentStep allSnapshots =
     Html.div [ Attr.class "network-sidebar" ]
         [ Html.div [ Attr.class "network-sidebar-header" ]
             [ Html.div [ Attr.class "network-sidebar-title-row" ]
-                [ Icons.eventNetworkSized 16 Icons.channelColorNetworkBackend
+                [ Icons.eventNetworkSized 20 Icons.channelColorNetworkBackend
                 , Html.span [ Attr.class "sidebar-title" ]
                     [ Html.text "Network" ]
                 ]
@@ -3588,7 +3588,7 @@ viewCookieSidebar currentStep allSnapshots =
     in
     Html.div [ Attr.class "cookie-sidebar" ]
         [ Html.div [ Attr.class "cookie-sidebar-header" ]
-            [ Icons.eventCookieSized 16 Icons.channelColorCookie
+            [ Icons.eventCookieSized 20 Icons.channelColorCookie
             , Html.span [ Attr.class "sidebar-title" ]
                 [ Html.text "Cookies" ]
             ]
@@ -4948,8 +4948,8 @@ body {
 /* === SIDEBAR === */
 
 .sidebar {
-    width: 320px;
-    min-width: 320px;
+    width: 360px;
+    min-width: 360px;
     display: flex;
     flex-direction: column;
     background: #16213e;
@@ -4957,12 +4957,12 @@ body {
 }
 
 .sidebar-header {
-    padding: 10px 12px 8px;
+    padding: 12px 14px 10px;
     border-bottom: 1px solid #0f3460;
 }
 
 .sidebar-title {
-    font-size: 11px;
+    font-size: 13px;
     color: #556677;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -5001,7 +5001,7 @@ body {
     align-items: baseline;
     gap: 6px;
     font-family: "JetBrains Mono", "SF Mono", monospace;
-    font-size: 9.5px;
+    font-size: 11.5px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -5046,7 +5046,7 @@ body {
 }
 
 .drawer-label {
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -5055,7 +5055,7 @@ body {
 
 .drawer-value {
     font-family: "JetBrains Mono", "SF Mono", monospace;
-    font-size: 11.5px;
+    font-size: 13.5px;
     font-weight: 500;
     word-break: break-all;
 }
@@ -5068,7 +5068,7 @@ body {
    the column wider and breaks alignment for every other row. */
 .step-row {
     display: grid;
-    grid-template-columns: 22px 18px 1fr 76px;
+    grid-template-columns: 26px 22px 1fr 88px;
     align-items: center;
     column-gap: 7px;
     padding: 4px 10px 4px 4px;
@@ -5124,22 +5124,22 @@ body {
 }
 
 .step-row-child {
-    padding-left: 24px;
-    font-size: 11px;
+    padding-left: 28px;
+    font-size: 13px;
 }
 
 .step-row-child .step-number {
-    font-size: 10px;
+    font-size: 12px;
     color: #445566;
 }
 
 .step-row-child .step-label {
-    font-size: 11px;
+    font-size: 13px;
     color: #8a9aaa;
 }
 
 .step-number {
-    font-size: 11px;
+    font-size: 13px;
     color: #a4b1c2;
     text-align: right;
     font-variant-numeric: tabular-nums;
@@ -5153,7 +5153,7 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    height: 16px;
+    height: 18px;
     color: #8896a6;
 }
 
@@ -5182,7 +5182,7 @@ body {
 
 .rail-column-header {
     display: grid;
-    grid-template-columns: 22px 18px 1fr 76px;
+    grid-template-columns: 26px 22px 1fr 88px;
     align-items: center;
     column-gap: 7px;
     padding: 6px 10px 4px 4px;
@@ -5209,8 +5209,8 @@ body {
 
 .step-channel-gutter {
     display: grid;
-    grid-template-columns: repeat(4, 14px);
-    column-gap: 2px;
+    grid-template-columns: repeat(4, 16px);
+    column-gap: 4px;
     align-items: center;
     justify-items: center;
     justify-content: end;
@@ -5224,8 +5224,8 @@ body {
 
 .step-channel-cell {
     position: relative;
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -5240,9 +5240,9 @@ body {
    (no opacity multiplier) keeps the gutter columns visible as a
    tabular structure even when no row has activity. */
 .step-channel-empty-dot {
-    width: 4px;
-    height: 1px;
-    border-radius: 0.5px;
+    width: 5px;
+    height: 1.5px;
+    border-radius: 0.75px;
     background: #5c6a7e;
 }
 
@@ -5251,14 +5251,14 @@ body {
     top: -2px;
     right: -3px;
     font-family: "SF Mono", "JetBrains Mono", "Fira Code", monospace;
-    font-size: 8px;
+    font-size: 10px;
     font-weight: 700;
     line-height: 1;
     color: inherit;
 }
 
 .step-label {
-    font-size: 12px;
+    font-size: 13.5px;
     color: #c0c8d0;
     white-space: nowrap;
     overflow: hidden;
@@ -5301,7 +5301,7 @@ body {
 .step-label-scope {
     color: #a4b1c2;
     font-style: italic;
-    font-size: 11px;
+    font-size: 12.5px;
 }
 
 /* Failure-cause amber tinge applies to whatever arg color the row uses. */
@@ -5345,7 +5345,7 @@ body {
 }
 
 .suite-sidebar {
-    width: 260px;
+    width: 290px;
     flex-shrink: 0;
     background: #0f1620;
     border-right: 1px solid rgba(255, 255, 255, 0.06);
@@ -5361,22 +5361,22 @@ body {
 }
 
 .suite-sidebar-title {
-    font-size: 9.5px;
+    font-size: 11.5px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: #8896a6;
     font-weight: 700;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
 }
 
 .suite-filter-input {
     width: 100%;
-    padding: 6px 8px;
+    padding: 8px 10px;
     background: #0d1117;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 5px;
     color: #c8d3e0;
-    font-size: 12px;
+    font-size: 13.5px;
     font-family: inherit;
 }
 
@@ -5394,7 +5394,7 @@ body {
 .suite-sidebar-empty {
     padding: 24px 14px;
     color: #8896a6;
-    font-size: 12px;
+    font-size: 13.5px;
     text-align: center;
 }
 
@@ -5412,7 +5412,7 @@ body {
 
 .suite-group-name {
     flex: 1;
-    font-size: 10.5px;
+    font-size: 12.5px;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -5425,7 +5425,7 @@ body {
 .suite-group-count {
     flex-shrink: 0;
     font-family: "JetBrains Mono", "SF Mono", monospace;
-    font-size: 10px;
+    font-size: 12px;
     font-variant-numeric: tabular-nums;
     font-weight: 600;
 }
@@ -5464,9 +5464,9 @@ body {
 .suite-test-status {
     font-family: "JetBrains Mono", "SF Mono", monospace;
     font-weight: 700;
-    font-size: 11px;
+    font-size: 13px;
     margin-top: 3px;
-    width: 12px;
+    width: 14px;
     flex-shrink: 0;
 }
 
@@ -5487,7 +5487,7 @@ body {
 }
 
 .suite-test-name {
-    font-size: 12.5px;
+    font-size: 14.5px;
     font-weight: 500;
     color: #c8d3e0;
     word-break: break-word;
@@ -5500,7 +5500,7 @@ body {
 
 .suite-test-meta {
     font-family: "JetBrains Mono", "SF Mono", monospace;
-    font-size: 10.5px;
+    font-size: 12px;
     font-variant-numeric: tabular-nums;
     color: #8896a6;
 }
@@ -5775,14 +5775,14 @@ body {
    while signed in" stay readable instead of getting clipped. */
 .named-group-header {
     display: grid;
-    grid-template-columns: 22px 18px 1fr 76px;
+    grid-template-columns: 26px 22px 1fr 88px;
     align-items: start;
-    column-gap: 7px;
-    padding: 10px 10px 6px 4px;
+    column-gap: 8px;
+    padding: 12px 12px 6px 5px;
     cursor: pointer;
     background: transparent;
     border-left: 2px solid transparent;
-    font-size: 9.5px;
+    font-size: 11.5px;
     color: #8896a6;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -6014,7 +6014,7 @@ body {
 }
 
 .sidebar-subtitle {
-    font-size: 11px;
+    font-size: 12.5px;
     color: #556677;
     font-variant-numeric: tabular-nums;
     margin-left: 4px;
@@ -6036,9 +6036,9 @@ body {
    "outline" and "solid-filled" reads from across the room — no
    need for a translucent gradient between the two states. */
 .net-filter-btn {
-    font-size: 10px;
-    padding: 2px 8px;
-    border-radius: 10px;
+    font-size: 11.5px;
+    padding: 3px 10px;
+    border-radius: 11px;
     border: 1px solid rgba(255, 255, 255, 0.12);
     background: transparent;
     color: #8896a6;
@@ -6078,7 +6078,7 @@ body {
 .effect-empty {
     padding: 28px 14px 24px;
     color: #5c6a7e;
-    font-size: 12px;
+    font-size: 13.5px;
     font-style: italic;
     text-align: center;
     display: flex;
@@ -6175,7 +6175,7 @@ body {
 }
 
 .net-row-path {
-    font-size: 11px;
+    font-size: 12.5px;
     color: #e6ecf4;
     flex: 1;
     overflow: hidden;
@@ -6189,9 +6189,9 @@ body {
 
 .net-method {
     font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-size: 10.5px;
     font-weight: 700;
-    padding: 1px 4px;
+    padding: 1px 5px;
     border-radius: 2px;
     flex-shrink: 0;
     letter-spacing: 0.02em;
@@ -6362,7 +6362,7 @@ body {
 
 .cookie-name {
     font-family: "JetBrains Mono", monospace;
-    font-size: 13px;
+    font-size: 14.5px;
     font-weight: 600;
     color: #7dd3fc;
 }
@@ -6371,9 +6371,9 @@ body {
    colored text floating in space. Tied to the cookie channel color
    so the visual identity says "this is cookie metadata." */
 .cookie-signed-badge {
-    font-size: 9px;
+    font-size: 10.5px;
     font-weight: 700;
-    padding: 1px 5px;
+    padding: 1px 6px;
     border-radius: 3px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -6667,12 +6667,12 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
+    gap: 5px;
     /* Padding + min-width are fixed so flipping the active flag on a
        chip doesn't resize the row, and so paired and unpaired rows share
        a left edge. */
-    padding: 2px 6px;
-    min-width: 34px;
+    padding: 3px 7px;
+    min-width: 38px;
     box-sizing: border-box;
     border-radius: 3px;
     border-style: solid;
@@ -6687,7 +6687,7 @@ body {
     color: #8b99ad;
     cursor: pointer;
     font-family: "JetBrains Mono", ui-monospace, monospace;
-    font-size: 10.5px;
+    font-size: 12.5px;
     font-weight: 500;
     line-height: 1.3;
     font-variant-numeric: tabular-nums;
@@ -6979,13 +6979,13 @@ body {
 
 .fetcher-id {
     font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
+    font-size: 12.5px;
     color: #e6ecf4;
 }
 
 .fetcher-fields {
     font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
+    font-size: 11.5px;
     font-weight: 400;
     margin-top: 4px;
     padding-left: 22px;

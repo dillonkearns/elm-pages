@@ -114,7 +114,7 @@ verbIconForSnapshot snapshot =
             "currentColor"
 
         size =
-            14
+            16
     in
     case kindFromSnapshot snapshot of
         Start ->
@@ -345,7 +345,7 @@ iconWarn color =
 
 eventNetwork : String -> Html msg
 eventNetwork color =
-    eventNetworkSized 10 color
+    eventNetworkSized 12 color
 
 
 eventNetworkSized : Int -> String -> Html msg
@@ -362,7 +362,7 @@ eventNetworkSized size color =
 
 eventFetcher : String -> Html msg
 eventFetcher color =
-    eventFetcherSized 10 color
+    eventFetcherSized 12 color
 
 
 eventFetcherSized : Int -> String -> Html msg
@@ -405,7 +405,7 @@ eventFetcherResolve size color =
 
 eventCookie : String -> Html msg
 eventCookie color =
-    eventCookieSized 10 color
+    eventCookieSized 12 color
 
 
 eventCookieSized : Int -> String -> Html msg
@@ -424,7 +424,7 @@ eventCookieSized size color =
 
 eventEffect : String -> Html msg
 eventEffect color =
-    eventEffectSized 10 color
+    eventEffectSized 12 color
 
 
 eventEffectSized : Int -> String -> Html msg
