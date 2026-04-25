@@ -1122,8 +1122,40 @@ viewCommandLogShell model =
 
           else
             Html.text ""
+        , if model.showModel then
+            viewModelSidebar model
+
+          else
+            Html.text ""
         ]
     ]
+
+
+viewModelSidebar : Model -> Html Msg
+viewModelSidebar model =
+    let
+        snapshots =
+            currentSnapshots model
+
+        idx =
+            displayedStepIndex model
+
+        previous =
+            if idx > 0 then
+                snapshots |> List.drop (idx - 1) |> List.head
+
+            else
+                Nothing
+
+        current =
+            snapshots |> List.drop idx |> List.head
+    in
+    case current of
+        Just snapshot ->
+            viewModelInspector model.modelTreeExpanded idx previous snapshot
+
+        Nothing ->
+            Html.text ""
 
 
 viewHeader : Model -> Html Msg
@@ -2480,16 +2512,6 @@ viewMainPanel model =
 
                               else
                                 Html.text ""
-                            , if model.showModel then
-                                viewModelInspector model.modelTreeExpanded
-                                    (displayedStepIndex model)
-                                    previousSnapshot
-                                    (previousSnapshot
-                                        |> Maybe.withDefault snapshot
-                                    )
-
-                              else
-                                Html.text ""
                             ]
 
                     Nothing ->
@@ -2548,14 +2570,6 @@ viewMainPanel model =
                                 Html.text ""
                             , if model.showEffects then
                                 viewEffectInspector snapshot
-
-                              else
-                                Html.text ""
-                            , if model.showModel then
-                                viewModelInspector model.modelTreeExpanded
-                                    (displayedStepIndex model)
-                                    previousSnapshot
-                                    previewSnapshot
 
                               else
                                 Html.text ""
@@ -7166,16 +7180,23 @@ body {
     color: #8899aa;
 }
 
-/* === MODEL INSPECTOR === */
+/* === MODEL INSPECTOR (right sidebar) ===
+
+   Lives alongside the Network and Cookie sidebars on the right edge
+   of the viewer. Vertical column avoids the layout reflow that the
+   bottom-stacked panel had when auto-expansion changed the model
+   tree's height between steps. */
 
 .model-inspector {
+    width: 360px;
+    min-width: 360px;
     flex-shrink: 0;
-    max-height: 300px;
-    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     background: #0d1117;
-    border-top: 1px solid #0f3460;
-    margin: 0 12px 8px;
-    border-radius: 6px;
+    border-left: 1px solid rgba(255, 255, 255, 0.06);
+    font-family: "JetBrains Mono", "SF Mono", monospace;
 }
 
 /* Pass-10 B1: every panel header strip uses one spec — same height,
@@ -7199,6 +7220,14 @@ body {
     font-size: 12px;
     color: #c9d1d9;
     line-height: 1.5;
+}
+
+/* Inside the model sidebar, the body is the only scrollable area —
+   header stays pinned, body fills the rest of the column. */
+.model-inspector .inspector-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 12px 12px;
 }
 
 /* Debug value tree */
