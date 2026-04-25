@@ -3201,30 +3201,12 @@ viewCookieDiffCard :
     }
     -> Html Msg
 viewCookieDiffCard cfg =
+    -- The kind + step that any title would have communicated are
+    -- already conveyed by the box-pill row above (kind via the
+    -- pill's left-border color, step via the pill number, and the
+    -- now-ring marks the current step). Skip the title row and let
+    -- the diff body speak for itself.
     let
-        prevStepLabel =
-            case cfg.previousEventStep of
-                Just p ->
-                    String.fromInt (p + 1)
-
-                Nothing ->
-                    "?"
-
-        titleText =
-            case cfg.event of
-                CookieSet _ ->
-                    if cfg.isFirstEvent then
-                        "INITIAL · step " ++ String.fromInt (cfg.eventStep + 1)
-
-                    else
-                        "RE-SET · step " ++ String.fromInt (cfg.eventStep + 1)
-
-                CookieUpdated _ ->
-                    "DIFF · " ++ prevStepLabel ++ " → " ++ String.fromInt (cfg.eventStep + 1)
-
-                CookieRemoved ->
-                    "REMOVED · step " ++ String.fromInt (cfg.eventStep + 1)
-
         bodyRows : List (Html Msg)
         bodyRows =
             case ( cfg.signed, cfg.event ) of
@@ -3237,10 +3219,7 @@ viewCookieDiffCard cfg =
                 ( Nothing, _ ) ->
                     viewRawDiffRows cfg.event cfg.previousEventEntry
     in
-    Html.div [ Attr.class "cookie-diff-card" ]
-        (Html.div [ Attr.class "cookie-diff-card-title" ] [ Html.text titleText ]
-            :: bodyRows
-        )
+    Html.div [ Attr.class "cookie-diff-card" ] bodyRows
 
 
 {-| Raw-value diff rendering for unsigned cookies.
@@ -3322,9 +3301,6 @@ viewCookieCurrentCard cfg =
 
         _ ->
             let
-                titleText =
-                    "CURRENT · held since step " ++ String.fromInt (cfg.eventStep + 1)
-
                 bodyRows =
                     case cfg.signed of
                         Just sig ->
@@ -3338,10 +3314,7 @@ viewCookieCurrentCard cfg =
                                 Nothing ->
                                     []
             in
-            Html.div [ Attr.class "cookie-diff-card cookie-current-card" ]
-                (Html.div [ Attr.class "cookie-diff-card-title" ] [ Html.text titleText ]
-                    :: bodyRows
-                )
+            Html.div [ Attr.class "cookie-diff-card cookie-current-card" ] bodyRows
 
 
 viewCookieAttrTable : CookieEntry -> Html Msg
@@ -3497,8 +3470,8 @@ viewDecodedPayloadRows currentStep previousValues values =
             else
                 stripFlash currentFlash |> List.map (\( k, v ) -> ( k, v, KeyNew ))
     in
-    [ viewPayloadSection "PERSISTENT" Nothing persistentRows
-    , viewPayloadSection "FLASH" (Just "ONE-SHOT") flashRows
+    [ viewPayloadSection Nothing Nothing persistentRows
+    , viewPayloadSection (Just "FLASH") (Just "ONE-SHOT") flashRows
     ]
 
 
@@ -3526,32 +3499,46 @@ viewDecodedPayloadStatic values =
         asUnchanged =
             List.map (\( k, v ) -> ( k, v, KeyUnchanged ))
     in
-    [ viewPayloadSection "PERSISTENT" Nothing (asUnchanged persistent)
-    , viewPayloadSection "FLASH" (Just "ONE-SHOT") (asUnchanged flashStripped)
+    [ viewPayloadSection Nothing Nothing (asUnchanged persistent)
+    , viewPayloadSection (Just "FLASH") (Just "ONE-SHOT") (asUnchanged flashStripped)
     ]
 
 
-{-| Render one named section of a decoded signed-cookie payload. Hidden when
+{-| Render one section of a decoded signed-cookie payload. Hidden when
 the row list is empty so we don't stamp an empty header.
+
+`title = Nothing` skips the section header entirely — used for the
+persistent payload, which is the implicit default. `Just "FLASH"`
+renders the section header (with optional ONE-SHOT pill annotation)
+to flag that the keys below survive only one read.
+
 -}
-viewPayloadSection : String -> Maybe String -> List ( String, String, KeyDiff ) -> Html Msg
-viewPayloadSection title pillText rows =
+viewPayloadSection : Maybe String -> Maybe String -> List ( String, String, KeyDiff ) -> Html Msg
+viewPayloadSection maybeTitle pillText rows =
     if List.isEmpty rows then
         Html.text ""
 
     else
-        Html.div [ Attr.class "cookie-diff-section" ]
-            (Html.div [ Attr.class "cookie-diff-section-header" ]
-                [ Html.span [ Attr.class "cookie-diff-section-title" ] [ Html.text title ]
-                , case pillText of
-                    Just t ->
-                        Html.span [ Attr.class "cookie-diff-section-pill" ] [ Html.text t ]
+        let
+            header =
+                case maybeTitle of
+                    Just title ->
+                        [ Html.div [ Attr.class "cookie-diff-section-header" ]
+                            [ Html.span [ Attr.class "cookie-diff-section-title" ] [ Html.text title ]
+                            , case pillText of
+                                Just t ->
+                                    Html.span [ Attr.class "cookie-diff-section-pill" ] [ Html.text t ]
+
+                                Nothing ->
+                                    Html.text ""
+                            ]
+                        ]
 
                     Nothing ->
-                        Html.text ""
-                ]
-                :: List.concatMap diffKeyRows rows
-            )
+                        []
+        in
+        Html.div [ Attr.class "cookie-diff-section" ]
+            (header ++ List.concatMap diffKeyRows rows)
 
 
 {-| Render one key/value pair as 1 or 2 diff rows.
@@ -5189,6 +5176,18 @@ body {
     font-weight: 600;
 }
 
+/* When the active pill is also the current-step pill, the now-ring halo
+   sits 2px outside it. The pill's own cyan side borders would parallel
+   the ring 1px in, reading as a double border. Drop the pill's three
+   non-left borders back to the neutral default — the halo carries the
+   "current step" cue, the kind-colored left border + cyan tinted bg +
+   bold cyan text still differentiate the active state. */
+.current-step-shell .cookie-box-pill-active {
+    border-top-color: rgba(255, 255, 255, 0.08);
+    border-right-color: rgba(255, 255, 255, 0.08);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
 .cookie-box-pill-step {
     font-variant-numeric: tabular-nums;
 }
@@ -5200,14 +5199,6 @@ body {
     border-radius: 5px;
     padding: 10px 12px;
     font-family: "JetBrains Mono", monospace;
-}
-
-.cookie-diff-card-title {
-    font-size: 10px;
-    color: #5c6a7e;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    margin-bottom: 8px;
 }
 
 .cookie-diff-section {
