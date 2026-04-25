@@ -171,9 +171,7 @@ addTodoTest =
         |> PagesProgram.simulateDomEvent
             (\query -> query |> Query.find [ HtmlSelector.class "new-todo" ])
             (Event.input "Buy eggs")
-        |> PagesProgram.simulateDomEvent
-            (\query -> query |> Query.find [ HtmlSelector.class "new-todo" ])
-            ( "keydown", Encode.object [ ( "keyCode", Encode.int 13 ) ] )
+        |> PagesProgram.pressEnter [ HtmlSelector.class "new-todo" ]
         |> PagesProgram.ensureViewHas [ Selector.text "Buy eggs" ]
         |> ensureItemsLeft 3
 
@@ -266,15 +264,11 @@ addMultipleTodosTest =
         |> PagesProgram.simulateDomEvent
             (\query -> query |> Query.find [ HtmlSelector.class "new-todo" ])
             (Event.input "First new todo")
-        |> PagesProgram.simulateDomEvent
-            (\query -> query |> Query.find [ HtmlSelector.class "new-todo" ])
-            ( "keydown", Encode.object [ ( "keyCode", Encode.int 13 ) ] )
+        |> PagesProgram.pressEnter [ HtmlSelector.class "new-todo" ]
         |> PagesProgram.ensureViewHas [ Selector.text "First new todo" ]
         |> PagesProgram.simulateDomEvent
             (\query -> query |> Query.find [ HtmlSelector.class "new-todo" ])
             (Event.input "Second new todo")
-        |> PagesProgram.simulateDomEvent
-            (\query -> query |> Query.find [ HtmlSelector.class "new-todo" ])
-            ( "keydown", Encode.object [ ( "keyCode", Encode.int 13 ) ] )
+        |> PagesProgram.pressEnter [ HtmlSelector.class "new-todo" ]
         |> PagesProgram.ensureViewHas [ Selector.text "Second new todo" ]
         |> ensureItemsLeft 4
