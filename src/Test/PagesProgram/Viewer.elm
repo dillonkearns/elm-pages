@@ -2888,27 +2888,30 @@ viewNetworkRow currentStep lane =
             , Html.div [ Attr.class "event-chip-row" ] chipRow
             ]
     in
-    if hasDetails then
-        Html.details
-            [ Attr.classList
-                [ ( "net-row", True )
-                , ( stateClass, True )
-                ]
-            , Attr.style "--pulse-color" pulseColor
+    -- Outer wrapper is *always* an `Html.div` (never `Html.details`) so
+    -- the row's mount is stable across snapshots. If we conditionally
+    -- swapped div ↔ details when `hasDetails` flips (e.g. a response
+    -- arrives mid-test), Elm's vdom diff would replace the DOM node
+    -- and restart its `::before` animation — knocking the in-flight
+    -- pulse out of phase with sibling rows. Disclosure goes on an
+    -- inner `Html.details` whose mount is allowed to change freely.
+    Html.div
+        [ Attr.classList
+            [ ( "net-row", True )
+            , ( stateClass, True )
             ]
-            (Html.summary [ Attr.class "net-row-summary" ] summaryContent
-                :: [ viewNetRowDetails lane.entry ]
-            )
+        , Attr.style "--pulse-color" pulseColor
+        ]
+        (if hasDetails then
+            [ Html.details [ Attr.class "net-row-disclose" ]
+                (Html.summary [ Attr.class "net-row-summary" ] summaryContent
+                    :: [ viewNetRowDetails lane.entry ]
+                )
+            ]
 
-    else
-        Html.div
-            [ Attr.classList
-                [ ( "net-row", True )
-                , ( stateClass, True )
-                ]
-            , Attr.style "--pulse-color" pulseColor
-            ]
-            summaryContent
+         else
+            [ Html.div [ Attr.class "net-row-summary" ] summaryContent ]
+        )
 
 
 {-| Filter out headers used internally by elm-pages (names starting with
@@ -5127,9 +5130,12 @@ body {
     transition: background 0.08s;
 }
 
-.net-row[open] > .net-row-summary,
-.net-row.net-row-summary {
-    list-style: none;
+/* Inner disclosure wrapper — `Html.details` wraps the summary + body so
+   the user can expand the row, but the outer `.net-row` stays a stable
+   `Html.div` so its `::before` pulse animation isn't restarted when a
+   response arrives mid-test and `hasDetails` flips. */
+.net-row-disclose {
+    /* transparent passthrough; styles live on summary + details body */
 }
 
 .net-row-summary {
