@@ -3364,7 +3364,21 @@ viewNetworkRow currentStep lane =
                 "net-method-port"
 
             else
-                "net-method-http"
+                case String.toUpper lane.entry.method of
+                    "POST" ->
+                        "net-method-post"
+
+                    "PUT" ->
+                        "net-method-put"
+
+                    "PATCH" ->
+                        "net-method-put"
+
+                    "DELETE" ->
+                        "net-method-delete"
+
+                    _ ->
+                        "net-method-get"
 
         pathLabel =
             case lane.entry.portName of
@@ -4848,10 +4862,14 @@ body {
     font-size: 14px;
 }
 
+/* Pass-10 B5: panel-toggle group lives in header-right with 6px gaps;
+   the viewport-picker sits adjacent with 4px internal gap and a hairline
+   separator to its right (rendered via ::after) so the two groups read
+   as visually distinct. */
 .header-right {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
 }
 
 .step-counter {
@@ -4882,13 +4900,26 @@ body {
 
 .step-counter-total {
     font-size: 12px;
-    color: #5c6a7e;
+    color: #a4b1c2;
 }
 
 .viewport-picker {
     display: flex;
-    gap: 2px;
-    margin-right: 8px;
+    gap: 4px;
+    margin-right: 16px;
+    position: relative;
+}
+
+.viewport-picker::after {
+    content: "";
+    position: absolute;
+    right: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1px;
+    height: 16px;
+    background: rgba(255, 255, 255, 0.10);
+    pointer-events: none;
 }
 
 .viewport-btn {
@@ -4961,11 +4992,14 @@ body {
     border-bottom: 1px solid #0f3460;
 }
 
+/* Pass-10 A1: panel section headers anchor their panel — secondary
+   tier color + weight 700 so they stop reading as ghosted text. */
 .sidebar-title {
-    font-size: 13px;
-    color: #556677;
+    font-size: 12px;
+    color: #a4b1c2;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.08em;
+    font-weight: 700;
 }
 
 .sidebar-steps {
@@ -5071,12 +5105,12 @@ body {
     grid-template-columns: 26px 22px 1fr 88px;
     align-items: center;
     column-gap: 7px;
-    padding: 4px 10px 4px 4px;
+    padding: 6px 10px 6px 4px;
     cursor: pointer;
     border-left: 2px solid transparent;
     transition: background 0.08s, border-color 0.08s, color 0.08s;
     position: relative;
-    line-height: 1.3;
+    line-height: 1.35;
 }
 
 .step-row:hover {
@@ -5154,7 +5188,7 @@ body {
     align-items: center;
     justify-content: center;
     height: 18px;
-    color: #8896a6;
+    color: #a4b1c2;
 }
 
 .step-icon svg {
@@ -5668,8 +5702,8 @@ body {
 .suite-failure-card-body {
     padding: 14px 18px;
     display: grid;
-    grid-template-columns: 90px 1fr;
-    column-gap: 14px;
+    grid-template-columns: 100px 1fr;
+    column-gap: 16px;
     row-gap: 4px;
     align-items: baseline;
 }
@@ -5778,7 +5812,7 @@ body {
     grid-template-columns: 26px 22px 1fr 88px;
     align-items: start;
     column-gap: 8px;
-    padding: 12px 12px 6px 5px;
+    padding: 16px 12px 8px 5px;
     cursor: pointer;
     background: transparent;
     border-left: 2px solid transparent;
@@ -5787,7 +5821,7 @@ body {
     text-transform: uppercase;
     letter-spacing: 0.06em;
     font-weight: 700;
-    margin-top: 4px;
+    margin-top: 8px;
     line-height: 1.35;
 }
 
@@ -5868,14 +5902,14 @@ body {
 }
 
 .url-bar-icon {
-    color: #556677;
-    font-size: 12px;
+    color: #8896a6;
+    font-size: 13px;
 }
 
 .url-bar-text {
     font-family: "SF Mono", "Fira Code", monospace;
-    font-size: 12px;
-    color: #8899aa;
+    font-size: 13px;
+    color: #c8d3e0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -5999,11 +6033,11 @@ body {
 }
 
 .network-sidebar-header {
-    padding: 10px 14px 8px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
     flex-shrink: 0;
 }
 
@@ -6035,13 +6069,17 @@ body {
    kind-color fill with inverted dark text. The contrast between
    "outline" and "solid-filled" reads from across the room — no
    need for a translucent gradient between the two states. */
+/* Pass-10 A3: filter pills follow the canonical pill treatment —
+   visible cyan-tinted border (so the pill reads as a button at arm's
+   length), secondary-tier text. Active state bumps to solid kind-color
+   fill with inverted dark text (handled per-filter below). */
 .net-filter-btn {
     font-size: 11.5px;
     padding: 3px 10px;
     border-radius: 11px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(125, 211, 252, 0.25);
     background: transparent;
-    color: #8896a6;
+    color: #a4b1c2;
     cursor: pointer;
     font-family: inherit;
     transition: background 0.08s, color 0.08s, border-color 0.08s;
@@ -6049,7 +6087,7 @@ body {
 
 .net-filter-btn:hover {
     color: #e6ecf4;
-    border-color: rgba(255, 255, 255, 0.28);
+    border-color: rgba(125, 211, 252, 0.45);
 }
 
 .net-filter-backend.net-filter-active {
@@ -6197,14 +6235,38 @@ body {
     letter-spacing: 0.02em;
 }
 
+/* Pass-10 A4: HTTP method tags differentiate by verb so the row reads
+   instantly. Each gets a fuller backing tint + tinted border so the
+   pill registers at arm's length. */
 .net-method-port {
     background: rgba(244, 114, 182, 0.15);
+    border: 1px solid rgba(244, 114, 182, 0.30);
     color: #f472b6;
 }
 
+.net-method-get,
 .net-method-http {
     background: rgba(125, 211, 252, 0.15);
+    border: 1px solid rgba(125, 211, 252, 0.30);
     color: #7dd3fc;
+}
+
+.net-method-post {
+    background: rgba(134, 239, 172, 0.15);
+    border: 1px solid rgba(134, 239, 172, 0.30);
+    color: #86efac;
+}
+
+.net-method-put {
+    background: rgba(252, 211, 77, 0.15);
+    border: 1px solid rgba(252, 211, 77, 0.30);
+    color: #fcd34d;
+}
+
+.net-method-delete {
+    background: rgba(252, 165, 165, 0.15);
+    border: 1px solid rgba(252, 165, 165, 0.30);
+    color: #fca5a5;
 }
 
 .net-row-details {
@@ -6334,8 +6396,8 @@ body {
 }
 
 .cookie-sidebar-header {
-    padding: 10px 14px 8px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -6743,29 +6805,12 @@ body {
     box-shadow: 0 0 0 1px rgba(252, 165, 165, 0.18), 0 0 6px rgba(252, 165, 165, 0.18);
 }
 
-.cookie-box-pill-active:not(.cookie-box-pill-now).cookie-box-pill-kind-set {
-    border-top-color: #86efac;
-    border-right-color: #86efac;
-    border-bottom-color: #86efac;
-    color: #86efac;
-    box-shadow: 0 0 0 1px rgba(134, 239, 172, 0.18), 0 0 6px rgba(134, 239, 172, 0.18);
-}
-
-.cookie-box-pill-active:not(.cookie-box-pill-now).cookie-box-pill-kind-changed {
-    border-top-color: #fcd34d;
-    border-right-color: #fcd34d;
-    border-bottom-color: #fcd34d;
-    color: #fcd34d;
-    box-shadow: 0 0 0 1px rgba(252, 211, 77, 0.18), 0 0 6px rgba(252, 211, 77, 0.18);
-}
-
-.cookie-box-pill-active:not(.cookie-box-pill-now).cookie-box-pill-kind-removed {
-    border-top-color: #fca5a5;
-    border-right-color: #fca5a5;
-    border-bottom-color: #fca5a5;
-    color: #fca5a5;
-    box-shadow: 0 0 0 1px rgba(252, 165, 165, 0.18), 0 0 6px rgba(252, 165, 165, 0.18);
-}
+/* (Active-but-not-now cookie pills used to get per-kind outline +
+   colored glow. Pass-10 A2 standardizes: cookie panel step chips
+   read as navigational buttons — cyan-tinted border when inactive,
+   solid cyan fill when active. Per-kind treatment is gone for the
+   navigational chip; the kind-colored 3px left stripe still
+   differentiates set/changed/removed.) */
 
 /* Solid kind-colored background + dark text + soft kind-colored glow.
    Only fires when a chip is BOTH the lane's active state AND the
@@ -6809,37 +6854,32 @@ body {
     box-shadow: 0 0 0 1px rgba(252, 165, 165, 0.33), 0 0 8px rgba(252, 165, 165, 0.2);
 }
 
-/* Active cookie pill — same gating: active-AND-now triggers the solid
-   kind-colored bg. Cookie kinds map to lifecycle semantics: `set` is
-   additive (green), `changed` is modification (amber), `removed` is
-   destructive (red). */
-.cookie-box-pill-active.cookie-box-pill-now {
-    color: #0f1620;
+/* Pass-10 A2 + B6: cookie pills are navigational chips — inactive gets
+   a cyan-tinted border (so it reads as a button at arm's length); the
+   selected/now pill goes solid cyan + dark text. Padding is balanced
+   horizontally so step numbers center cleanly inside the pill. */
+.cookie-box-pill {
+    border-top-color: rgba(125, 211, 252, 0.25);
+    border-right-color: rgba(125, 211, 252, 0.25);
+    border-bottom-color: rgba(125, 211, 252, 0.25);
+    padding: 4px 10px;
+}
+
+.cookie-box-pill-active,
+.cookie-box-pill-now {
+    background: #7dd3fc;
+    border-top-color: #7dd3fc;
+    border-right-color: #7dd3fc;
+    border-bottom-color: #7dd3fc;
+    color: #0d1117;
     font-weight: 700;
+    box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.35), 0 0 8px rgba(125, 211, 252, 0.25);
 }
 
-.cookie-box-pill-active.cookie-box-pill-now.cookie-box-pill-kind-set {
-    background: #86efac;
-    border-top-color: rgba(134, 239, 172, 0.33);
-    border-right-color: rgba(134, 239, 172, 0.33);
-    border-bottom-color: rgba(134, 239, 172, 0.33);
-    box-shadow: 0 0 0 1px rgba(134, 239, 172, 0.33), 0 0 8px rgba(134, 239, 172, 0.2);
-}
-
-.cookie-box-pill-active.cookie-box-pill-now.cookie-box-pill-kind-changed {
-    background: #fcd34d;
-    border-top-color: rgba(252, 211, 77, 0.33);
-    border-right-color: rgba(252, 211, 77, 0.33);
-    border-bottom-color: rgba(252, 211, 77, 0.33);
-    box-shadow: 0 0 0 1px rgba(252, 211, 77, 0.33), 0 0 8px rgba(252, 211, 77, 0.2);
-}
-
-.cookie-box-pill-active.cookie-box-pill-now.cookie-box-pill-kind-removed {
-    background: #fca5a5;
-    border-top-color: rgba(252, 165, 165, 0.33);
-    border-right-color: rgba(252, 165, 165, 0.33);
-    border-bottom-color: rgba(252, 165, 165, 0.33);
-    box-shadow: 0 0 0 1px rgba(252, 165, 165, 0.33), 0 0 8px rgba(252, 165, 165, 0.2);
+.cookie-box-pill-active:hover,
+.cookie-box-pill-now:hover {
+    color: #0d1117;
+    filter: brightness(1.06);
 }
 
 /* Future chips: dimmed-and-muted, kind stripe survives at low alpha. */
@@ -6926,17 +6966,8 @@ body {
     font-family: "JetBrains Mono", "SF Mono", monospace;
 }
 
-.fetcher-inspector .inspector-header {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    padding: 8px 14px 6px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    text-transform: none;
-    letter-spacing: normal;
-    color: inherit;
-    font-size: inherit;
-}
+/* Fetcher inspector header inherits the unified .inspector-header
+   spec; nothing else to override. */
 
 
 .fetcher-list {
@@ -7050,12 +7081,16 @@ body {
     border-radius: 6px;
 }
 
+/* Pass-10 B1: every panel header strip uses one spec — same height,
+   same padding, same hairline. */
 .inspector-header {
-    font-size: 11px;
-    color: #556677;
+    font-size: 12px;
+    color: #a4b1c2;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    padding: 8px 12px 4px;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     display: flex;
     align-items: center;
     gap: 8px;
