@@ -339,15 +339,23 @@ function testAppModule(templates) {
   // on the whole snapshot record and strip the leading generated
   // constructor name (e.g. "DataLogin ") wherever it appears so the
   // user only sees the inner record they actually wrote.
-  const wrapperStrips = templates
+  //
+  // CRITICAL: sort by length descending so `ActionDataLogin ` is replaced
+  // before `DataLogin `. Otherwise the inner `DataLogin ` substring of
+  // `ActionDataLogin ` gets eaten first, leaving an orphan `Action`
+  // glued to the record that follows it (`Action{...}` with no space)
+  // — and that output then fails to parse in `DebugParser.parse`,
+  // dropping the Model tab into raw-text fallback. See
+  // `tests/ViewerStripPrefixesTest.elm` for the regression test.
+  const wrapperStripPrefixes = templates
     .flatMap((name) => {
       const tag = name.join("__");
-      return [
-        `        |> String.replace "Model${tag} " ""`,
-        `        |> String.replace "Data${tag} " ""`,
-        `        |> String.replace "ActionData${tag} " ""`,
-      ];
+      return ["Model" + tag, "Data" + tag, "ActionData" + tag];
     })
+    .sort((a, b) => b.length - a.length);
+
+  const wrapperStrips = wrapperStripPrefixes
+    .map((p) => `        |> String.replace "${p} " ""`)
     .join("\n");
 
   return `module TestApp exposing (start, ProgramTest)
