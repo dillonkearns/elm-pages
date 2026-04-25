@@ -6854,10 +6854,15 @@ body {
     box-shadow: 0 0 0 1px rgba(252, 165, 165, 0.33), 0 0 8px rgba(252, 165, 165, 0.2);
 }
 
-/* Pass-10 A2 + B6: cookie pills are navigational chips — inactive gets
-   a cyan-tinted border (so it reads as a button at arm's length); the
-   selected/now pill goes solid cyan + dark text. Padding is balanced
-   horizontally so step numbers center cleanly inside the pill. */
+/* Pass-10 A2 + B6: cookie pills are navigational chips. Three states:
+     - Inactive — cyan-tinted border so the pill reads as a button at
+       arm's length, but stays quiet.
+     - Active (selected) without now — outline-only with cyan text +
+       soft glow. The pill announces "this is the current state" but
+       doesn't shout "you are here."
+     - Active AND now — solid cyan fill + dark inverted text. Reserved
+       for the moment when the selected pill IS the user's current
+       step on the rail; that's the only time we go loud. */
 .cookie-box-pill {
     border-top-color: rgba(125, 211, 252, 0.25);
     border-right-color: rgba(125, 211, 252, 0.25);
@@ -6865,8 +6870,17 @@ body {
     padding: 4px 10px;
 }
 
-.cookie-box-pill-active,
-.cookie-box-pill-now {
+.cookie-box-pill-active:not(.cookie-box-pill-now) {
+    background: transparent;
+    border-top-color: #7dd3fc;
+    border-right-color: #7dd3fc;
+    border-bottom-color: #7dd3fc;
+    color: #7dd3fc;
+    font-weight: 700;
+    box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.18), 0 0 6px rgba(125, 211, 252, 0.18);
+}
+
+.cookie-box-pill-active.cookie-box-pill-now {
     background: #7dd3fc;
     border-top-color: #7dd3fc;
     border-right-color: #7dd3fc;
@@ -6876,10 +6890,13 @@ body {
     box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.35), 0 0 8px rgba(125, 211, 252, 0.25);
 }
 
-.cookie-box-pill-active:hover,
-.cookie-box-pill-now:hover {
+.cookie-box-pill-active.cookie-box-pill-now:hover {
     color: #0d1117;
     filter: brightness(1.06);
+}
+
+.cookie-box-pill-active:not(.cookie-box-pill-now):hover {
+    color: #b9e9ff;
 }
 
 /* Future chips: dimmed-and-muted, kind stripe survives at low alpha. */
