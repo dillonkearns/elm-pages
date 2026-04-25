@@ -25,12 +25,10 @@ import Expect
 import Html.Attributes as Attr
 import Json.Encode as Encode
 import Test.BackendTask as BackendTaskTest
-import Test.Html.Selector as Selector
-import Test.Html.Query as Query
+import Test.Html.Selector as PSelector
 import Test.PagesProgram as PagesProgram
 import Test.PagesProgram.CookieJar as CookieJar
 import Test.PagesProgram.Session as Session
-import Test.Html.Selector as PSelector
 import TestApp
 import Time
 
@@ -168,29 +166,6 @@ deleteTodo description =
         , PSelector.containing [ PSelector.attribute (Attr.value description) ]
         ]
         (PagesProgram.clickButtonWith [ PSelector.class "destroy" ])
-
-
-{-| Simulate submitting the form with the given CSS class.
-
-This simulates the browser's form submit event, which is what happens
-when a user presses Enter in a text input. Needed for forms that have
-no submit button (like the new-todo input and inline edit inputs).
--}
-submitFormByClass : String -> TestApp.ProgramTest -> TestApp.ProgramTest
-submitFormByClass formClass =
-    PagesProgram.simulateDomEvent
-        (\query -> query |> Query.find [ Selector.tag "form", Selector.class formClass ])
-        ( "submit"
-        , Encode.object
-            [ ( "currentTarget"
-              , Encode.object
-                    [ ( "method", Encode.string "POST" )
-                    , ( "action", Encode.string "" )
-                    , ( "id", Encode.null )
-                    ]
-              )
-            ]
-        )
 
 
 
@@ -457,7 +432,7 @@ createTodoTest =
         |> ensureItemsLeft 2
         -- Type a new todo description and submit
         |> PagesProgram.fillIn "new-item-0" "description" "Buy eggs"
-        |> submitFormByClass "create-form"
+        |> PagesProgram.pressEnter [ PSelector.class "new-todo" ]
         -- Resolve the createTodo action + data reload
         |> PagesProgram.simulateCustom "createTodo" Encode.null
         |> PagesProgram.simulateCustom "getTodosBySession"
@@ -497,19 +472,7 @@ editTodoTest =
         |> PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
         -- Edit "Buy milk" -> "Buy oat milk"
         |> PagesProgram.fillIn "edit-todo-1" "description" "Buy oat milk"
-        |> PagesProgram.simulateDomEvent
-            (\query -> query |> Query.find [ Selector.tag "form", Selector.id "edit-todo-1" ])
-            ( "submit"
-            , Encode.object
-                [ ( "currentTarget"
-                  , Encode.object
-                        [ ( "method", Encode.string "POST" )
-                        , ( "action", Encode.string "" )
-                        , ( "id", Encode.null )
-                        ]
-                  )
-                ]
-            )
+        |> PagesProgram.pressEnter [ PSelector.class "edit-input" ]
         -- Resolve updateTodo action + data reload
         |> PagesProgram.simulateCustom "updateTodo" Encode.null
         |> PagesProgram.simulateCustom "getTodosBySession"

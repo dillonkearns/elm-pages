@@ -2,6 +2,7 @@ module Test.PagesProgram exposing
     ( ProgramTest, done
     , clickButton, clickButtonWith, clickLink, fillIn, fillInTextarea, check
     , selectOption
+    , pressEnter, pressKey
     , simulateDomEvent
     , ensureViewHas, ensureViewHasNot, ensureView
     , expectViewHas, expectViewHasNot, expectView
@@ -123,6 +124,8 @@ making our apps accessible and usable.
 @docs clickButton, clickButtonWith, clickLink, fillIn, fillInTextarea, check
 
 @docs selectOption
+
+@docs pressEnter, pressKey
 
 @docs simulateDomEvent
 
@@ -1656,6 +1659,220 @@ simulateDomEvent findTarget event (ProgramTest state) =
                                     | error =
                                         Just ("simulateDomEvent failed:\n\n" ++ errMsg)
                                 }
+
+
+{-| Dispatch a `keydown` event with the given `key` (e.g., `"Enter"`,
+`"Escape"`, `"ArrowDown"`) on the first element matching `selectors`.
+
+Low-level primitive — fires `keydown` and stops there. No browser
+default-action emulation. If you want the "Enter pressed inside a form
+submits the form" behavior, use [`pressEnter`](#pressEnter) instead.
+
+If the matched element has no `onKeyDown` handler, this is a no-op
+(no error). That mirrors the browser: a keydown without a listener
+just bubbles past silently.
+
+    myTest
+        |> PagesProgram.fillIn "search" "search" "elm-pages"
+        |> PagesProgram.pressKey "Escape" [ Selector.id "search" ]
+        |> PagesProgram.ensureViewHas [ Selector.text "Search cleared" ]
+
+-}
+pressKey : String -> List Selector.Selector -> ProgramTest model msg -> ProgramTest model msg
+pressKey key selectors programTest =
+    dispatchKeyDown key selectors programTest
+
+
+{-| Simulate the user pressing Enter while focus is on the matched
+element. Faithful to the browser's default-action behavior:
+
+  1. Fires `keydown` with `key: "Enter"` on the matched element.
+     Any `onKeyDown` handler runs.
+  2. If the matched element sits inside a `<form>`, dispatches the
+     form's `submit` event afterward (mirroring the browser default
+     for Enter inside a form's text input). If the input isn't in a
+     form, step 2 is skipped.
+
+This is the right primitive for "submit a form that has no submit
+button" — the dominant TodoMVC / inline-edit pattern.
+
+    myTest
+        |> PagesProgram.fillIn "new-todo" "new-todo" "Buy milk"
+        |> PagesProgram.pressEnter [ Selector.id "new-todo" ]
+        |> PagesProgram.ensureViewHas [ Selector.text "Buy milk" ]
+
+-}
+pressEnter : List Selector.Selector -> ProgramTest model msg -> ProgramTest model msg
+pressEnter selectors programTest =
+    programTest
+        |> dispatchKeyDown "Enter" selectors
+        |> dispatchFormSubmitForInput selectors
+
+
+dispatchKeyDown : String -> List Selector.Selector -> ProgramTest model msg -> ProgramTest model msg
+dispatchKeyDown key selectors programTest =
+    let
+        keyCode =
+            keyCodeFor key
+
+        payload =
+            Encode.object
+                [ ( "key", Encode.string key )
+                , ( "code", Encode.string (codeFor key) )
+                , ( "keyCode", Encode.int keyCode )
+                , ( "which", Encode.int keyCode )
+                , ( "altKey", Encode.bool False )
+                , ( "ctrlKey", Encode.bool False )
+                , ( "metaKey", Encode.bool False )
+                , ( "shiftKey", Encode.bool False )
+                ]
+    in
+    tryDispatchEvent
+        (\query -> query |> Query.find selectors)
+        ( "keydown", payload )
+        ("pressKey \"" ++ key ++ "\"")
+        programTest
+
+
+dispatchFormSubmitForInput : List Selector.Selector -> ProgramTest model msg -> ProgramTest model msg
+dispatchFormSubmitForInput inputSelectors programTest =
+    let
+        formPayload =
+            Encode.object
+                [ ( "currentTarget"
+                  , Encode.object
+                        [ ( "method", Encode.string "POST" )
+                        , ( "action", Encode.string "" )
+                        , ( "id", Encode.null )
+                        ]
+                  )
+                ]
+    in
+    tryDispatchEvent
+        (\query ->
+            query
+                |> Query.find
+                    [ Selector.tag "form"
+                    , Selector.containing inputSelectors
+                    ]
+        )
+        ( "submit", formPayload )
+        "pressEnter"
+        programTest
+
+
+{-| Try to dispatch an event; silently succeed if the target doesn't
+exist or has no handler for the event. Differs from `simulateDomEvent`,
+which treats those cases as test failures. The keyboard helpers
+deliberately don't fail on missing handlers — a real browser doesn't
+fail when you press a key that nothing's listening for.
+-}
+tryDispatchEvent : (Query.Single msg -> Query.Single msg) -> ( String, Encode.Value ) -> String -> ProgramTest model msg -> ProgramTest model msg
+tryDispatchEvent findTarget event label (ProgramTest state) =
+    case state.error of
+        Just _ ->
+            ProgramTest state
+
+        Nothing ->
+            case state.phase of
+                Resolving _ ->
+                    ProgramTest
+                        { state | error = Just (label ++ ": Cannot interact while BackendTask data is still resolving." ++ pendingRequestsHint state) }
+
+                Ready ready ->
+                    let
+                        eventResult =
+                            renderScopedView ready
+                                |> findTarget
+                                |> Event.simulate event
+                                |> Event.toResult
+                    in
+                    case eventResult of
+                        Ok msg ->
+                            applyMsgWithLabel label Interaction Nothing msg (ProgramTest state)
+
+                        Err _ ->
+                            -- No-op: target missing or no handler. Tests
+                            -- assert their expected outcomes via
+                            -- ensureViewHas etc., which surface real
+                            -- problems with their own clear messaging.
+                            ProgramTest state
+
+
+keyCodeFor : String -> Int
+keyCodeFor key =
+    case key of
+        "Enter" ->
+            13
+
+        "Escape" ->
+            27
+
+        "Tab" ->
+            9
+
+        "Backspace" ->
+            8
+
+        "Delete" ->
+            46
+
+        " " ->
+            32
+
+        "ArrowUp" ->
+            38
+
+        "ArrowDown" ->
+            40
+
+        "ArrowLeft" ->
+            37
+
+        "ArrowRight" ->
+            39
+
+        _ ->
+            case String.toList (String.toUpper key) of
+                [ ch ] ->
+                    Char.toCode ch
+
+                _ ->
+                    0
+
+
+codeFor : String -> String
+codeFor key =
+    case key of
+        "Enter" ->
+            "Enter"
+
+        "Escape" ->
+            "Escape"
+
+        "Tab" ->
+            "Tab"
+
+        "Backspace" ->
+            "Backspace"
+
+        " " ->
+            "Space"
+
+        "ArrowUp" ->
+            "ArrowUp"
+
+        "ArrowDown" ->
+            "ArrowDown"
+
+        "ArrowLeft" ->
+            "ArrowLeft"
+
+        "ArrowRight" ->
+            "ArrowRight"
+
+        _ ->
+            key
 
 
 {-| Register a simulated subscriptions function. The function is called with

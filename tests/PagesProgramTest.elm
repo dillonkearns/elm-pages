@@ -276,6 +276,136 @@ all =
                         |> PagesProgram.ensureViewHas [ PSelector.text "Searching for: elm-pages" ]
                         |> PagesProgram.done
             ]
+        , describe "pressEnter"
+            [ test "submits a form with no submit button when Enter is pressed in its input" <|
+                \() ->
+                    PagesProgramInternal.initialProgramTest
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { todos = [], draft = "" }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    AddTodoFromInput ->
+                                        ( { model
+                                            | todos = model.todos ++ [ model.draft ]
+                                            , draft = ""
+                                          }
+                                        , []
+                                        )
+
+                                    UpdateDraft d ->
+                                        ( { model | draft = d }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Todos"
+                                , body =
+                                    [ Html.form
+                                        [ Attr.class "create"
+                                        , Html.Events.onSubmit AddTodoFromInput
+                                        ]
+                                        [ Html.input
+                                            [ Attr.id "new-todo"
+                                            , Attr.value model.draft
+                                            , Html.Events.onInput UpdateDraft
+                                            ]
+                                            []
+                                        ]
+                                    , Html.ul []
+                                        (model.todos |> List.map (\t -> Html.li [] [ Html.text t ]))
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.fillIn "new-todo" "new-todo" "Buy milk"
+                        |> PagesProgram.pressEnter [ PSelector.id "new-todo" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.tag "li", PSelector.text "Buy milk" ]
+                        |> PagesProgram.done
+            , test "fires keydown handler on the input even when there is no enclosing form" <|
+                \() ->
+                    PagesProgramInternal.initialProgramTest
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { lastKey = "" }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    KeyPressed k ->
+                                        ( { model | lastKey = k }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Keys"
+                                , body =
+                                    [ Html.input
+                                        [ Attr.id "free-input"
+                                        , Html.Events.on "keydown"
+                                            (Decode.field "key" Decode.string
+                                                |> Decode.map KeyPressed
+                                            )
+                                        ]
+                                        []
+                                    , Html.text ("last: " ++ model.lastKey)
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.pressEnter [ PSelector.id "free-input" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "last: Enter" ]
+                        |> PagesProgram.done
+            ]
+        , describe "pressKey"
+            [ test "fires a keydown with the given key on the matched element" <|
+                \() ->
+                    PagesProgramInternal.initialProgramTest
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { lastKey = "" }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    KeyPressed k ->
+                                        ( { model | lastKey = k }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Keys"
+                                , body =
+                                    [ Html.input
+                                        [ Attr.id "kb"
+                                        , Html.Events.on "keydown"
+                                            (Decode.field "key" Decode.string
+                                                |> Decode.map KeyPressed
+                                            )
+                                        ]
+                                        []
+                                    , Html.text ("last: " ++ model.lastKey)
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.pressKey "Escape" [ PSelector.id "kb" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "last: Escape" ]
+                        |> PagesProgram.pressKey "ArrowDown" [ PSelector.id "kb" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "last: ArrowDown" ]
+                        |> PagesProgram.done
+            , test "does not auto-submit a form when pressKey Enter is used" <|
+                \() ->
+                    PagesProgramInternal.initialProgramTest
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { submitCount = 0 }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    SubmittedForm ->
+                                        ( { model | submitCount = model.submitCount + 1 }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Form"
+                                , body =
+                                    [ Html.form
+                                        [ Html.Events.onSubmit SubmittedForm ]
+                                        [ Html.input [ Attr.id "f" ] [] ]
+                                    , Html.text ("submits=" ++ String.fromInt model.submitCount)
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.pressKey "Enter" [ PSelector.id "f" ]
+                        |> PagesProgram.ensureViewHas [ PSelector.text "submits=0" ]
+                        |> PagesProgram.done
+            ]
         , describe "simulateHttpGet for effects from update"
             [ test "simulateHttpGet resolves BackendTask effect from update" <|
                 \() ->
@@ -2650,6 +2780,19 @@ type CounterMsg
 
 type SearchMsg
     = UpdateQuery String
+
+
+type TodoFormMsg
+    = AddTodoFromInput
+    | UpdateDraft String
+
+
+type KeyboardMsg
+    = KeyPressed String
+
+
+type FormMsg
+    = SubmittedForm
 
 
 type CheckMsg
