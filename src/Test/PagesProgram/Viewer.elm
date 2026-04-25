@@ -956,12 +956,6 @@ testHasError test =
         |> List.any (\s -> s.stepKind == Error)
 
 
-stepKindColor : Snapshot -> String
-stepKindColor snapshot =
-    Icons.kindColor (Icons.kindFromSnapshot snapshot)
-
-
-
 -- VIEW
 
 
@@ -1277,13 +1271,14 @@ viewCommandLogSidebar model =
                 ]
             )
         , Html.div [ Attr.class "sidebar-steps", Attr.id "sidebar-steps" ]
-            (let
-                namedGroupStartSet =
-                    computeNamedGroupStarts snapshots
-             in
-             snapshots
-                |> List.indexedMap Tuple.pair
-                |> List.concatMap
+            (viewRailColumnHeader model
+                :: (let
+                        namedGroupStartSet =
+                            computeNamedGroupStarts snapshots
+                    in
+                    snapshots
+                        |> List.indexedMap Tuple.pair
+                        |> List.concatMap
                     (\( i, snapshot ) ->
                         let
                             isChild =
@@ -1341,13 +1336,41 @@ viewCommandLogSidebar model =
                                             computeStepEvents i snapshot previousSnapshot
 
                                         eventDots =
-                                            viewStepEventDots model events
+                                            viewStepChannelGutter model events
                                     in
                                     [ viewStepRow i snapshot model.currentStepIndex isHovering (model.hoveredStepIndex == Just i) (failureCauseIndex == Just i) isChild isGroupParent isExpanded numChildren eventDots ]
                         in
                         groupHeader ++ stepRow
                     )
+                   )
             )
+        ]
+
+
+viewRailColumnHeader : Model -> Html Msg
+viewRailColumnHeader model =
+    let
+        cell : Bool -> String -> Html Msg -> Html Msg
+        cell visible color glyph =
+            Html.span
+                [ Attr.class "step-channel-cell"
+                , Attr.style "color"
+                    (if visible then
+                        color
+
+                     else
+                        "#3a4555"
+                    )
+                ]
+                [ glyph ]
+    in
+    Html.div [ Attr.class "rail-column-header" ]
+        [ Html.span [ Attr.class "step-channel-gutter rail-column-header-gutter" ]
+            [ cell model.showFetchers Icons.channelColorFetcher (Icons.eventFetcher Icons.channelColorFetcher)
+            , cell (model.showNetworkBackend || model.showNetworkFrontend) Icons.channelColorNetworkBackend (Icons.eventNetwork Icons.channelColorNetworkBackend)
+            , cell model.showCookies Icons.channelColorCookie (Icons.eventCookie Icons.channelColorCookie)
+            , cell model.showEffects Icons.channelColorEffect (Icons.eventEffect Icons.channelColorEffect)
+            ]
         ]
 
 
@@ -1359,9 +1382,6 @@ viewStepRow index snapshot currentIndex isHovering isHovered isFailureCause isCh
 
         isPast =
             index < currentIndex
-
-        kindColor =
-            stepKindColor snapshot
     in
     Html.div
         [ Attr.classList
@@ -1380,11 +1400,8 @@ viewStepRow index snapshot currentIndex isHovering isHovered isFailureCause isCh
         ]
         [ Html.span [ Attr.class "step-number" ]
             [ Html.text (String.fromInt (index + 1)) ]
-        , Html.span
-            [ Attr.class "step-icon"
-            , Attr.style "color" kindColor
-            ]
-            [ Icons.stepKind snapshot ]
+        , Html.span [ Attr.class "step-icon" ]
+            [ Icons.verbIconForSnapshot snapshot ]
         , Html.span [ Attr.class "step-label", Attr.title snapshot.label ]
             (viewStepLabel snapshot)
         , eventDots
@@ -1517,94 +1534,99 @@ cookieSig ( name, entry ) =
     name ++ "=" ++ entry.value
 
 
-{-| Render the right-edge event dots. Hidden channels respect the same
-show-flags the toolbar uses, so toggling a channel off declutters the rail.
-A zero event count renders nothing.
+{-| Render the right-edge channel gutter — 4 fixed cells in F/N/C/E order.
+Each cell is 14px square. Populated cells render the channel glyph + an
+optional count badge; empty cells render a 2px dim dot so the eye can scan
+down a single column. Hidden channels (toolbar toggle off) render as empty.
 -}
-viewStepEventDots : Model -> StepEvents -> Html Msg
-viewStepEventDots model events =
+viewStepChannelGutter : Model -> StepEvents -> Html Msg
+viewStepChannelGutter model events =
     let
-        networkBackendColor =
-            Icons.channelColorNetworkBackend
+        networkVisible =
+            model.showNetworkBackend || model.showNetworkFrontend
 
-        networkFrontendColor =
-            Icons.channelColorNetworkFrontend
+        networkCount =
+            (if model.showNetworkBackend then
+                events.networkBackend
 
-        fetcherColor =
-            Icons.channelColorFetcher
+             else
+                0
+            )
+                + (if model.showNetworkFrontend then
+                    events.networkFrontend
 
-        cookieColor =
-            Icons.channelColorCookie
+                   else
+                    0
+                  )
+    in
+    Html.span [ Attr.class "step-channel-gutter" ]
+        [ channelCell model.showFetchers events.fetcher Icons.channelColorFetcher (Icons.eventFetcher Icons.channelColorFetcher) "fetcher"
+        , channelCell networkVisible networkCount Icons.channelColorNetworkBackend (Icons.eventNetwork Icons.channelColorNetworkBackend) "network"
+        , channelCell model.showCookies events.cookie Icons.channelColorCookie (Icons.eventCookie Icons.channelColorCookie) "cookie"
+        , channelCell model.showEffects events.effect Icons.channelColorEffect (Icons.eventEffect Icons.channelColorEffect) "effect"
+        ]
 
-        effectColor =
-            Icons.channelColorEffect
 
-        dot : Int -> String -> String -> Html Msg -> Html Msg
-        dot count label title icon =
-            if count <= 0 then
-                Html.text ""
+channelCell : Bool -> Int -> String -> Html msg -> String -> Html msg
+channelCell visible count color glyph titleWord =
+    if not visible || count <= 0 then
+        Html.span [ Attr.class "step-channel-cell step-channel-cell-empty" ]
+            [ Html.span [ Attr.class "step-channel-empty-dot" ] [] ]
 
-            else
-                Html.span
-                    [ Attr.class "step-event-dot"
-                    , Attr.title (String.fromInt count ++ " " ++ title)
-                    , Attr.style "color" label
-                    ]
-                    [ icon
-                    , if count > 1 then
-                        Html.span [ Attr.class "step-event-count" ]
-                            [ Html.text (String.fromInt count) ]
-
-                      else
-                        Html.text ""
-                    ]
-
-        dots =
-            [ if model.showNetworkBackend then
-                dot events.networkBackend networkBackendColor "backend network event" (Icons.eventNetwork networkBackendColor)
-
-              else
-                Html.text ""
-            , if model.showNetworkFrontend then
-                dot events.networkFrontend networkFrontendColor "frontend network event" (Icons.eventNetwork networkFrontendColor)
-
-              else
-                Html.text ""
-            , if model.showFetchers then
-                dot events.fetcher fetcherColor "fetcher event" (Icons.eventFetcher fetcherColor)
-
-              else
-                Html.text ""
-            , if model.showCookies then
-                dot events.cookie cookieColor "cookie event" (Icons.eventCookie cookieColor)
-
-              else
-                Html.text ""
-            , if model.showEffects then
-                dot events.effect effectColor "effect" (Icons.eventEffect effectColor)
+    else
+        Html.span
+            [ Attr.class "step-channel-cell"
+            , Attr.title (String.fromInt count ++ " " ++ titleWord ++ " event")
+            , Attr.style "color" color
+            ]
+            [ glyph
+            , if count > 1 then
+                Html.span [ Attr.class "step-channel-count" ]
+                    [ Html.text (String.fromInt count) ]
 
               else
                 Html.text ""
             ]
-    in
-    Html.span [ Attr.class "step-event-dots" ] dots
 
 
-{-| Render a step label with structured formatting.
-For any step whose label starts with a recognized verb, the verb is dimmed and
-the remaining detail (target, selector, URL, ...) is highlighted. Falls back to
-the raw label.
+{-| The kind of argument a step takes — drives sigils + color in the rail.
+-}
+type ArgKind
+    = ArgClass
+    | ArgText
+    | ArgAttr
+    | ArgCustom
+    | ArgUrl
+    | ArgEmpty
+
+
+{-| Result of `splitAssertionLabel` — the arg kind drives rendering.
+The `argValue` has surrounding quotes stripped; the `withinScope` has the
+outer `(within ...)` wrapper stripped (the inner selector remains).
+-}
+type alias SplitLabel =
+    { fnName : String
+    , argKind : ArgKind
+    , argValue : String
+    , withinScope : Maybe String
+    }
+
+
+{-| Render a step label with structured formatting using arg-kind sigils.
+For any step whose label starts with a recognized verb, the verb word is
+gone (replaced upstream by the verb icon) and the argument carries the
+visual weight via per-kind sigils + colors.
 -}
 viewStepLabel : Snapshot -> List (Html Msg)
 viewStepLabel snapshot =
     case splitAssertionLabel snapshot.label of
-        Just { fnName, selectorDetail, withinScope } ->
-            [ Html.span [ Attr.class "step-label-fn" ] [ Html.text (fnName ++ " ") ]
-            , Html.span [ Attr.class "step-label-selector" ] [ Html.text selectorDetail ]
-            ]
-                ++ (case withinScope of
+        Just split ->
+            viewArgCell split
+                ++ (case split.withinScope of
                         Just scope ->
-                            [ Html.span [ Attr.class "step-label-scope" ] [ Html.text (" " ++ scope) ] ]
+                            [ Html.span [ Attr.class "step-label-scope" ]
+                                [ Html.text ("\u{00A0}in " ++ scope) ]
+                            ]
 
                         Nothing ->
                             []
@@ -1614,40 +1636,77 @@ viewStepLabel snapshot =
             [ Html.text snapshot.label ]
 
 
-{-| Split a step label into a dim verb + highlighted target, honoring an optional
-trailing `(within ...)` scope. Recognizes assertion prefixes as well as the
-common interaction / setup / navigation verbs that appear on the step rail.
--}
-splitAssertionLabel : String -> Maybe { fnName : String, selectorDetail : String, withinScope : Maybe String }
-splitAssertionLabel label =
-    let
-        prefixes =
-            [ "ensureViewHas "
-            , "ensureViewHasNot "
-            , "ensureView"
-            , "ensureBrowserUrl "
-            , "expectViewHas "
-            , "expectViewHasNot "
-            , "clickButtonWith "
-            , "clickButton "
-            , "clickLinkByText "
-            , "clickLinkWith "
-            , "clickLink "
-            , "selectOption "
-            , "check "
-            , "uncheck "
-            , "fillIn "
-            , "fillInTextarea "
-            , "simulateHttpPost "
-            , "simulateHttpGet "
-            , "simulateCustom "
-            , "simulateCommand "
-            , "navigateTo "
-            , "redirected "
-            , "redirected→"
+viewArgCell : SplitLabel -> List (Html Msg)
+viewArgCell split =
+    case split.argKind of
+        ArgClass ->
+            [ Html.span [ Attr.class "step-arg step-arg-class" ]
+                [ Html.text ("." ++ split.argValue) ]
             ]
 
-        tryPrefix prefix =
+        ArgText ->
+            [ Html.span [ Attr.class "step-arg-quote" ] [ Html.text "\"" ]
+            , Html.span [ Attr.class "step-arg step-arg-text" ] [ Html.text split.argValue ]
+            , Html.span [ Attr.class "step-arg-quote" ] [ Html.text "\"" ]
+            ]
+
+        ArgAttr ->
+            [ Html.span [ Attr.class "step-arg step-arg-attr" ]
+                [ Html.text ("[" ++ split.argValue ++ "]") ]
+            ]
+
+        ArgCustom ->
+            [ Html.span [ Attr.class "step-arg step-arg-custom" ]
+                [ Html.text split.argValue ]
+            ]
+
+        ArgUrl ->
+            [ Html.span [ Attr.class "step-arg step-arg-url" ]
+                [ Html.text split.argValue ]
+            ]
+
+        ArgEmpty ->
+            [ Html.span [ Attr.class "step-arg step-arg-empty" ]
+                [ Html.text split.argValue ]
+            ]
+
+
+{-| Split a step label into verb + arg-kind + cleaned arg value, honoring an
+optional trailing `(within ...)` scope. Recognizes assertion prefixes as well
+as the common interaction / setup / navigation verbs.
+-}
+splitAssertionLabel : String -> Maybe SplitLabel
+splitAssertionLabel label =
+    let
+        -- (prefix, default arg kind for this verb)
+        prefixes : List ( String, ArgKind )
+        prefixes =
+            [ ( "ensureViewHas ", ArgEmpty )
+            , ( "ensureViewHasNot ", ArgEmpty )
+            , ( "ensureView", ArgEmpty )
+            , ( "ensureBrowserUrl ", ArgUrl )
+            , ( "expectViewHas ", ArgEmpty )
+            , ( "expectViewHasNot ", ArgEmpty )
+            , ( "clickButtonWith ", ArgClass )
+            , ( "clickButton ", ArgText )
+            , ( "clickLinkByText ", ArgText )
+            , ( "clickLinkWith ", ArgClass )
+            , ( "clickLink ", ArgText )
+            , ( "selectOption ", ArgText )
+            , ( "check ", ArgText )
+            , ( "uncheck ", ArgText )
+            , ( "fillIn ", ArgText )
+            , ( "fillInTextarea ", ArgText )
+            , ( "simulateHttpPost ", ArgUrl )
+            , ( "simulateHttpGet ", ArgUrl )
+            , ( "simulateCustom ", ArgCustom )
+            , ( "simulateCommand ", ArgCustom )
+            , ( "navigateTo ", ArgUrl )
+            , ( "redirected ", ArgUrl )
+            , ( "redirected→", ArgUrl )
+            ]
+
+        tryPrefix ( prefix, defaultKind ) =
             if String.startsWith prefix label then
                 let
                     rest =
@@ -1660,10 +1719,14 @@ splitAssertionLabel label =
 
                             Nothing ->
                                 ( rest, Nothing )
+
+                    ( argKind, argValue ) =
+                        inferArgKind defaultKind selectorPart
                 in
                 Just
                     { fnName = String.trimRight prefix
-                    , selectorDetail = selectorPart
+                    , argKind = argKind
+                    , argValue = argValue
                     , withinScope = scopePart
                     }
 
@@ -1673,8 +1736,54 @@ splitAssertionLabel label =
     firstJust tryPrefix prefixes
 
 
+{-| Refine a default arg kind by inspecting the selector detail. Recognizes
+the inner-selector forms (`text "..."`, `class "..."`, `attribute "..."`)
+that show up after `ensureViewHas`-family verbs, and strips outer quotes
+from simple quoted args.
+-}
+inferArgKind : ArgKind -> String -> ( ArgKind, String )
+inferArgKind defaultKind detail =
+    let
+        trimmed =
+            String.trim detail
+    in
+    if String.startsWith "text " trimmed then
+        ( ArgText, stripOuterQuotes (String.dropLeft 5 trimmed) )
+
+    else if String.startsWith "exact text " trimmed then
+        ( ArgText, stripOuterQuotes (String.dropLeft 11 trimmed) )
+
+    else if String.startsWith "class " trimmed then
+        ( ArgClass, stripOuterQuotes (String.dropLeft 6 trimmed) )
+
+    else if String.startsWith "attribute " trimmed then
+        ( ArgAttr, stripOuterQuotes (String.dropLeft 10 trimmed) )
+
+    else if String.startsWith "id " trimmed then
+        ( ArgAttr, stripOuterQuotes (String.dropLeft 3 trimmed) )
+
+    else
+        ( defaultKind, stripOuterQuotes trimmed )
+
+
+{-| Drop a single pair of outer double-quotes if present.
+-}
+stripOuterQuotes : String -> String
+stripOuterQuotes s =
+    let
+        t =
+            String.trim s
+    in
+    if String.startsWith "\"" t && String.endsWith "\"" t && String.length t >= 2 then
+        String.slice 1 (String.length t - 1) t
+
+    else
+        t
+
+
 {-| Extract "(within ...)" suffix from a label string.
-Returns (selector part, within part) if found.
+Returns (selector part, scope inner) if found, with the outer `(within ` /
+`)` wrapper stripped from the scope.
 -}
 findWithinScope : String -> Maybe ( String, String )
 findWithinScope str =
@@ -1687,9 +1796,20 @@ findWithinScope str =
             Nothing
 
         idx :: _ ->
+            let
+                rawScope =
+                    String.dropLeft (idx + String.length marker) str
+
+                inner =
+                    if String.endsWith ")" rawScope then
+                        String.dropRight 1 rawScope
+
+                    else
+                        rawScope
+            in
             Just
                 ( String.left idx str
-                , String.dropLeft idx str
+                , inner
                 )
 
 
@@ -2095,6 +2215,7 @@ viewEventChip cfg =
                     [ ( "event-chip", True )
                     , ( eventKindClass cfg.kind, True )
                     , ( "event-chip-active", cfg.active )
+                    , ( "event-chip-now", cfg.currentStepHere )
                     , ( "event-chip-future", cfg.future )
                     ]
                 , Html.Events.onClick (GoToStep cfg.step)
@@ -2103,7 +2224,7 @@ viewEventChip cfg =
                 , Html.text (String.fromInt (cfg.step + 1))
                 ]
     in
-    if cfg.active && cfg.currentStepHere then
+    if cfg.currentStepHere then
         withCurrentStepRing "#7dd3fc" chip
 
     else
@@ -3153,6 +3274,7 @@ viewCookiePillRow currentStep currentEventIdx events =
                                     [ ( "cookie-box-pill", True )
                                     , ( kindClass, True )
                                     , ( "cookie-box-pill-active", isActive )
+                                    , ( "cookie-box-pill-now", isNow )
                                     ]
                                 , Html.Events.onClick (GoToStep evStep)
                                 ]
@@ -4242,24 +4364,37 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 12px;
+    padding: 6px 12px 6px 10px;
     cursor: pointer;
-    border-left: 3px solid transparent;
-    transition: background 0.08s, border-color 0.08s;
+    border-left: 2px solid transparent;
+    transition: background 0.08s, border-color 0.08s, color 0.08s;
 }
 
 .step-row:hover {
-    background: rgba(76, 201, 240, 0.06);
+    background: rgba(252, 211, 77, 0.10);
+    border-left-color: #fcd34d;
 }
 
 .step-row-active {
-    background: rgba(125, 211, 252, 0.1);
+    background: rgba(125, 211, 252, 0.08);
     border-left-color: #7dd3fc;
 }
 
+.step-row-active:hover {
+    background: rgba(252, 211, 77, 0.10);
+    border-left-color: #fcd34d;
+}
+
+/* Cross-panel hover synchronization (sets the same warm-yellow as :hover
+   when a step is hovered from another panel). */
 .step-row-hovered {
-    background: rgba(76, 201, 240, 0.15);
-    border-left-color: rgba(76, 201, 240, 0.5);
+    background: rgba(252, 211, 77, 0.10);
+    border-left-color: #fcd34d;
+}
+
+.step-row-hovered .step-icon,
+.step-row-hovered .step-number {
+    color: #fcd34d;
 }
 
 .step-row-past {
@@ -4277,10 +4412,6 @@ body {
     border-left-color: #fcd34d;
     background: rgba(252, 211, 77, 0.06);
     box-shadow: inset 0 -1px 0 rgba(252, 211, 77, 0.18);
-}
-
-.step-row-failure-cause .step-label-selector {
-    color: #fcd34d;
 }
 
 .step-row-child {
@@ -4301,7 +4432,7 @@ body {
 .step-number {
     font-size: 11px;
     color: #556677;
-    min-width: 20px;
+    min-width: 22px;
     text-align: right;
     font-variant-numeric: tabular-nums;
 }
@@ -4310,10 +4441,11 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 14px;
+    min-width: 18px;
     width: 18px;
-    height: 14px;
+    height: 16px;
     flex-shrink: 0;
+    color: #8896a6;
 }
 
 .step-icon svg {
@@ -4321,35 +4453,89 @@ body {
     overflow: visible;
 }
 
-.step-event-dots {
-    display: inline-flex;
+.step-row:hover .step-icon,
+.step-row:hover .step-number {
+    color: #fcd34d;
+}
+
+.step-row-active .step-icon,
+.step-row-active .step-number {
+    color: #7dd3fc;
+}
+
+.step-row-error .step-icon {
+    color: #e74c3c;
+}
+
+/* Rail header — once at the top of the rail, columns aligned with the
+   gutter cells below so the four-channel layout is learnable without a
+   legend. */
+
+.rail-column-header {
+    display: flex;
+    justify-content: flex-end;
+    padding: 6px 12px 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    margin-bottom: 2px;
+    opacity: 0.6;
+}
+
+.rail-column-header-gutter {
+    margin-left: 0;
+    opacity: 1;
+}
+
+/* 4-cell channel-activity gutter on the right edge of every step row.
+   Cells share a fixed x-coordinate so the eye can scan straight down a
+   single channel column without horizontal jitter. Empty cells render a
+   tiny dim dot rather than collapsing — the column has to stay aligned. */
+
+.step-channel-gutter {
+    display: inline-grid;
+    grid-template-columns: repeat(4, 14px);
     align-items: center;
-    gap: 5px;
-    margin-left: 6px;
+    justify-items: center;
+    column-gap: 4px;
+    margin-left: 8px;
     flex-shrink: 0;
     opacity: 0.85;
 }
 
-.step-row:hover .step-event-dots,
-.step-row-active .step-event-dots {
+.step-row:hover .step-channel-gutter,
+.step-row-active .step-channel-gutter {
     opacity: 1;
 }
 
-.step-event-dot {
+.step-channel-cell {
+    position: relative;
+    width: 14px;
+    height: 14px;
     display: inline-flex;
     align-items: center;
-    gap: 2px;
+    justify-content: center;
 }
 
-.step-event-dot svg {
+.step-channel-cell svg {
     display: block;
 }
 
-.step-event-count {
+.step-channel-empty-dot {
+    width: 2px;
+    height: 2px;
+    border-radius: 50%;
+    background: #3a4555;
+    opacity: 0.5;
+}
+
+.step-channel-count {
+    position: absolute;
+    top: -2px;
+    right: -3px;
     font-family: "SF Mono", "JetBrains Mono", "Fira Code", monospace;
-    font-size: 9px;
-    font-weight: 600;
+    font-size: 8px;
+    font-weight: 700;
     line-height: 1;
+    color: inherit;
 }
 
 .step-label {
@@ -4371,17 +4557,22 @@ body {
     font-weight: 600;
 }
 
-.step-label-fn {
-    color: #8a9aaa;
-}
+/* Argument cell — kind drives sigil + color. Verb word is gone (replaced
+   by the verb-icon column). */
 
-.step-label-selector {
-    color: #7ee787;
+.step-arg {
     font-weight: 500;
 }
 
-.step-row-active .step-label-selector {
-    color: #a5f0a5;
+.step-arg-text { color: #86efac; }
+.step-arg-quote { color: #5c6a7e; font-weight: 400; }
+.step-arg-class { color: #c4b5fd; }
+.step-arg-attr { color: #fdba74; }
+.step-arg-custom { color: #7dd3fc; }
+.step-arg-url { color: #fdba74; }
+.step-arg-empty { color: #c0c8d0; font-weight: 400; }
+
+.step-row-active .step-arg {
     font-weight: 600;
 }
 
@@ -4389,6 +4580,11 @@ body {
     color: #6a7a8a;
     font-style: italic;
     font-size: 11px;
+}
+
+/* Failure-cause amber tinge applies to whatever arg color the row uses. */
+.step-row-failure-cause .step-arg {
+    color: #fcd34d;
 }
 
 /* === TEST LIST === */
@@ -4512,19 +4708,16 @@ body {
 .named-group-header {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 6px;
-    padding: 8px 10px 6px 12px;
+    padding: 10px 14px 3px;
     cursor: pointer;
     background: transparent;
-    border-left: 3px solid transparent;
-    background-image: linear-gradient(180deg, rgba(125, 211, 252, 0.25), rgba(134, 239, 172, 0.18));
-    background-repeat: no-repeat;
-    background-size: 3px 100%;
-    background-position: left center;
-    font-size: 10px;
-    color: #8b99ad;
+    border-left: 2px solid transparent;
+    font-size: 9.5px;
+    color: #5c6a7e;
     text-transform: uppercase;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.09em;
     font-weight: 600;
     margin-top: 4px;
     opacity: 0.55;
@@ -4532,18 +4725,19 @@ body {
 
 .named-group-header:hover {
     opacity: 0.85;
-    background-color: rgba(125, 211, 252, 0.04);
 }
 
 .named-group-icon {
     font-size: 8px;
-    opacity: 0.6;
+    opacity: 0.7;
     color: currentColor;
+    margin-right: 2px;
 }
 
 .named-group-name {
+    flex: 1;
     font-weight: 600;
-    color: #e6ecf4;
+    color: inherit;
 }
 
 .named-group-count {
@@ -4551,9 +4745,9 @@ body {
     font-size: 9px;
     font-weight: 400;
     color: inherit;
-    opacity: 0.55;
     background: transparent;
     padding: 0;
+    font-variant-numeric: tabular-nums;
 }
 
 /* === MAIN PANEL === */
@@ -5343,7 +5537,13 @@ body {
    event chips (`.event-chip`) use one visual vocabulary so the timeline
    reads the same across panels. Each pill has a 3px kind-colored left
    stripe, neutral 1px borders elsewhere, and gets a cyan-tinted treatment
-   when it represents the current state. */
+   when it represents the current state.
+
+   IMPORTANT: do not use the `border:` shorthand here — it resets all four
+   border colors at once and would wipe the kind-colored left stripe set
+   by `.cookie-box-pill-kind-*` / `.event-chip-kind-*` rules (since those
+   rules ship earlier in the stylesheet at equal specificity). Set each
+   side explicitly. */
 .event-chip,
 .cookie-box-pill {
     display: inline-flex;
@@ -5357,8 +5557,14 @@ body {
     min-width: 34px;
     box-sizing: border-box;
     border-radius: 3px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-style: solid;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
     border-left-width: 3px;
+    border-top-color: rgba(255, 255, 255, 0.08);
+    border-right-color: rgba(255, 255, 255, 0.08);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
     background: transparent;
     color: #8b99ad;
     cursor: pointer;
@@ -5376,18 +5582,81 @@ body {
 .event-chip-kind-fail { border-left-color: #fca5a5; }
 .event-chip-kind-sent { border-left-color: #86efac; }
 
-/* Active: subtle cyan tinted background + cyan top/right/bottom borders
-   (left stripe stays kind-colored). Cyan is the universal "this is the
-   current state" cue across panels; the kind color lives on the stripe
-   and (for event chips) in the icon's shape. */
-.event-chip-active,
-.cookie-box-pill-active {
-    background: rgba(125, 211, 252, 0.12);
-    border-top-color: #7dd3fc;
-    border-right-color: #7dd3fc;
-    border-bottom-color: #7dd3fc;
-    color: #7dd3fc;
-    font-weight: 600;
+/* Solid kind-colored background + dark text + soft kind-colored glow.
+   Only fires when a chip is BOTH the lane's active state AND the
+   current step (`-active.-now`) — that's the moment the user is "on"
+   the event the chip represents. Active-without-now (e.g. resolved on
+   step 5, currently viewing step 12) keeps the neutral outline so it
+   doesn't pull the eye away from the row that actually matters. */
+.event-chip-active.event-chip-now {
+    color: #0f1620;
+    font-weight: 700;
+}
+
+.event-chip-active.event-chip-now.event-chip-kind-submit,
+.event-chip-active.event-chip-now.event-chip-kind-sent {
+    background: #86efac;
+    border-top-color: rgba(134, 239, 172, 0.33);
+    border-right-color: rgba(134, 239, 172, 0.33);
+    border-bottom-color: rgba(134, 239, 172, 0.33);
+    box-shadow: 0 0 0 1px rgba(134, 239, 172, 0.33), 0 0 8px rgba(134, 239, 172, 0.2);
+}
+
+.event-chip-active.event-chip-now.event-chip-kind-reload {
+    background: #fcd34d;
+    border-top-color: rgba(252, 211, 77, 0.33);
+    border-right-color: rgba(252, 211, 77, 0.33);
+    border-bottom-color: rgba(252, 211, 77, 0.33);
+    box-shadow: 0 0 0 1px rgba(252, 211, 77, 0.33), 0 0 8px rgba(252, 211, 77, 0.2);
+}
+
+.event-chip-active.event-chip-now.event-chip-kind-complete {
+    background: #7dd3fc;
+    border-top-color: rgba(125, 211, 252, 0.33);
+    border-right-color: rgba(125, 211, 252, 0.33);
+    border-bottom-color: rgba(125, 211, 252, 0.33);
+    box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.33), 0 0 8px rgba(125, 211, 252, 0.2);
+}
+
+.event-chip-active.event-chip-now.event-chip-kind-fail {
+    background: #fca5a5;
+    border-top-color: rgba(252, 165, 165, 0.33);
+    border-right-color: rgba(252, 165, 165, 0.33);
+    border-bottom-color: rgba(252, 165, 165, 0.33);
+    box-shadow: 0 0 0 1px rgba(252, 165, 165, 0.33), 0 0 8px rgba(252, 165, 165, 0.2);
+}
+
+/* Active cookie pill — same gating: active-AND-now triggers the solid
+   kind-colored bg. Cookie kinds map to lifecycle semantics: `set` is
+   additive (green), `changed` is modification (amber), `removed` is
+   destructive (red). */
+.cookie-box-pill-active.cookie-box-pill-now {
+    color: #0f1620;
+    font-weight: 700;
+}
+
+.cookie-box-pill-active.cookie-box-pill-now.cookie-box-pill-kind-set {
+    background: #86efac;
+    border-top-color: rgba(134, 239, 172, 0.33);
+    border-right-color: rgba(134, 239, 172, 0.33);
+    border-bottom-color: rgba(134, 239, 172, 0.33);
+    box-shadow: 0 0 0 1px rgba(134, 239, 172, 0.33), 0 0 8px rgba(134, 239, 172, 0.2);
+}
+
+.cookie-box-pill-active.cookie-box-pill-now.cookie-box-pill-kind-changed {
+    background: #fcd34d;
+    border-top-color: rgba(252, 211, 77, 0.33);
+    border-right-color: rgba(252, 211, 77, 0.33);
+    border-bottom-color: rgba(252, 211, 77, 0.33);
+    box-shadow: 0 0 0 1px rgba(252, 211, 77, 0.33), 0 0 8px rgba(252, 211, 77, 0.2);
+}
+
+.cookie-box-pill-active.cookie-box-pill-now.cookie-box-pill-kind-removed {
+    background: #fca5a5;
+    border-top-color: rgba(252, 165, 165, 0.33);
+    border-right-color: rgba(252, 165, 165, 0.33);
+    border-bottom-color: rgba(252, 165, 165, 0.33);
+    box-shadow: 0 0 0 1px rgba(252, 165, 165, 0.33), 0 0 8px rgba(252, 165, 165, 0.2);
 }
 
 /* Future chips: dimmed-and-muted, kind stripe survives at low alpha. */
@@ -5404,23 +5673,10 @@ body {
     border-bottom-color: rgba(255, 255, 255, 0.18);
 }
 
-.event-chip-active:hover,
-.cookie-box-pill-active:hover {
-    color: #b9e9ff;
-    border-top-color: #7dd3fc;
-    border-right-color: #7dd3fc;
-    border-bottom-color: #7dd3fc;
-}
-
-/* When active+now, drop the cyan side borders so the now-ring is the
-   only outline (otherwise the ring + cyan border parallel into a
-   double-line read). The kind stripe + cyan tint + bold cyan text
-   still differentiate the active state. */
-.current-step-shell .event-chip-active,
-.current-step-shell .cookie-box-pill-active {
-    border-top-color: rgba(255, 255, 255, 0.08);
-    border-right-color: rgba(255, 255, 255, 0.08);
-    border-bottom-color: rgba(255, 255, 255, 0.08);
+.event-chip-active.event-chip-now:hover,
+.cookie-box-pill-active.cookie-box-pill-now:hover {
+    color: #0f1620;
+    filter: brightness(1.08);
 }
 
 /* Current-step ring halo. Shared by the Network/Fetcher event chips
