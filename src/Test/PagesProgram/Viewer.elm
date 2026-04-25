@@ -197,7 +197,7 @@ app tests =
                   , currentTestIndex = initialTestIndex
                   , currentStepIndex = initialStepIndex
                   , hoveredStepIndex = Nothing
-                  , showModel = False
+                  , showModel = True
                   , sidebarMode = initialMode
                   , navKey = key
                   , basePath = basePath
@@ -1630,7 +1630,10 @@ formatOneSelector selector =
 parseNavigationLabel : String -> ( String, String )
 parseNavigationLabel label =
     if String.startsWith "navigateTo " label then
-        ( "SPA", stripOuterQuotes (String.dropLeft 11 label) )
+        -- `navigateTo` represents the user arriving at a URL (clicking
+        -- a magic link in email, typing into the browser bar, etc.) —
+        -- functionally a fresh page load, not an SPA route change.
+        ( "Hard reload", stripOuterQuotes (String.dropLeft 11 label) )
 
     else if String.startsWith "redirected→" label then
         ( "Redirect", stripOuterQuotes (String.dropLeft 11 label) )
