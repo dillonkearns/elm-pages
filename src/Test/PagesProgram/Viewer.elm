@@ -4521,9 +4521,13 @@ body {
 
 .step-number {
     font-size: 11px;
-    color: #556677;
+    color: #a4b1c2;
     text-align: right;
     font-variant-numeric: tabular-nums;
+}
+
+.step-row-active .step-number {
+    font-weight: 700;
 }
 
 .step-icon {
@@ -4612,12 +4616,15 @@ body {
     display: block;
 }
 
+/* Empty channel cell — a thin solid dash reads more clearly as
+   "column placeholder" than a tiny dot, and the solid #5c6a7e
+   (no opacity multiplier) keeps the gutter columns visible as a
+   tabular structure even when no row has activity. */
 .step-channel-empty-dot {
-    width: 2px;
-    height: 2px;
-    border-radius: 50%;
-    background: #3a4555;
-    opacity: 0.5;
+    width: 4px;
+    height: 1px;
+    border-radius: 0.5px;
+    background: #5c6a7e;
 }
 
 .step-channel-count {
@@ -4658,7 +4665,7 @@ body {
 }
 
 .step-arg-text { color: #86efac; }
-.step-arg-quote { color: #5c6a7e; font-weight: 400; }
+.step-arg-quote { color: #8896a6; font-weight: 400; }
 .step-arg-class { color: #c4b5fd; }
 .step-arg-attr { color: #fdba74; }
 .step-arg-custom { color: #7dd3fc; }
@@ -4669,8 +4676,11 @@ body {
     font-weight: 600;
 }
 
+/* The `in <selector>` scope qualifier reads as secondary content but
+   it's information, not chrome — bump from #6a7a8a (~3:1) to #a4b1c2
+   (~6:1) so it stays comfortably readable next to the arg cell. */
 .step-label-scope {
-    color: #6a7a8a;
+    color: #a4b1c2;
     font-style: italic;
     font-size: 11px;
 }
@@ -4805,53 +4815,57 @@ body {
 /* Named group headers */
 
 /* Section header — same 4-col grid as step rows so the title aligns
-   with step labels and the count sits in the channel-gutter column. */
+   with step labels and the count sits in the channel-gutter column.
+   Dimness is baked into the color (#8896a6) rather than stacked on
+   top of an opacity multiplier; the bolder font-weight does most of
+   the "this is a header" work without forcing extreme dimness. Title
+   wraps freely so long section names like "Revisit the login page
+   while signed in" stay readable instead of getting clipped. */
 .named-group-header {
     display: grid;
     grid-template-columns: 22px 18px 1fr 76px;
-    align-items: center;
+    align-items: start;
     column-gap: 7px;
-    padding: 10px 10px 3px 4px;
+    padding: 10px 10px 6px 4px;
     cursor: pointer;
     background: transparent;
     border-left: 2px solid transparent;
     font-size: 9.5px;
-    color: #5c6a7e;
+    color: #8896a6;
     text-transform: uppercase;
-    letter-spacing: 0.09em;
-    font-weight: 600;
+    letter-spacing: 0.06em;
+    font-weight: 700;
     margin-top: 4px;
-    opacity: 0.55;
+    line-height: 1.35;
 }
 
 .named-group-header:hover {
-    opacity: 0.85;
+    color: #a4b1c2;
 }
 
 .named-group-icon {
     grid-column: 1;
     justify-self: end;
     font-size: 8px;
-    opacity: 0.7;
     color: currentColor;
 }
 
 .named-group-name {
     grid-column: 2 / 4;
-    font-weight: 600;
+    font-weight: 700;
     color: inherit;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;
+    word-break: normal;
 }
 
 .named-group-count {
     grid-column: 4;
+    align-self: start;
+    flex-shrink: 0;
     text-align: right;
     font-size: 9px;
-    font-weight: 400;
-    color: inherit;
+    font-weight: 600;
+    color: #a4b1c2;
     background: transparent;
     padding: 0;
     font-variant-numeric: tabular-nums;
@@ -5065,34 +5079,45 @@ body {
     margin-top: 6px;
 }
 
+/* Inactive filter pill: outline-only, dim text. Active: solid
+   kind-color fill with inverted dark text. The contrast between
+   "outline" and "solid-filled" reads from across the room — no
+   need for a translucent gradient between the two states. */
 .net-filter-btn {
     font-size: 10px;
     padding: 2px 8px;
     border-radius: 10px;
     border: 1px solid rgba(255, 255, 255, 0.12);
     background: transparent;
-    color: #5c6a7e;
+    color: #8896a6;
     cursor: pointer;
     font-family: inherit;
+    transition: background 0.08s, color 0.08s, border-color 0.08s;
 }
 
 .net-filter-btn:hover {
-    color: #c9d1d9;
-    border-color: #484f58;
+    color: #e6ecf4;
+    border-color: rgba(255, 255, 255, 0.28);
 }
 
 .net-filter-backend.net-filter-active {
-    background: rgba(244, 114, 182, 0.22);
-    border-color: rgba(244, 114, 182, 0.65);
-    color: #f472b6;
-    font-weight: 600;
+    background: #f472b6;
+    border-color: #f472b6;
+    color: #0d1117;
+    font-weight: 700;
 }
 
 .net-filter-frontend.net-filter-active {
-    background: rgba(125, 211, 252, 0.22);
-    border-color: rgba(125, 211, 252, 0.65);
-    color: #7dd3fc;
-    font-weight: 600;
+    background: #7dd3fc;
+    border-color: #7dd3fc;
+    color: #0d1117;
+    font-weight: 700;
+}
+
+.net-filter-backend.net-filter-active:hover,
+.net-filter-frontend.net-filter-active:hover {
+    color: #0d1117;
+    filter: brightness(1.06);
 }
 
 .network-empty,
@@ -5154,8 +5179,21 @@ body {
     color: #c9d1d9;
 }
 
+/* Future network rows: signaled dim, not flat dim. Three stacked cues
+   communicate "this hasn't happened yet" without making the row text
+   unreadable — italics carries most of the "tentative" weight, the
+   dashed left border anchors the row visually as future, and the
+   moderate opacity drop keeps it secondary. Channel glyphs stay at
+   full opacity so the rail's structural columns remain crisp. */
 .net-row-future {
-    opacity: 0.42;
+    opacity: 0.7;
+    border-left: 2px dashed rgba(125, 211, 252, 0.4);
+    font-style: italic;
+}
+
+.net-row-future .step-channel-cell svg,
+.net-row-future .event-chip svg {
+    opacity: 1;
 }
 
 /* Same phase-sync trick as `.fetcher-card`: attach the pulse
@@ -5377,15 +5415,19 @@ body {
     color: #7dd3fc;
 }
 
+/* Reads as a discrete pill (fill + border + weight) rather than
+   colored text floating in space. Tied to the cookie channel color
+   so the visual identity says "this is cookie metadata." */
 .cookie-signed-badge {
     font-size: 9px;
-    font-weight: 500;
+    font-weight: 700;
     padding: 1px 5px;
     border-radius: 3px;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    background: rgba(125, 211, 252, 0.1);
-    color: rgba(125, 211, 252, 0.85);
+    background: rgba(253, 186, 116, 0.18);
+    border: 1px solid rgba(253, 186, 116, 0.35);
+    color: #fdba74;
 }
 
 .cookie-secret-label {
