@@ -5490,15 +5490,20 @@ body {
 
 /* Current-step ring halo. Shared by the Network/Fetcher event chips
    and the Cookie box-pill selector — wraps any inline element with a
-   thin colored outline + soft outer glow that says "this is the step
-   you're on right now."
+   thin colored outline that says "this is the step you're on right
+   now."
 
    Implemented as an absolutely-positioned overlay inside a
    zero-padding shell so the wrapped element's bounding box (and
    therefore the surrounding row's layout) is unchanged whether or
    not the ring is present. Color is supplied via the `--ring-color`
    custom property so each caller can tie it to the right kind /
-   channel color. */
+   channel color.
+
+   No blur on the box-shadow: a CSS blur of N pixels paints both
+   inward and outward of the shadow's edge, and inward bleed was
+   washing out the kind-colored left stripe on cookie box-pills.
+   The sharp 1px outline reads clearly on its own. */
 .current-step-shell {
     display: inline-flex;
     position: relative;
@@ -5508,9 +5513,7 @@ body {
     position: absolute;
     inset: -2px;
     border-radius: 4px;
-    box-shadow:
-        0 0 0 1px var(--ring-color, #7dd3fc),
-        0 0 5px color-mix(in oklab, var(--ring-color, #7dd3fc), transparent 60%);
+    box-shadow: 0 0 0 1px var(--ring-color, #7dd3fc);
     pointer-events: none;
 }
 
