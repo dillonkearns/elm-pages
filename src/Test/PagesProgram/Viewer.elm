@@ -2727,7 +2727,11 @@ viewModelInspector expandedNodes snapshot =
                                 value
 
                         Err _ ->
-                            Html.pre [] [ Html.text modelStr ]
+                            Html.div []
+                                [ Html.div [ Attr.class "model-parse-error-banner" ]
+                                    [ Html.text "DebugParser couldn't parse this snapshot — falling back to raw text. Copy the contents below and share them so the parser can be patched." ]
+                                , Html.pre [ Attr.class "model-parse-error-raw" ] [ Html.text modelStr ]
+                                ]
             ]
         ]
 
@@ -5301,6 +5305,33 @@ body {
 /* Failure-cause amber tinge applies to whatever arg color the row uses. */
 .step-row-failure-cause .step-arg {
     color: #fcd34d;
+}
+
+.model-parse-error-banner {
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    border: 1px solid rgba(252, 165, 165, 0.35);
+    background: rgba(252, 165, 165, 0.08);
+    color: #fca5a5;
+    font-size: 11px;
+    line-height: 1.4;
+    border-radius: 4px;
+}
+
+.model-parse-error-raw {
+    background: #0d1117;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 4px;
+    padding: 10px;
+    font-family: "JetBrains Mono", "SF Mono", monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    color: #c8d3e0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 400px;
+    overflow: auto;
+    user-select: text;
 }
 
 /* === SUITE OVERVIEW === */
