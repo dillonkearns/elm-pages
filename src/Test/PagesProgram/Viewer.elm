@@ -1756,6 +1756,10 @@ splitAssertionLabel label =
 the inner-selector forms (`text "..."`, `class "..."`, `attribute "..."`)
 that show up after `ensureViewHas`-family verbs, and strips outer quotes
 from simple quoted args.
+
+`attribute "name" "value"` is a *two-arg* form — render as `name="value"`
+(brackets are added by the renderer) so it reads like a CSS attribute
+selector instead of `[name" "value]` from naïve outer-quote stripping.
 -}
 inferArgKind : ArgKind -> String -> ( ArgKind, String )
 inferArgKind defaultKind detail =
@@ -1773,13 +1777,52 @@ inferArgKind defaultKind detail =
         ( ArgClass, stripOuterQuotes (String.dropLeft 6 trimmed) )
 
     else if String.startsWith "attribute " trimmed then
-        ( ArgAttr, stripOuterQuotes (String.dropLeft 10 trimmed) )
+        case extractQuotedArgs (String.dropLeft 10 trimmed) of
+            [ name, value ] ->
+                ( ArgAttr, name ++ "=\"" ++ value ++ "\"" )
+
+            [ name ] ->
+                ( ArgAttr, name )
+
+            _ ->
+                ( ArgAttr, stripOuterQuotes trimmed )
 
     else if String.startsWith "id " trimmed then
         ( ArgAttr, stripOuterQuotes (String.dropLeft 3 trimmed) )
 
     else
         ( defaultKind, stripOuterQuotes trimmed )
+
+
+{-| Pull every `"..."` chunk out of a string, in order. Used to parse
+multi-arg selector forms like `attribute "value" "Write tests"` into
+`["value", "Write tests"]`.
+-}
+extractQuotedArgs : String -> List String
+extractQuotedArgs s =
+    let
+        helper : List String -> String -> List String
+        helper acc remaining =
+            let
+                trimmed =
+                    String.trimLeft remaining
+            in
+            if String.startsWith "\"" trimmed then
+                let
+                    body =
+                        String.dropLeft 1 trimmed
+                in
+                case String.indices "\"" body of
+                    i :: _ ->
+                        helper (String.left i body :: acc) (String.dropLeft (i + 1) body)
+
+                    [] ->
+                        List.reverse acc
+
+            else
+                List.reverse acc
+    in
+    helper [] s
 
 
 {-| Drop a single pair of outer double-quotes if present.
@@ -1914,7 +1957,18 @@ viewMainPanel model =
                                     Before ->
                                         case previousSnapshot of
                                             Just prev ->
-                                                { prev | targetElement = snapshot.targetElement }
+                                                -- Render prev's body, but show the *current* step's
+                                                -- target / scope / assertions so the highlight points
+                                                -- at what's about to be clicked or asserted on.
+                                                -- Without copying scopeSelectors, a scoped click like
+                                                -- `withinFind [li containing "Write tests"] (clickButtonWith class "destroy")`
+                                                -- would lose its scope in Before mode and either fail
+                                                -- to highlight or point at the wrong destroy button.
+                                                { prev
+                                                    | targetElement = snapshot.targetElement
+                                                    , scopeSelectors = snapshot.scopeSelectors
+                                                    , assertionSelectors = snapshot.assertionSelectors
+                                                }
 
                                             Nothing ->
                                                 snapshot
@@ -3192,7 +3246,7 @@ viewCookieStack currentStep totalSteps name events =
                 Nothing ->
                     Html.text ""
             ]
-        , if eventCount > 1 then
+        , if eventCount > 0 then
             viewCookiePillRow currentStep currentEventIdx events
 
           else

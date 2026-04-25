@@ -746,6 +746,69 @@ main =
       return results;
     }
 
+    // Pin a target element's :hover styles as inline declarations.
+    // Walks the iframe's stylesheets, collects every rule whose selector
+    // contains :hover and matches the element (with :hover stripped),
+    // and copies those declarations onto el.style. The element's
+    // existing inline-style cssText is saved in a data- attr so we
+    // can restore it when the highlight clears.
+    //
+    // This is what Chrome DevTools' "Force element state" panel does;
+    // there's no DOM API to flip :hover programmatically — the browser
+    // only sets it from real mouse position.
+    //
+    // Skipped:
+    //   - cross-origin stylesheets (.cssRules throws SecurityError)
+    //   - pseudo-element hover rules like button:hover::before, since
+    //     inline style can't represent pseudo-elements
+    function pinHoverStyles(iframeDoc, el) {
+      if (!el || el.dataset.elmPagesHoverPinned === "1") return;
+      var sheets = iframeDoc.styleSheets;
+      var pinnedAny = false;
+      for (var s = 0; s < sheets.length; s++) {
+        var rules;
+        try { rules = sheets[s].cssRules; } catch (e) { continue; }
+        if (!rules) continue;
+        for (var r = 0; r < rules.length; r++) {
+          var rule = rules[r];
+          if (!rule.selectorText || !rule.style) continue;
+          var selectors = rule.selectorText.split(",");
+          for (var si = 0; si < selectors.length; si++) {
+            var sel = selectors[si].trim();
+            if (sel.indexOf(":hover") === -1) continue;
+            if (sel.indexOf("::") !== -1) continue;
+            var stripped = sel.replace(/:hover/g, "").trim();
+            if (!stripped) continue;
+            var matches = false;
+            try { matches = el.matches(stripped); } catch (e) {}
+            if (!matches) continue;
+            if (!pinnedAny) {
+              el.dataset.elmPagesHoverBackup = el.getAttribute("style") || "";
+              pinnedAny = true;
+            }
+            var style = rule.style;
+            for (var p = 0; p < style.length; p++) {
+              var prop = style[p];
+              el.style.setProperty(prop, style.getPropertyValue(prop), style.getPropertyPriority(prop));
+            }
+          }
+        }
+      }
+      if (pinnedAny) el.dataset.elmPagesHoverPinned = "1";
+    }
+
+    function unpinHoverStyles(iframeDoc) {
+      var pinned = iframeDoc.querySelectorAll('[data-elm-pages-hover-pinned="1"]');
+      for (var i = 0; i < pinned.length; i++) {
+        var el = pinned[i];
+        var backup = el.dataset.elmPagesHoverBackup || "";
+        if (backup) el.setAttribute("style", backup);
+        else el.removeAttribute("style");
+        delete el.dataset.elmPagesHoverPinned;
+        delete el.dataset.elmPagesHoverBackup;
+      }
+    }
+
     function updateHighlight(iframeDoc, pageBody) {
       var highlightJson = pageBody ? pageBody.getAttribute("data-highlight") : null;
 
@@ -753,6 +816,7 @@ main =
       if (highlightJson !== lastHighlightJson) {
         var old = iframeDoc.querySelectorAll(".__elm-pages-highlight, .__elm-pages-highlight-scope");
         for (var i = 0; i < old.length; i++) old[i].remove();
+        unpinHoverStyles(iframeDoc);
         lastHighlightJson = highlightJson;
       }
 
@@ -768,7 +832,16 @@ main =
         // Target not found, clean up any stale overlays
         var stale = iframeDoc.querySelectorAll(".__elm-pages-highlight, .__elm-pages-highlight-scope");
         for (var s = 0; s < stale.length; s++) stale[s].remove();
+        unpinHoverStyles(iframeDoc);
         return;
+      }
+
+      // Pin :hover styles for interaction targets (clicks, form fills) so
+      // the highlighted element shows the same visual state it would when
+      // a real user is about to click it. Assertions skip this — they're
+      // not "about to interact" with the element.
+      if (!isAssertion) {
+        pinHoverStyles(iframeDoc, el);
       }
 
       // Scroll element into view when highlight target changes
