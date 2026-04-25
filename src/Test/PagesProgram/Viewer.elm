@@ -918,6 +918,31 @@ currentSnapshotCount model =
     List.length (currentSnapshots model)
 
 
+{-| Highest 1-indexed step number that's currently visible in the rail
+(excludes hidden children of collapsed groups + collapsed named groups).
+The header counter uses this so its denominator matches the row label
+the user sees at the bottom of the rail, not the raw snapshot count.
+-}
+lastVisibleStepNumber : List Snapshot -> Set Int -> Int
+lastVisibleStepNumber snapshots expandedGroups =
+    let
+        isHiddenAt i =
+            let
+                child =
+                    isChildStep i snapshots
+            in
+            (child && not (Set.member (parentOfChild i snapshots) expandedGroups))
+                || isHiddenByNamedGroup i snapshots expandedGroups
+    in
+    snapshots
+        |> List.indexedMap (\i _ -> i)
+        |> List.filter (\i -> not (isHiddenAt i))
+        |> List.reverse
+        |> List.head
+        |> Maybe.map (\i -> i + 1)
+        |> Maybe.withDefault (List.length snapshots)
+
+
 {-| Interaction steps default to Before (so the user sees the element they
 clicked), all other step kinds default to After.
 -}
@@ -1117,12 +1142,25 @@ current-step indicator).
 -}
 viewStepCounter : Model -> Html Msg
 viewStepCounter model =
+    let
+        position =
+            model.currentStepIndex + 1
+
+        lastVisible =
+            lastVisibleStepNumber (currentSnapshots model) model.expandedGroups
+
+        -- If the user has somehow landed on a hidden step (e.g. via a
+        -- permalink into a collapsed group), keep the denominator >= the
+        -- numerator so the counter never reads `21 / 18`.
+        total =
+            max position lastVisible
+    in
     Html.span [ Attr.class "step-counter" ]
         [ Html.span [ Attr.class "step-counter-label" ] [ Html.text "Step" ]
         , Html.span [ Attr.class "step-counter-current" ]
-            [ Html.text (String.fromInt (model.currentStepIndex + 1)) ]
+            [ Html.text (String.fromInt position) ]
         , Html.span [ Attr.class "step-counter-total" ]
-            [ Html.text ("/ " ++ String.fromInt (currentSnapshotCount model)) ]
+            [ Html.text ("/ " ++ String.fromInt total) ]
         ]
 
 
@@ -1360,7 +1398,248 @@ viewCommandLogSidebar model =
                     )
                    )
             )
+        , viewStepDrawer model
         ]
+
+
+{-| Pass-8 step detail drawer. Lives at the bottom of the rail and
+renders content-sized detail for the currently displayed step. MVP
+covers two step kinds: assertions (Selector + Expected) and
+navigations (Kind + URL). Every other step kind returns an empty
+node — the drawer simply doesn't appear.
+-}
+viewStepDrawer : Model -> Html Msg
+viewStepDrawer model =
+    let
+        snapshots =
+            currentSnapshots model
+
+        stepIndex =
+            displayedStepIndex model
+    in
+    case snapshots |> List.drop stepIndex |> List.head of
+        Just snapshot ->
+            case snapshot.stepKind of
+                Assertion ->
+                    viewAssertionDrawer stepIndex snapshot
+
+                Interaction ->
+                    if isNavigationLabel snapshot.label then
+                        viewNavigationDrawer stepIndex snapshot
+
+                    else
+                        Html.text ""
+
+                _ ->
+                    Html.text ""
+
+        Nothing ->
+            Html.text ""
+
+
+isNavigationLabel : String -> Bool
+isNavigationLabel label =
+    String.startsWith "navigateTo " label
+        || String.startsWith "redirected" label
+
+
+viewAssertionDrawer : Int -> Snapshot -> Html Msg
+viewAssertionDrawer stepIndex snapshot =
+    let
+        kindBadge =
+            assertionKindBadge snapshot.assertionSelectors
+
+        scopeSelector =
+            -- Innermost scope is the element the assertion targets.
+            -- A bare `ensureViewHas` (no `withinFind`) has empty scope
+            -- and we omit the Selector row entirely.
+            snapshot.scopeSelectors
+                |> List.reverse
+                |> List.head
+                |> Maybe.map formatSelectors
+                |> Maybe.andThen
+                    (\s ->
+                        if String.isEmpty s then
+                            Nothing
+
+                        else
+                            Just s
+                    )
+
+        expected =
+            assertionExpected snapshot.assertionSelectors
+    in
+    Html.div [ Attr.class "step-detail-drawer step-detail-drawer-assertion" ]
+        [ Html.div [ Attr.class "drawer-header drawer-header-assertion" ]
+            [ Html.span [ Attr.class "drawer-header-step" ]
+                [ Html.text ("Step " ++ String.fromInt (stepIndex + 1)) ]
+            , Html.span [ Attr.class "drawer-header-sep" ] [ Html.text "·" ]
+            , Html.span [ Attr.class "drawer-header-kind" ] [ Html.text "Assertion" ]
+            , case kindBadge of
+                Just badge ->
+                    Html.span [ Attr.class "drawer-header-sep" ] [ Html.text "·" ]
+
+                Nothing ->
+                    Html.text ""
+            , case kindBadge of
+                Just badge ->
+                    Html.span [ Attr.class "drawer-header-subkind" ] [ Html.text badge ]
+
+                Nothing ->
+                    Html.text ""
+            ]
+        , Html.div [ Attr.class "drawer-body" ]
+            ((case scopeSelector of
+                Just sel ->
+                    [ drawerRow "Selector" "step-arg-class" sel ]
+
+                Nothing ->
+                    []
+             )
+                ++ (case expected of
+                        Just ( valueClass, valueText ) ->
+                            [ drawerRow "Expected" valueClass valueText ]
+
+                        Nothing ->
+                            []
+                   )
+            )
+        ]
+
+
+viewNavigationDrawer : Int -> Snapshot -> Html Msg
+viewNavigationDrawer stepIndex snapshot =
+    let
+        ( kind, url ) =
+            parseNavigationLabel snapshot.label
+    in
+    Html.div [ Attr.class "step-detail-drawer step-detail-drawer-navigation" ]
+        [ Html.div [ Attr.class "drawer-header drawer-header-navigation" ]
+            [ Html.span [ Attr.class "drawer-header-step" ]
+                [ Html.text ("Step " ++ String.fromInt (stepIndex + 1)) ]
+            , Html.span [ Attr.class "drawer-header-sep" ] [ Html.text "·" ]
+            , Html.span [ Attr.class "drawer-header-kind" ] [ Html.text "Navigation" ]
+            ]
+        , Html.div [ Attr.class "drawer-body" ]
+            [ drawerRow "Kind" "step-arg-custom" kind
+            , drawerRow "URL" "step-arg-url" url
+            ]
+        ]
+
+
+drawerRow : String -> String -> String -> Html Msg
+drawerRow label valueClass value =
+    Html.div [ Attr.class "drawer-row" ]
+        [ Html.span [ Attr.class "drawer-label" ] [ Html.text label ]
+        , Html.span [ Attr.class ("drawer-value " ++ valueClass) ] [ Html.text value ]
+        ]
+
+
+{-| Best-effort badge for the assertion's first selector so the header
+reads `Step N · Assertion · TEXT` (or CLASS / ATTR / etc.).
+-}
+assertionKindBadge : List AssertionSelector -> Maybe String
+assertionKindBadge selectors =
+    case List.head selectors of
+        Just (ByText _) ->
+            Just "Text"
+
+        Just (ByClass _) ->
+            Just "Class"
+
+        Just (ById_ _) ->
+            Just "Id"
+
+        Just (ByTag_ _) ->
+            Just "Tag"
+
+        Just (ByValue _) ->
+            Just "Value"
+
+        Just (ByContaining _) ->
+            Just "Containing"
+
+        _ ->
+            Nothing
+
+
+{-| Pull the expected value + a class describing how to color it. The
+class names match the rail's argument colors so the drawer and rail
+agree on what each kind looks like. -}
+assertionExpected : List AssertionSelector -> Maybe ( String, String )
+assertionExpected selectors =
+    case List.head selectors of
+        Just (ByText s) ->
+            Just ( "step-arg-text", "\"" ++ s ++ "\"" )
+
+        Just (ByClass s) ->
+            Just ( "step-arg-class", "." ++ s )
+
+        Just (ById_ s) ->
+            Just ( "step-arg-attr", "#" ++ s )
+
+        Just (ByTag_ s) ->
+            Just ( "step-arg-empty", s )
+
+        Just (ByValue s) ->
+            Just ( "step-arg-attr", "[value=\"" ++ s ++ "\"]" )
+
+        Just (ByContaining inner) ->
+            Just ( "step-arg-empty", formatSelectors inner )
+
+        Just (ByOther s) ->
+            Just ( "step-arg-empty", s )
+
+        Nothing ->
+            Nothing
+
+
+{-| Render a list of `AssertionSelector` as a single CSS-like string,
+e.g. `[ByTag_ "ul", ById_ "todo-list"]` → `ul#todo-list`.
+-}
+formatSelectors : List AssertionSelector -> String
+formatSelectors selectors =
+    selectors |> List.map formatOneSelector |> String.concat
+
+
+formatOneSelector : AssertionSelector -> String
+formatOneSelector selector =
+    case selector of
+        ByTag_ s ->
+            s
+
+        ByClass s ->
+            "." ++ s
+
+        ById_ s ->
+            "#" ++ s
+
+        ByText s ->
+            ":contains(\"" ++ s ++ "\")"
+
+        ByValue s ->
+            "[value=\"" ++ s ++ "\"]"
+
+        ByContaining inner ->
+            ":has(" ++ formatSelectors inner ++ ")"
+
+        ByOther s ->
+            s
+
+
+parseNavigationLabel : String -> ( String, String )
+parseNavigationLabel label =
+    if String.startsWith "navigateTo " label then
+        ( "SPA", stripOuterQuotes (String.dropLeft 11 label) )
+
+    else if String.startsWith "redirected→" label then
+        ( "Redirect", stripOuterQuotes (String.dropLeft 11 label) )
+
+    else if String.startsWith "redirected " label then
+        ( "Redirect", stripOuterQuotes (String.dropLeft 11 label) )
+
+    else
+        ( "Navigate", label )
 
 
 viewRailColumnHeader : Model -> Html Msg
@@ -4439,6 +4718,82 @@ body {
 .sidebar-steps:focus,
 .sidebar-steps:focus-visible {
     outline: none;
+}
+
+/* Step detail drawer (pass 8) — content-sized panel at the bottom of
+   the rail. `flex-shrink: 0` keeps it at its natural height; an empty
+   step kind returns no node at all so the rail body fills the full
+   container without dead space. */
+
+.step-detail-drawer {
+    flex-shrink: 0;
+    border-top: 1px solid rgba(125, 211, 252, 0.18);
+    background: #0c121b;
+    padding: 8px 12px 12px;
+}
+
+.drawer-header {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-family: "JetBrains Mono", "SF Mono", monospace;
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+}
+
+.drawer-header-step {
+    color: #a4b1c2;
+}
+
+.drawer-header-sep {
+    color: #5c6a7e;
+}
+
+.drawer-header-kind {
+    color: #c4b5fd;
+}
+
+.drawer-header-assertion .drawer-header-kind {
+    color: #c4b5fd;
+}
+
+.drawer-header-navigation .drawer-header-kind {
+    color: #fdba74;
+}
+
+.drawer-header-subkind {
+    color: #8896a6;
+    font-weight: 600;
+}
+
+.drawer-body {
+    display: grid;
+    grid-template-columns: 72px 1fr;
+    column-gap: 12px;
+    row-gap: 4px;
+    align-items: baseline;
+}
+
+.drawer-row {
+    display: contents;
+}
+
+.drawer-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #a4b1c2;
+}
+
+.drawer-value {
+    font-family: "JetBrains Mono", "SF Mono", monospace;
+    font-size: 11.5px;
+    font-weight: 500;
+    word-break: break-all;
 }
 
 /* Fixed-column grid keeps every step row's verb-icon, arg-cell, and
