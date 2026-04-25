@@ -2089,13 +2089,6 @@ viewEventChip :
     -> Html Msg
 viewEventChip cfg =
     let
-        iconColor =
-            if cfg.active then
-                "#0f1620"
-
-            else
-                "currentColor"
-
         chip =
             Html.button
                 [ Attr.classList
@@ -2106,12 +2099,12 @@ viewEventChip cfg =
                     ]
                 , Html.Events.onClick (GoToStep cfg.step)
                 ]
-                [ eventKindGlyph cfg.kind 9 iconColor
+                [ eventKindGlyph cfg.kind 9 "currentColor"
                 , Html.text (String.fromInt (cfg.step + 1))
                 ]
     in
     if cfg.active && cfg.currentStepHere then
-        withCurrentStepRing (eventKindColor cfg.kind) chip
+        withCurrentStepRing "#7dd3fc" chip
 
     else
         chip
@@ -3050,7 +3043,6 @@ viewCookieStack currentStep totalSteps name events =
 
                 _ ->
                     False
-
     in
     Html.div [ Attr.class "cookie-stack" ]
         [ Html.div [ Attr.class "cookie-stack-header" ]
@@ -3062,29 +3054,7 @@ viewCookieStack currentStep totalSteps name events =
 
                 Nothing ->
                     Html.text ""
-            , Html.span [ Attr.class "cookie-stack-count" ]
-                [ Html.text
-                    (String.fromInt eventCount
-                        ++ (if eventCount == 1 then
-                                " value"
-
-                            else
-                                " values"
-                           )
-                    )
-                ]
             ]
-        , case signed of
-            Just { secret } ->
-                Html.div [ Attr.class "cookie-secret-label" ]
-                    [ Html.text "signed with "
-                    , Html.code [] [ Html.text ("\"" ++ secret ++ "\"") ]
-                    , Html.span [ Attr.class "cookie-fnv-note" ]
-                        [ Html.text "fnv1a (dev)" ]
-                    ]
-
-            Nothing ->
-                Html.text ""
         , if eventCount > 1 then
             viewCookiePillRow currentStep currentEventIdx events
 
@@ -3117,12 +3087,27 @@ viewCookieStack currentStep totalSteps name events =
             case activeEntry of
                 Just entry ->
                     Html.details [ Attr.class "cookie-details" ]
-                        [ Html.summary [ Attr.class "cookie-details-summary" ]
+                        ([ Html.summary [ Attr.class "cookie-details-summary" ]
                             [ Html.text "Attributes + raw value" ]
-                        , viewCookieAttrTable entry
-                        , Html.pre [ Attr.class "cookie-raw-value" ]
-                            [ Html.text entry.value ]
-                        ]
+                         ]
+                            ++ (case signed of
+                                    Just { secret } ->
+                                        [ Html.div [ Attr.class "cookie-secret-label" ]
+                                            [ Html.text "signed with "
+                                            , Html.code [] [ Html.text ("\"" ++ secret ++ "\"") ]
+                                            , Html.span [ Attr.class "cookie-fnv-note" ]
+                                                [ Html.text "fnv1a (dev)" ]
+                                            ]
+                                        ]
+
+                                    Nothing ->
+                                        []
+                               )
+                            ++ [ viewCookieAttrTable entry
+                               , Html.pre [ Attr.class "cookie-raw-value" ]
+                                    [ Html.text entry.value ]
+                               ]
+                        )
 
                 Nothing ->
                     Html.text ""
@@ -3148,13 +3133,13 @@ viewCookiePillRow currentStep currentEventIdx events =
                         kindClass =
                             case ev of
                                 CookieSet _ ->
-                                    "cookie-pill-kind-set"
+                                    "cookie-box-pill-kind-set"
 
                                 CookieUpdated _ ->
-                                    "cookie-pill-kind-changed"
+                                    "cookie-box-pill-kind-changed"
 
                                 CookieRemoved ->
-                                    "cookie-pill-kind-removed"
+                                    "cookie-box-pill-kind-removed"
 
                         isActive =
                             currentEventIdx == Just idx
@@ -3174,13 +3159,23 @@ viewCookiePillRow currentStep currentEventIdx events =
                                 [ Html.span [ Attr.class "cookie-box-pill-step" ]
                                     [ Html.text (String.fromInt (evStep + 1)) ]
                                 ]
+
+                        wrappedPill =
+                            if isNow then
+                                withCurrentStepRing "#7dd3fc" pill
+
+                            else
+                                pill
                     in
-                    if isNow then
-                        withCurrentStepRing "#7dd3fc" pill
+                    if idx == 0 then
+                        [ wrappedPill ]
 
                     else
-                        pill
+                        [ Html.span [ Attr.class "event-chip-connector" ] []
+                        , wrappedPill
+                        ]
                 )
+            |> List.concat
         )
 
 
@@ -5075,16 +5070,10 @@ body {
     color: rgba(125, 211, 252, 0.85);
 }
 
-.cookie-stack-count {
-    margin-left: auto;
-    font-size: 10px;
-    color: #5c6a7e;
-}
-
 .cookie-secret-label {
     font-size: 10px;
     color: #8b99ad;
-    margin: 0 0 8px;
+    margin: 6px 0;
     display: flex;
     gap: 4px;
     align-items: baseline;
@@ -5117,42 +5106,19 @@ body {
     padding: 4px 0 0 4px;
 }
 
-/* C3 "box pills" step selector that sits above the stacked value rows. */
+/* C3 "box pills" step selector that sits above the stacked value rows.
+   Pills are joined by `.event-chip-connector` segments, so the row uses
+   align-items: center (to land the connector at the pill mid-line) and
+   no inter-element gap (the connector provides the spacing). */
 .cookie-pill-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 3px;
+    align-items: center;
     margin-bottom: 8px;
 }
 
-.cookie-box-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-left-width: 3px;
-    background: transparent;
-    color: #8b99ad;
-    padding: 2px 6px;
-    border-radius: 3px;
-    cursor: pointer;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
-    font-weight: 500;
-    line-height: 1.4;
-}
-
-.cookie-box-pill:hover {
-    color: #e6ecf4;
-    border-color: rgba(255, 255, 255, 0.18);
-}
-
-/* Cookie box-pill left stripe: keep it kind-distinct but stay within
-   the cookie channel's tonal range (amber). Reviewer feedback: the
-   old green/yellow/red palette borrowed from the Network/Fetcher event
-   vocabulary, making the Cookies panel read as if it showed those
-   events. Single-channel coloring instead — the diff card's header
-   pill already communicates set/changed/removed. */
+/* Cookie pill kind stripe — amber tonal scale to stay within the
+   cookie channel and not borrow from the Network/Fetcher palette. */
 .cookie-box-pill-kind-set {
     border-left-color: rgba(252, 211, 77, 0.75);
 }
@@ -5163,29 +5129,6 @@ body {
 
 .cookie-box-pill-kind-removed {
     border-left-color: rgba(252, 211, 77, 0.25);
-}
-
-/* Active pill: set the three non-left borders explicitly so the left border
-   keeps the event-kind color set by the `.cookie-box-pill-kind-*` class. */
-.cookie-box-pill-active {
-    background: rgba(125, 211, 252, 0.12);
-    border-top-color: #7dd3fc;
-    border-right-color: #7dd3fc;
-    border-bottom-color: #7dd3fc;
-    color: #7dd3fc;
-    font-weight: 600;
-}
-
-/* When the active pill is also the current-step pill, the now-ring halo
-   sits 2px outside it. The pill's own cyan side borders would parallel
-   the ring 1px in, reading as a double border. Drop the pill's three
-   non-left borders back to the neutral default — the halo carries the
-   "current step" cue, the kind-colored left border + cyan tinted bg +
-   bold cyan text still differentiate the active state. */
-.current-step-shell .cookie-box-pill-active {
-    border-top-color: rgba(255, 255, 255, 0.08);
-    border-right-color: rgba(255, 255, 255, 0.08);
-    border-bottom-color: rgba(255, 255, 255, 0.08);
 }
 
 .cookie-box-pill-step {
@@ -5396,22 +5339,28 @@ body {
     flex-wrap: wrap;
 }
 
-.event-chip {
+/* Shared base: cookie box-pills (`.cookie-box-pill`) and Network/Fetcher
+   event chips (`.event-chip`) use one visual vocabulary so the timeline
+   reads the same across panels. Each pill has a 3px kind-colored left
+   stripe, neutral 1px borders elsewhere, and gets a cyan-tinted treatment
+   when it represents the current state. */
+.event-chip,
+.cookie-box-pill {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 4px;
-    /* Dimensions match the active variant so flipping the active flag
-       on a chip doesn't resize the row. Only color/weight/fill change
-       between states. */
-    padding: 2px 7px 2px 6px;
-    /* Fixed min-width so solo-chip rows line up with the first chip
-       of paired rows (start chip of both shares the same x-coord). */
+    /* Padding + min-width are fixed so flipping the active flag on a
+       chip doesn't resize the row, and so paired and unpaired rows share
+       a left edge. */
+    padding: 2px 6px;
     min-width: 34px;
     box-sizing: border-box;
     border-radius: 3px;
-    border: 1px solid currentColor;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-left-width: 3px;
     background: transparent;
+    color: #8b99ad;
     cursor: pointer;
     font-family: "JetBrains Mono", ui-monospace, monospace;
     font-size: 10.5px;
@@ -5420,72 +5369,58 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
-.event-chip-kind-submit { color: #86efac; }
-.event-chip-kind-reload { color: #fcd34d; }
-.event-chip-kind-complete { color: #7dd3fc; }
-.event-chip-kind-fail { color: #fca5a5; }
-.event-chip-kind-sent { color: #86efac; }
+/* Kind classes only paint the left stripe; everything else stays neutral. */
+.event-chip-kind-submit { border-left-color: #86efac; }
+.event-chip-kind-reload { border-left-color: #fcd34d; }
+.event-chip-kind-complete { border-left-color: #7dd3fc; }
+.event-chip-kind-fail { border-left-color: #fca5a5; }
+.event-chip-kind-sent { border-left-color: #86efac; }
 
-/* Past chips: keep the kind color but use a 55-alpha border
-   (simulated via rgba) so the outline sits quieter. */
-.event-chip {
-    border-color: currentColor;
-    opacity: 1;
+/* Active: subtle cyan tinted background + cyan top/right/bottom borders
+   (left stripe stays kind-colored). Cyan is the universal "this is the
+   current state" cue across panels; the kind color lives on the stripe
+   and (for event chips) in the icon's shape. */
+.event-chip-active,
+.cookie-box-pill-active {
+    background: rgba(125, 211, 252, 0.12);
+    border-top-color: #7dd3fc;
+    border-right-color: #7dd3fc;
+    border-bottom-color: #7dd3fc;
+    color: #7dd3fc;
+    font-weight: 600;
 }
 
-.event-chip-kind-submit { border-color: rgba(134, 239, 172, 0.33); }
-.event-chip-kind-reload { border-color: rgba(252, 211, 77, 0.33); }
-.event-chip-kind-complete { border-color: rgba(125, 211, 252, 0.33); }
-.event-chip-kind-fail { border-color: rgba(252, 165, 165, 0.33); }
-.event-chip-kind-sent { border-color: rgba(134, 239, 172, 0.33); }
-
-/* Active: filled pill, dark icon/text, soft colored glow. Dimensions
-   match the base `.event-chip` rule above — only color/weight/fill
-   change so the row height stays stable. */
-.event-chip-active {
-    color: #0f1620;
-    font-weight: 700;
-}
-
-.event-chip-active.event-chip-kind-submit {
-    background: #86efac;
-    border-color: rgba(134, 239, 172, 0.33);
-    box-shadow: 0 0 0 1px rgba(134, 239, 172, 0.33), 0 0 8px rgba(134, 239, 172, 0.2);
-}
-
-.event-chip-active.event-chip-kind-reload {
-    background: #fcd34d;
-    border-color: rgba(252, 211, 77, 0.33);
-    box-shadow: 0 0 0 1px rgba(252, 211, 77, 0.33), 0 0 8px rgba(252, 211, 77, 0.2);
-}
-
-.event-chip-active.event-chip-kind-complete {
-    background: #7dd3fc;
-    border-color: rgba(125, 211, 252, 0.33);
-    box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.33), 0 0 8px rgba(125, 211, 252, 0.2);
-}
-
-.event-chip-active.event-chip-kind-fail {
-    background: #fca5a5;
-    border-color: rgba(252, 165, 165, 0.33);
-    box-shadow: 0 0 0 1px rgba(252, 165, 165, 0.33), 0 0 8px rgba(252, 165, 165, 0.2);
-}
-
-.event-chip-active.event-chip-kind-sent {
-    background: #86efac;
-    border-color: rgba(134, 239, 172, 0.33);
-    box-shadow: 0 0 0 1px rgba(134, 239, 172, 0.33), 0 0 8px rgba(134, 239, 172, 0.2);
-}
-
-/* Future: dim outline, muted neutral text, 70% opacity. */
+/* Future chips: dimmed-and-muted, kind stripe survives at low alpha. */
 .event-chip-future {
     color: #5c6a7e;
-    border-color: rgba(255, 255, 255, 0.08);
     opacity: 0.7;
 }
 
-.event-chip:hover {
-    filter: brightness(1.1);
+.event-chip:hover,
+.cookie-box-pill:hover {
+    color: #e6ecf4;
+    border-top-color: rgba(255, 255, 255, 0.18);
+    border-right-color: rgba(255, 255, 255, 0.18);
+    border-bottom-color: rgba(255, 255, 255, 0.18);
+}
+
+.event-chip-active:hover,
+.cookie-box-pill-active:hover {
+    color: #b9e9ff;
+    border-top-color: #7dd3fc;
+    border-right-color: #7dd3fc;
+    border-bottom-color: #7dd3fc;
+}
+
+/* When active+now, drop the cyan side borders so the now-ring is the
+   only outline (otherwise the ring + cyan border parallel into a
+   double-line read). The kind stripe + cyan tint + bold cyan text
+   still differentiate the active state. */
+.current-step-shell .event-chip-active,
+.current-step-shell .cookie-box-pill-active {
+    border-top-color: rgba(255, 255, 255, 0.08);
+    border-right-color: rgba(255, 255, 255, 0.08);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
 }
 
 /* Current-step ring halo. Shared by the Network/Fetcher event chips
