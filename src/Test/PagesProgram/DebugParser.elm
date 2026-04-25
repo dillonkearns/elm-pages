@@ -1,5 +1,6 @@
-module Test.PagesProgram.DebugParser exposing (ElmValue(..), parse, viewValue)
+module Test.PagesProgram.DebugParser exposing (DiffKind(..), ElmValue(..), diff, parse, viewValue)
 
+import Dict exposing (Dict)
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events
@@ -21,6 +22,238 @@ type ElmValue
     | ElmSet (List ElmValue)
     | ElmCustom String (List ElmValue)
     | ElmInternals String
+
+
+{-| Categorization of a single changed path between two model snapshots.
+Drives the persistent mark + flash treatment in the Model panel.
+-}
+type DiffKind
+    = Mutated
+    | Added
+    | Restructured
+
+
+
+-- DIFF
+
+
+{-| Walk the previous and current snapshots in lockstep, emitting a Dict
+of path strings → DiffKind for every line that should render with a mark.
+
+Path format mirrors what `viewValue` emits when threading through the
+tree: records use `parent.field`, lists use `parent.N`, dicts are
+treated as opaque leaves and compared via their structural equality.
+
+`Removed` paths are intentionally not emitted — pass 11 renders the new
+tree only and tracks "removed" rendering for a later pass.
+-}
+diff : ElmValue -> ElmValue -> Dict String DiffKind
+diff previous current =
+    diffHelp "root" previous current Dict.empty
+
+
+diffHelp : String -> ElmValue -> ElmValue -> Dict String DiffKind -> Dict String DiffKind
+diffHelp path previous current acc =
+    case ( previous, current ) of
+        ( ElmRecord prevFields, ElmRecord curFields ) ->
+            diffRecordFields path prevFields curFields acc
+
+        ( ElmList prevItems, ElmList curItems ) ->
+            if List.length prevItems /= List.length curItems then
+                Dict.insert path Restructured acc
+
+            else
+                List.foldl identity acc <|
+                    List.indexedMap
+                        (\i ( p, c ) ->
+                            \a ->
+                                diffHelp (path ++ "." ++ String.fromInt i) p c a
+                        )
+                        (zipLists prevItems curItems)
+
+        ( ElmTuple prevItems, ElmTuple curItems ) ->
+            if List.length prevItems /= List.length curItems then
+                Dict.insert path Restructured acc
+
+            else
+                List.foldl identity acc <|
+                    List.indexedMap
+                        (\i ( p, c ) ->
+                            \a ->
+                                diffHelp (path ++ "." ++ String.fromInt i) p c a
+                        )
+                        (zipLists prevItems curItems)
+
+        ( ElmCustom prevTag prevArgs, ElmCustom curTag curArgs ) ->
+            if prevTag /= curTag then
+                Dict.insert path Restructured acc
+
+            else if List.length prevArgs /= List.length curArgs then
+                Dict.insert path Restructured acc
+
+            else
+                List.foldl identity acc <|
+                    List.indexedMap
+                        (\i ( p, c ) ->
+                            \a ->
+                                diffHelp (path ++ "." ++ String.fromInt i) p c a
+                        )
+                        (zipLists prevArgs curArgs)
+
+        ( ElmDict prevEntries, ElmDict curEntries ) ->
+            if dictSummary prevEntries /= dictSummary curEntries then
+                Dict.insert path Mutated acc
+
+            else
+                acc
+
+        ( ElmSet prevItems, ElmSet curItems ) ->
+            if listSummary prevItems /= listSummary curItems then
+                Dict.insert path Mutated acc
+
+            else
+                acc
+
+        ( a, b ) ->
+            -- Same shape (covered above) means matching constructors. If we
+            -- fell through, the constructors differ — that's a structural
+            -- change we mark as Mutated for leaves and Restructured for
+            -- non-leaves. Plain equality on the values catches identical
+            -- leaves in both branches.
+            if elmValueEqual a b then
+                acc
+
+            else if isLeaf a && isLeaf b then
+                Dict.insert path Mutated acc
+
+            else
+                Dict.insert path Restructured acc
+
+
+diffRecordFields : String -> List ( String, ElmValue ) -> List ( String, ElmValue ) -> Dict String DiffKind -> Dict String DiffKind
+diffRecordFields path prevFields curFields acc =
+    let
+        prevDict =
+            Dict.fromList prevFields
+    in
+    List.foldl
+        (\( key, curVal ) accInner ->
+            let
+                childPath =
+                    path ++ "." ++ key
+            in
+            case Dict.get key prevDict of
+                Just prevVal ->
+                    diffHelp childPath prevVal curVal accInner
+
+                Nothing ->
+                    Dict.insert childPath Added accInner
+        )
+        acc
+        curFields
+
+
+zipLists : List a -> List b -> List ( a, b )
+zipLists xs ys =
+    case ( xs, ys ) of
+        ( a :: as_, b :: bs ) ->
+            ( a, b ) :: zipLists as_ bs
+
+        _ ->
+            []
+
+
+isLeaf : ElmValue -> Bool
+isLeaf v =
+    case v of
+        ElmString _ ->
+            True
+
+        ElmChar _ ->
+            True
+
+        ElmInt _ ->
+            True
+
+        ElmFloat _ ->
+            True
+
+        ElmBool _ ->
+            True
+
+        ElmUnit ->
+            True
+
+        ElmInternals _ ->
+            True
+
+        _ ->
+            False
+
+
+elmValueEqual : ElmValue -> ElmValue -> Bool
+elmValueEqual a b =
+    a == b
+
+
+dictSummary : List ( ElmValue, ElmValue ) -> ( Int, List ( String, String ) )
+dictSummary entries =
+    ( List.length entries
+    , entries
+        |> List.map (\( k, v ) -> ( elmValueShallow k, elmValueShallow v ))
+    )
+
+
+listSummary : List ElmValue -> ( Int, List String )
+listSummary items =
+    ( List.length items, List.map elmValueShallow items )
+
+
+elmValueShallow : ElmValue -> String
+elmValueShallow v =
+    case v of
+        ElmString s ->
+            "\"" ++ s ++ "\""
+
+        ElmChar c ->
+            "'" ++ String.fromChar c ++ "'"
+
+        ElmInt n ->
+            String.fromInt n
+
+        ElmFloat f ->
+            String.fromFloat f
+
+        ElmBool b ->
+            if b then
+                "True"
+
+            else
+                "False"
+
+        ElmUnit ->
+            "()"
+
+        ElmInternals s ->
+            "<" ++ s ++ ">"
+
+        ElmList items ->
+            "[" ++ String.fromInt (List.length items) ++ "]"
+
+        ElmTuple items ->
+            "(" ++ String.fromInt (List.length items) ++ ")"
+
+        ElmRecord fields ->
+            "{" ++ (fields |> List.map Tuple.first |> String.join ",") ++ "}"
+
+        ElmDict entries ->
+            "Dict(" ++ String.fromInt (List.length entries) ++ ")"
+
+        ElmSet items ->
+            "Set(" ++ String.fromInt (List.length items) ++ ")"
+
+        ElmCustom name _ ->
+            name
 
 
 
@@ -467,7 +700,27 @@ spaces =
 type alias ViewConfig msg =
     { expanded : Set String
     , onToggle : String -> msg
+    , diffs : Dict String DiffKind
     }
+
+
+{-| Translate a path's diff kind into the CSS classes that drive the
+persistent mark + flash animation. When no diff is present we emit
+nothing so unchanged lines render plain. -}
+diffClasses : ViewConfig msg -> String -> List ( String, Bool )
+diffClasses config path =
+    case Dict.get path config.diffs of
+        Just Mutated ->
+            [ ( "is-mutated", True ), ( "flash-mutated", True ) ]
+
+        Just Added ->
+            [ ( "is-added", True ), ( "flash-added", True ) ]
+
+        Just Restructured ->
+            [ ( "is-restructured", True ), ( "flash-restructured", True ) ]
+
+        Nothing ->
+            []
 
 
 viewValue : ViewConfig msg -> String -> ElmValue -> Html msg
@@ -626,7 +879,14 @@ viewCollection config path typeName open close items viewItem =
                         (items
                             |> List.indexedMap
                                 (\i item ->
-                                    Html.div [ Attr.class "dv-row" ]
+                                    let
+                                        itemPath =
+                                            path ++ "." ++ String.fromInt i
+                                    in
+                                    Html.div
+                                        [ Attr.classList
+                                            (( "dv-row", True ) :: diffClasses config itemPath)
+                                        ]
                                         [ viewItem config path i item
                                         , if i < List.length items - 1 then
                                             viewPunctuation ","
@@ -696,7 +956,10 @@ viewRecord config path fields =
                                         fieldPath =
                                             path ++ "." ++ fieldName
                                     in
-                                    Html.div [ Attr.class "dv-row" ]
+                                    Html.div
+                                        [ Attr.classList
+                                            (( "dv-row", True ) :: diffClasses config fieldPath)
+                                        ]
                                         [ Html.span [ Attr.class "dv-field-name" ]
                                             [ Html.text fieldName ]
                                         , viewPunctuation " = "
@@ -754,7 +1017,10 @@ viewDictCollection config path entries =
                                         entryPath =
                                             path ++ "." ++ String.fromInt i
                                     in
-                                    Html.div [ Attr.class "dv-row" ]
+                                    Html.div
+                                        [ Attr.classList
+                                            (( "dv-row", True ) :: diffClasses config entryPath)
+                                        ]
                                         [ viewValue config (entryPath ++ ".k") key
                                         , viewPunctuation " => "
                                         , viewValue config (entryPath ++ ".v") val
@@ -800,7 +1066,10 @@ viewCustomType config path name args =
                                     argPath =
                                         path ++ "." ++ String.fromInt i
                                 in
-                                Html.div [ Attr.class "dv-row" ]
+                                Html.div
+                                    [ Attr.classList
+                                        (( "dv-row", True ) :: diffClasses config argPath)
+                                    ]
                                     [ viewValue config argPath arg ]
                             )
                     )

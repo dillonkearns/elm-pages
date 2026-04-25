@@ -39,6 +39,7 @@ import Dict exposing (Dict)
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events
+import Html.Keyed as Keyed
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Set exposing (Set)
@@ -2481,6 +2482,8 @@ viewMainPanel model =
                                 Html.text ""
                             , if model.showModel then
                                 viewModelInspector model.modelTreeExpanded
+                                    (displayedStepIndex model)
+                                    previousSnapshot
                                     (previousSnapshot
                                         |> Maybe.withDefault snapshot
                                     )
@@ -2549,7 +2552,10 @@ viewMainPanel model =
                               else
                                 Html.text ""
                             , if model.showModel then
-                                viewModelInspector model.modelTreeExpanded previewSnapshot
+                                viewModelInspector model.modelTreeExpanded
+                                    (displayedStepIndex model)
+                                    previousSnapshot
+                                    previewSnapshot
 
                               else
                                 Html.text ""
@@ -2708,34 +2714,66 @@ viewBeforeAfterToggle current =
         ]
 
 
-viewModelInspector : Set String -> Snapshot -> Html Msg
-viewModelInspector expandedNodes snapshot =
+{-| Pass-11: render the user-side model with a diff against the previous
+step's snapshot. Changed lines get a persistent mark + a one-shot flash
+on every step transition.
+
+The flash is keyed off `stepIndex` — the inspector body is wrapped in a
+keyed div whose `Html.Keyed` key includes the step number, so each step
+change remounts the body and restarts the CSS animation on each marked
+line.
+-}
+viewModelInspector : Set String -> Int -> Maybe Snapshot -> Snapshot -> Html Msg
+viewModelInspector expandedNodes stepIndex previousSnapshot snapshot =
     Html.div [ Attr.class "model-inspector" ]
         [ Html.div [ Attr.class "inspector-header" ] [ Html.text "Model" ]
-        , Html.div [ Attr.class "inspector-body" ]
-            [ case snapshot.modelState of
-                Nothing ->
-                    Html.span [ Attr.class "dv-internals" ]
-                        [ Html.text "(use withModelInspector to enable)" ]
-
-                Just modelStr ->
-                    case DebugParser.parse modelStr of
-                        Ok value ->
-                            DebugParser.viewValue
-                                { expanded = expandedNodes
-                                , onToggle = ToggleModelNode
-                                }
-                                "root"
-                                value
-
-                        Err _ ->
-                            Html.div []
-                                [ Html.div [ Attr.class "model-parse-error-banner" ]
-                                    [ Html.text "DebugParser couldn't parse this snapshot — falling back to raw text. Copy the contents below and share them so the parser can be patched." ]
-                                , Html.pre [ Attr.class "model-parse-error-raw" ] [ Html.text modelStr ]
-                                ]
+        , Keyed.node "div"
+            [ Attr.class "inspector-body" ]
+            [ ( "model-step-" ++ String.fromInt stepIndex
+              , viewModelInspectorBody expandedNodes previousSnapshot snapshot
+              )
             ]
         ]
+
+
+viewModelInspectorBody : Set String -> Maybe Snapshot -> Snapshot -> Html Msg
+viewModelInspectorBody expandedNodes previousSnapshot snapshot =
+    case snapshot.modelState of
+        Nothing ->
+            Html.span [ Attr.class "dv-internals" ]
+                [ Html.text "(use withModelInspector to enable)" ]
+
+        Just modelStr ->
+            case DebugParser.parse modelStr of
+                Ok value ->
+                    let
+                        diffs =
+                            case previousSnapshot |> Maybe.andThen .modelState of
+                                Just prevStr ->
+                                    case DebugParser.parse prevStr of
+                                        Ok prevValue ->
+                                            DebugParser.diff prevValue value
+
+                                        Err _ ->
+                                            Dict.empty
+
+                                Nothing ->
+                                    Dict.empty
+                    in
+                    DebugParser.viewValue
+                        { expanded = expandedNodes
+                        , onToggle = ToggleModelNode
+                        , diffs = diffs
+                        }
+                        "root"
+                        value
+
+                Err _ ->
+                    Html.div []
+                        [ Html.div [ Attr.class "model-parse-error-banner" ]
+                            [ Html.text "DebugParser couldn't parse this snapshot — falling back to raw text. Copy the contents below and share them so the parser can be patched." ]
+                        , Html.pre [ Attr.class "model-parse-error-raw" ] [ Html.text modelStr ]
+                        ]
 
 
 {-| Icon-event chip vocabulary shared by the Network and Fetcher panels.
@@ -7157,7 +7195,63 @@ body {
 }
 
 .dv-row {
-    padding: 1px 0;
+    padding: 1px 6px;
+    margin: 0 -6px;
+}
+
+/* Pass-11 flash + persistent mark — every line that the diff flagged
+   gets a soft tinted bg, an inset color bar on the left, and a
+   one-shot animation that runs each time the model panel re-mounts
+   (i.e. on every step transition, via the keyed wrapper). */
+
+.dv-row.is-mutated {
+    background: rgba(252, 211, 77, 0.10);
+    box-shadow: inset 2px 0 0 #fcd34d;
+}
+
+.dv-row.is-added {
+    background: rgba(134, 239, 172, 0.10);
+    box-shadow: inset 2px 0 0 #86efac;
+}
+
+.dv-row.is-restructured {
+    background: rgba(196, 181, 253, 0.10);
+    box-shadow: inset 2px 0 0 #c4b5fd;
+}
+
+@keyframes dv-flash-yellow {
+    0% { background: rgba(252, 211, 77, 0.55); }
+    100% { background: rgba(252, 211, 77, 0.10); }
+}
+
+@keyframes dv-flash-green {
+    0% { background: rgba(134, 239, 172, 0.55); }
+    100% { background: rgba(134, 239, 172, 0.10); }
+}
+
+@keyframes dv-flash-purple {
+    0% { background: rgba(196, 181, 253, 0.55); }
+    100% { background: rgba(196, 181, 253, 0.10); }
+}
+
+.dv-row.flash-mutated {
+    animation: dv-flash-yellow 1.1s ease-out;
+}
+
+.dv-row.flash-added {
+    animation: dv-flash-green 1.1s ease-out;
+}
+
+.dv-row.flash-restructured {
+    animation: dv-flash-purple 1.1s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dv-row.flash-mutated,
+    .dv-row.flash-added,
+    .dv-row.flash-restructured {
+        animation: none;
+    }
 }
 
 .dv-collection,
