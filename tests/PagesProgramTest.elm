@@ -3,25 +3,27 @@ module PagesProgramTest exposing (all)
 import BackendTask
 import BackendTask.Custom
 import BackendTask.Http
-import Test.PagesProgram.CookieJar as CookieJar
+import Bytes.Decode
 import Dict
 import Expect exposing (Expectation)
 import FatalError
+import Form
 import Html
 import Html.Attributes as Attr
 import Html.Events
 import Json.Decode as Decode
 import Json.Encode as Encode
+import Pages.Fetcher
+import Pages.Internal.Platform as Platform
 import Test exposing (Test, describe, test)
 import Test.BackendTask exposing (HttpError(..))
 import Test.Html.Event as Event
 import Test.Html.Query as Query
+import Test.Html.Selector as PSelector
 import Test.Html.Selector as Selector
 import Test.PagesProgram as PagesProgram
-import Test.PagesProgram.Internal as PagesProgramInternal
-import Test.PagesProgram.Internal exposing (NetworkStatus(..))
-import Test.Html.Selector as PSelector
-import Test.PagesProgram.Internal exposing (AssertionSelector(..))
+import Test.PagesProgram.CookieJar as CookieJar
+import Test.PagesProgram.Internal as PagesProgramInternal exposing (AssertionSelector(..), NetworkStatus(..))
 import Test.PagesProgram.SimulatedEffect as SimulatedEffect
 import Test.PagesProgram.SimulatedSub as SimulatedSub
 import Test.Runner
@@ -353,6 +355,60 @@ all =
                             "https://api.github.com/repos/dillonkearns/elm-pages"
                             (Encode.object [ ( "stargazers_count", Encode.int 5678 ) ])
                         |> PagesProgram.ensureViewHas [ PSelector.text "Stars: 5678" ]
+                        |> PagesProgram.done
+            , test "simulateHttpPost can resolve the matching pending effect when a GET to the same URL is queued first" <|
+                \() ->
+                    PagesProgramInternal.initialProgramTest
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( { getResult = Nothing, postResult = Nothing }, [] )
+                        , update =
+                            \msg model ->
+                                case msg of
+                                    QueueSameUrlRequests ->
+                                        ( model
+                                        , [ BackendTask.Http.getJson
+                                                "https://api.example.com/items"
+                                                (Decode.field "value" Decode.string)
+                                                |> BackendTask.allowFatal
+                                                |> BackendTask.map GotGetResult
+                                          , BackendTask.Http.request
+                                                { url = "https://api.example.com/items"
+                                                , method = "POST"
+                                                , headers = []
+                                                , body = BackendTask.Http.jsonBody (Encode.object [ ( "name", Encode.string "new item" ) ])
+                                                , retries = Nothing
+                                                , timeoutInMs = Nothing
+                                                }
+                                                (BackendTask.Http.expectJson (Decode.field "value" Decode.string))
+                                                |> BackendTask.allowFatal
+                                                |> BackendTask.map GotPostResult
+                                          ]
+                                        )
+
+                                    GotGetResult value ->
+                                        ( { model | getResult = Just value }, [] )
+
+                                    GotPostResult value ->
+                                        ( { model | postResult = Just value }, [] )
+                        , view =
+                            \_ model ->
+                                { title = "Request matching"
+                                , body =
+                                    [ Html.button [ Html.Events.onClick QueueSameUrlRequests ] [ Html.text "Queue Requests" ]
+                                    , Html.text ("Get: " ++ Maybe.withDefault "pending" model.getResult)
+                                    , Html.text ("Post: " ++ Maybe.withDefault "pending" model.postResult)
+                                    ]
+                                }
+                        }
+                        |> PagesProgram.clickButton "Queue Requests"
+                        |> PagesProgram.simulateHttpPost
+                            "https://api.example.com/items"
+                            (Encode.object [ ( "value", Encode.string "created" ) ])
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Post: created" ]
+                        |> PagesProgram.simulateHttpGet
+                            "https://api.example.com/items"
+                            (Encode.object [ ( "value", Encode.string "fetched" ) ])
+                        |> PagesProgram.ensureViewHas [ PSelector.text "Get: fetched" ]
                         |> PagesProgram.done
             ]
         , describe "check"
@@ -1658,6 +1714,53 @@ all =
                         |> PagesProgram.done
                         |> expectFailContaining "api.example.com"
             ]
+        , describe "unsupported Platform effects"
+            [ test "RunCmd is reported as unsupported instead of silently ignored" <|
+                \() ->
+                    PagesProgramInternal.unsupportedPlatformEffectError (Platform.RunCmd Cmd.none)
+                        |> Maybe.withDefault ""
+                        |> Expect.all
+                            [ \message -> message |> String.contains "RunCmd" |> Expect.equal True
+                            , \message -> message |> String.contains "cannot simulate" |> Expect.equal True
+                            ]
+            , test "BrowserLoadUrl is reported as unsupported instead of silently ignored" <|
+                \() ->
+                    PagesProgramInternal.unsupportedPlatformEffectError (Platform.BrowserLoadUrl "https://example.com")
+                        |> Maybe.withDefault ""
+                        |> Expect.all
+                            [ \message -> message |> String.contains "BrowserLoadUrl" |> Expect.equal True
+                            , \message -> message |> String.contains "https://example.com" |> Expect.equal True
+                            ]
+            ]
+        , describe "SimulatedEffect.submitFetcher payload conversion"
+            [ test "fetcher form data preserves fields and defaults action to the current path" <|
+                \() ->
+                    Pages.Fetcher.submit
+                        (Bytes.Decode.string 2)
+                        { fields = [ ( "title", "Buy milk" ) ], headers = [] }
+                        |> PagesProgramInternal.fetcherToFormData "/todos"
+                        |> Expect.equal
+                            { fields = [ ( "title", "Buy milk" ) ]
+                            , method = Form.Post
+                            , action = "/todos"
+                            , id = Nothing
+                            }
+            , test "fetcher form data preserves an explicit fetcher URL" <|
+                \() ->
+                    Pages.Fetcher.Fetcher
+                        { decoder = \_ -> Ok "done"
+                        , fields = [ ( "id", "todo-1" ) ]
+                        , headers = []
+                        , url = Just "/todos/todo-1"
+                        }
+                        |> PagesProgramInternal.fetcherToFormData "/todos"
+                        |> Expect.equal
+                            { fields = [ ( "id", "todo-1" ) ]
+                            , method = Form.Post
+                            , action = "/todos/todo-1"
+                            , id = Nothing
+                            }
+            ]
         , describe "withModelInspector"
             [ test "annotates the latest snapshot when enabled mid-test without rewriting history" <|
                 \() ->
@@ -2562,6 +2665,12 @@ type QueueMsg
     = QueueFetch
     | DoOtherThing
     | GotResult String
+
+
+type RequestMatchingMsg
+    = QueueSameUrlRequests
+    | GotGetResult String
+    | GotPostResult String
 
 
 type WebSocketMsg

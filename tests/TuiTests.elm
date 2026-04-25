@@ -13,9 +13,10 @@ import Test.Runner
 import Test.Tui as TuiTest
 import Time
 import Tui
-import Tui.Effect as Effect exposing (Effect)
-import Tui.Input as Input
 import Tui.Attribute as Attr
+import Tui.Effect as Effect exposing (Effect)
+import Tui.Effect.Internal as EffectInternal
+import Tui.Input as Input
 import Tui.Screen
 import Tui.Screen.Advanced as ScreenAdvanced
 import Tui.Screen.Internal as ScreenInternal
@@ -688,6 +689,17 @@ suite =
                         |> TuiTest.expectRunning
                         |> TuiTest.done
             ]
+        , describe "Tui.Effect runtime processing"
+            [ test "batched BackendTask effects keep the remaining effects after the first message" <|
+                \() ->
+                    Effect.batch
+                        [ BackendTask.succeed "first" |> Effect.perform identity
+                        , BackendTask.succeed "second" |> Effect.perform identity
+                        ]
+                        |> collectEffectMessages
+                        |> BackendTaskTest.fromBackendTask
+                        |> BackendTaskTest.expectSuccessWith (Expect.equal [ "first", "second" ])
+            ]
         , describe "TuiTest - resolveEffect (Test.BackendTask integration)"
             [ test "resolveEffect with simulateHttpGet resolves the pending BackendTask" <|
                 \() ->
@@ -1020,6 +1032,28 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
                             (\m -> m.ticks |> Expect.equal [])
                         |> TuiTest.expectRunning
                         |> TuiTest.done
+            , test "non-positive everyMillis intervals are not scheduled" <|
+                \() ->
+                    Tui.Sub.batch
+                        [ Tui.Sub.everyMillis 0 (Ticked 0)
+                        , Tui.Sub.everyMillis -10 (Ticked -10)
+                        , Tui.Sub.everyMillis 50 (Ticked 50)
+                        ]
+                        |> SubInternal.getTickIntervals
+                        |> Expect.equal [ 50 ]
+            , test "non-positive everyMillis intervals do not receive tick events" <|
+                \() ->
+                    Tui.Sub.batch
+                        [ Tui.Sub.everyMillis 0 (Ticked 0)
+                        , Tui.Sub.everyMillis -10 (Ticked -10)
+                        ]
+                        |> (\sub ->
+                                [ SubInternal.RawTick { interval = 0, time = Time.millisToPosix 0 }
+                                , SubInternal.RawTick { interval = -10, time = Time.millisToPosix 0 }
+                                ]
+                                    |> List.concatMap (SubInternal.routeEvents sub)
+                           )
+                        |> Expect.equal []
             ]
         ]
 
@@ -1539,6 +1573,24 @@ conditionalTickerTest =
         , view = tickerView
         , subscriptions = \_ -> Tui.Sub.none
         }
+
+
+collectEffectMessages : Effect String -> BackendTask.BackendTask FatalError (List String)
+collectEffectMessages effect =
+    EffectInternal.toBackendTask effect
+        |> BackendTask.andThen
+            (\result ->
+                case result of
+                    EffectInternal.EffectDone ->
+                        BackendTask.succeed []
+
+                    EffectInternal.EffectExit _ ->
+                        BackendTask.succeed []
+
+                    EffectInternal.EffectMsg msg remainingEffect ->
+                        collectEffectMessages remainingEffect
+                            |> BackendTask.map (\rest -> msg :: rest)
+            )
 
 
 isSorted : List Int -> Bool

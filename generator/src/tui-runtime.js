@@ -43,6 +43,10 @@ let tuiCurrCells = null; // current frame: flat array of {ch, sgr}
 let tuiPrevCells = null; // previous frame: for diffing
 let tuiLastScreenData = null; // raw screen data for resize bridge
 
+const tuiGraphemeSegmenter =
+  typeof Intl !== "undefined" && Intl.Segmenter
+    ? new Intl.Segmenter(undefined, { granularity: "grapheme" })
+    : null;
 
 // ── Cell Buffer Management ──────────────────────────────────────────────────
 
@@ -56,8 +60,8 @@ function tuiEnsureCellBuffers(w, h) {
   tuiCurrCells = new Array(size);
   tuiPrevCells = new Array(size);
   for (let i = 0; i < size; i++) {
-    tuiCurrCells[i] = { ch: ' ', sgr: '', link: '' };
-    tuiPrevCells[i] = { ch: '\x00', sgr: '\x00', link: '\x00' }; // sentinel → forces full redraw
+    tuiCurrCells[i] = { ch: " ", sgr: "", link: "" };
+    tuiPrevCells[i] = { ch: "\x00", sgr: "\x00", link: "\x00" }; // sentinel → forces full redraw
   }
 }
 
@@ -65,9 +69,9 @@ function tuiEnsureCellBuffers(w, h) {
 function tuiInvalidatePrevCells() {
   if (!tuiPrevCells) return;
   for (let i = 0; i < tuiPrevCells.length; i++) {
-    tuiPrevCells[i].ch = '\x00';
-    tuiPrevCells[i].sgr = '\x00';
-    tuiPrevCells[i].link = '\x00';
+    tuiPrevCells[i].ch = "\x00";
+    tuiPrevCells[i].sgr = "\x00";
+    tuiPrevCells[i].link = "\x00";
   }
 }
 
@@ -77,9 +81,9 @@ function tuiFillCells(screenData) {
   const h = tuiCellHeight;
   // Clear all cells to spaces with no style
   for (let i = 0; i < w * h; i++) {
-    tuiCurrCells[i].ch = ' ';
-    tuiCurrCells[i].sgr = '';
-    tuiCurrCells[i].link = '';
+    tuiCurrCells[i].ch = " ";
+    tuiCurrCells[i].sgr = "";
+    tuiCurrCells[i].link = "";
   }
   if (!screenData) return;
   // Fill from screen data spans
@@ -87,19 +91,97 @@ function tuiFillCells(screenData) {
   for (let row = 0; row < lineCount; row++) {
     let col = 0;
     for (const span of screenData[row]) {
-      const sgr = tuiStyleCodes(span.style);
-      const link = span.style.hyperlink || '';
-      // Iterate codepoints (handles multi-byte chars like box-drawing ╭─╮)
-      for (const ch of span.text) {
+      const style = span.style || {};
+      const sgr = tuiStyleCodes(style);
+      const link = tuiSanitizeTerminalControlChars(style.hyperlink || "");
+      const graphemes = tuiGraphemes(
+        tuiSanitizeTerminalControlChars(span.text || "")
+      );
+      for (const ch of graphemes) {
+        const width = tuiGraphemeCellWidth(ch);
+        if (width === 0) {
+          if (col > 0) {
+            tuiCurrCells[row * w + col - 1].ch += ch;
+          }
+          continue;
+        }
         if (col >= w) break;
+        if (width > 1 && col + 1 >= w) break;
         const idx = row * w + col;
         tuiCurrCells[idx].ch = ch;
         tuiCurrCells[idx].sgr = sgr;
         tuiCurrCells[idx].link = link;
-        col++;
+        if (width > 1) {
+          const nextIdx = idx + 1;
+          tuiCurrCells[nextIdx].ch = "";
+          tuiCurrCells[nextIdx].sgr = sgr;
+          tuiCurrCells[nextIdx].link = link;
+        }
+        col += width;
       }
     }
   }
+}
+
+function tuiSanitizeTerminalControlChars(value) {
+  return String(value).replace(/[\x00-\x1f\x7f\x9b]/g, "");
+}
+
+function tuiGraphemes(text) {
+  if (!text) return [];
+  if (tuiGraphemeSegmenter) {
+    return Array.from(
+      tuiGraphemeSegmenter.segment(text),
+      (part) => part.segment
+    );
+  }
+  return Array.from(text);
+}
+
+function tuiGraphemeCellWidth(grapheme) {
+  let width = 0;
+  for (const char of grapheme) {
+    const codePoint = char.codePointAt(0);
+    if (codePoint === undefined || tuiIsZeroWidthCodePoint(codePoint)) {
+      continue;
+    }
+    width = Math.max(width, tuiCodePointCellWidth(codePoint));
+  }
+  return width;
+}
+
+function tuiIsZeroWidthCodePoint(codePoint) {
+  return (
+    (codePoint >= 0x0300 && codePoint <= 0x036f) ||
+    (codePoint >= 0x1ab0 && codePoint <= 0x1aff) ||
+    (codePoint >= 0x1dc0 && codePoint <= 0x1dff) ||
+    (codePoint >= 0x20d0 && codePoint <= 0x20ff) ||
+    (codePoint >= 0xfe00 && codePoint <= 0xfe0f) ||
+    codePoint === 0x200d
+  );
+}
+
+function tuiCodePointCellWidth(codePoint) {
+  if (tuiIsWideCodePoint(codePoint)) return 2;
+  return 1;
+}
+
+function tuiIsWideCodePoint(codePoint) {
+  return (
+    codePoint >= 0x1100 &&
+    (codePoint <= 0x115f ||
+      codePoint === 0x2329 ||
+      codePoint === 0x232a ||
+      (codePoint >= 0x2e80 && codePoint <= 0xa4cf && codePoint !== 0x303f) ||
+      (codePoint >= 0xac00 && codePoint <= 0xd7a3) ||
+      (codePoint >= 0xf900 && codePoint <= 0xfaff) ||
+      (codePoint >= 0xfe10 && codePoint <= 0xfe19) ||
+      (codePoint >= 0xfe30 && codePoint <= 0xfe6f) ||
+      (codePoint >= 0xff00 && codePoint <= 0xff60) ||
+      (codePoint >= 0xffe0 && codePoint <= 0xffe6) ||
+      (codePoint >= 0x1f300 && codePoint <= 0x1faff) ||
+      (codePoint >= 0x20000 && codePoint <= 0x3fffd))
+  );
 }
 
 // ── Cell-Level Diff Renderer ────────────────────────────────────────────────
@@ -117,7 +199,7 @@ function tuiFlushCells(stdout) {
   const h = tuiCellHeight;
   if (!tuiCurrCells || !tuiPrevCells || w === 0 || h === 0) return;
 
-  let buf = '\x1b[?2026h'; // begin synchronized update
+  let buf = "\x1b[?2026h"; // begin synchronized update
   let dirty = false;
   let cRow = -1; // tracked cursor row (0-indexed)
   let cCol = -1; // tracked cursor col (0-indexed)
@@ -130,8 +212,20 @@ function tuiFlushCells(stdout) {
       const curr = tuiCurrCells[idx];
       const prev = tuiPrevCells[idx];
 
+      if (curr.ch === "") {
+        prev.ch = curr.ch;
+        prev.sgr = curr.sgr;
+        prev.link = curr.link;
+        continue;
+      }
+
       // Skip unchanged cells
-      if (curr.ch === prev.ch && curr.sgr === prev.sgr && curr.link === prev.link) continue;
+      if (
+        curr.ch === prev.ch &&
+        curr.sgr === prev.sgr &&
+        curr.link === prev.link
+      )
+        continue;
 
       dirty = true;
       // Cursor movement: only emit when cursor isn't already here
@@ -140,7 +234,7 @@ function tuiFlushCells(stdout) {
           // Same row — use CUF (relative) or CHA (absolute column)
           const gap = col - cCol;
           if (gap === 1) {
-            buf += '\x1b[C';
+            buf += "\x1b[C";
           } else if (gap > 1 && gap <= 4) {
             buf += `\x1b[${gap}C`;
           } else {
@@ -156,8 +250,8 @@ function tuiFlushCells(stdout) {
       // Use separate reset + apply (not combined \x1b[0;...m) to avoid
       // parser issues with 256-color/truecolor sub-parameter sequences.
       if (curr.sgr !== cSgr) {
-        buf += '\x1b[0m';
-        if (curr.sgr !== '') {
+        buf += "\x1b[0m";
+        if (curr.sgr !== "") {
           buf += `\x1b[${curr.sgr}m`;
         }
         cSgr = curr.sgr;
@@ -168,7 +262,7 @@ function tuiFlushCells(stdout) {
       // Unsupported terminals silently ignore OSC 8.
       if (curr.link !== cLink) {
         if (cLink) {
-          buf += '\x1b]8;;\x1b\\'; // close previous link
+          buf += "\x1b]8;;\x1b\\"; // close previous link
         }
         if (curr.link) {
           buf += `\x1b]8;;${curr.link}\x1b\\`; // open new link
@@ -177,7 +271,7 @@ function tuiFlushCells(stdout) {
       }
 
       buf += curr.ch;
-      cCol = col + 1; // cursor auto-advances after write
+      cCol = col + tuiGraphemeCellWidth(curr.ch); // cursor auto-advances after write
       cRow = row;
 
       // Sync prev buffer so next frame diffs correctly
@@ -193,15 +287,15 @@ function tuiFlushCells(stdout) {
 
   // Close any open hyperlink at end of frame
   if (cLink) {
-    buf += '\x1b]8;;\x1b\\';
+    buf += "\x1b]8;;\x1b\\";
   }
 
   // Reset style at end of frame to leave terminal clean
-  if (cSgr !== null && cSgr !== '') {
-    buf += '\x1b[0m';
+  if (cSgr !== null && cSgr !== "") {
+    buf += "\x1b[0m";
   }
 
-  buf += '\x1b[?2026l'; // end synchronized update
+  buf += "\x1b[?2026l"; // end synchronized update
 
   if (dirty) {
     stdout.write(buf);
@@ -222,49 +316,54 @@ function tuiDetectColorProfile() {
 
   // NO_COLOR (https://no-color.org/): any non-empty value disables color.
   // Keeps bold/italic/underline — only strips color codes.
-  if (env.NO_COLOR != null && env.NO_COLOR !== '') {
-    return 'mono';
+  if (env.NO_COLOR != null && env.NO_COLOR !== "") {
+    return "mono";
   }
 
   // COLORTERM: the most reliable truecolor indicator
-  const colorterm = (env.COLORTERM || '').toLowerCase();
-  if (colorterm === 'truecolor' || colorterm === '24bit') {
-    return 'truecolor';
+  const colorterm = (env.COLORTERM || "").toLowerCase();
+  if (colorterm === "truecolor" || colorterm === "24bit") {
+    return "truecolor";
   }
 
-  const term = (env.TERM || '').toLowerCase();
+  const term = (env.TERM || "").toLowerCase();
 
   // Known truecolor terminals (from charmbracelet/colorprofile)
   const truecolorTermPrefixes = [
-    'alacritty', 'kitty', 'ghostty', 'wezterm',
-    'foot', 'contour', 'rio', 'st-',
+    "alacritty",
+    "kitty",
+    "ghostty",
+    "wezterm",
+    "foot",
+    "contour",
+    "rio",
+    "st-",
   ];
-  if (truecolorTermPrefixes.some(t => term.startsWith(t)) || term === 'st') {
-    return 'truecolor';
+  if (truecolorTermPrefixes.some((t) => term.startsWith(t)) || term === "st") {
+    return "truecolor";
   }
 
   // Windows Terminal
   if (env.WT_SESSION) {
-    return 'truecolor';
+    return "truecolor";
   }
 
   // TERM_PROGRAM: iTerm2, Hyper, mintty
-  const termProgram = (env.TERM_PROGRAM || '').toLowerCase();
-  if (['iterm.app', 'hyper', 'mintty'].includes(termProgram)) {
-    return 'truecolor';
+  const termProgram = (env.TERM_PROGRAM || "").toLowerCase();
+  if (["iterm.app", "hyper", "mintty"].includes(termProgram)) {
+    return "truecolor";
   }
 
   // TERM suffix checks
-  if (term.endsWith('-direct')) return 'truecolor';
-  if (term.includes('256color')) return '256';
+  if (term.endsWith("-direct")) return "truecolor";
+  if (term.includes("256color")) return "256";
 
   // CLICOLOR=0 means no color
-  if (env.CLICOLOR === '0') return 'mono';
+  if (env.CLICOLOR === "0") return "mono";
 
   // Safe default for any recognized terminal
-  return '16';
+  return "16";
 }
-
 
 /**
  * Convert RGB to nearest 256-color palette index.
@@ -276,13 +375,15 @@ function tuiRgbTo256(r, g, b) {
   if (Math.abs(r - g) <= 2 && Math.abs(g - b) <= 2) {
     if (r < 8) return 16;
     if (r > 248) return 231;
-    return Math.round((r - 8) / 247 * 24) + 232;
+    return Math.round(((r - 8) / 247) * 24) + 232;
   }
   // Map to 6x6x6 cube
-  return 16
-    + 36 * Math.round(r / 255 * 5)
-    + 6 * Math.round(g / 255 * 5)
-    + Math.round(b / 255 * 5);
+  return (
+    16 +
+    36 * Math.round((r / 255) * 5) +
+    6 * Math.round((g / 255) * 5) +
+    Math.round((b / 255) * 5)
+  );
 }
 
 /**
@@ -301,7 +402,9 @@ function tuiColor256To16(index, isBackground) {
   if (index >= 232) {
     // Grayscale ramp
     const v = (index - 232) * 10 + 8;
-    r = v; g = v; b = v;
+    r = v;
+    g = v;
+    b = v;
   } else {
     // 6x6x6 cube
     const ci = index - 16;
@@ -320,10 +423,22 @@ function tuiRgbTo16(r, g, b, isBackground) {
   const offset = isBackground ? 10 : 0;
   // The 16 ANSI colors in RGB (approximate, terminal-dependent)
   const ansi16 = [
-    [0,0,0], [170,0,0], [0,170,0], [170,85,0],
-    [0,0,170], [170,0,170], [0,170,170], [170,170,170],
-    [85,85,85], [255,85,85], [85,255,85], [255,255,85],
-    [85,85,255], [255,85,255], [85,255,255], [255,255,255],
+    [0, 0, 0],
+    [170, 0, 0],
+    [0, 170, 0],
+    [170, 85, 0],
+    [0, 0, 170],
+    [170, 0, 170],
+    [0, 170, 170],
+    [170, 170, 170],
+    [85, 85, 85],
+    [255, 85, 85],
+    [85, 255, 85],
+    [255, 255, 85],
+    [85, 85, 255],
+    [255, 85, 255],
+    [85, 255, 255],
+    [255, 255, 255],
   ];
   let bestIdx = 0;
   let bestDist = Infinity;
@@ -331,8 +446,13 @@ function tuiRgbTo16(r, g, b, isBackground) {
     const [cr, cg, cb] = ansi16[i];
     // Redmean weighted distance (better perceptual match than Euclidean)
     const rmean = (r + cr) / 2;
-    const dr = r - cr, dg = g - cg, db = b - cb;
-    const dist = (2 + rmean / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rmean) / 256) * db * db;
+    const dr = r - cr,
+      dg = g - cg,
+      db = b - cb;
+    const dist =
+      (2 + rmean / 256) * dr * dr +
+      4 * dg * dg +
+      (2 + (255 - rmean) / 256) * db * db;
     if (dist < bestDist) {
       bestDist = dist;
       bestIdx = i;
@@ -362,7 +482,7 @@ export function tuiCleanup() {
   // get echoed as visible escape sequences in the shell after exit.
   stdout.write(
     "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l" + // disable all mouse modes
-    "\x1b[?2004l"                                        // disable bracketed paste
+      "\x1b[?2004l" // disable bracketed paste
   );
 
   // Step 2: Replace data listener with a no-op drain to consume and discard
@@ -397,10 +517,10 @@ export function tuiCleanup() {
 
   // Step 5: Complete terminal restoration
   stdout.write(
-    "\x1b[0m" +                  // reset all text attributes
-    "\x1b[?25h" +                // show cursor
-    "\x1b[?1l\x1b>" +            // reset cursor keys to normal mode (DECRST + DECKPNM)
-    "\x1b[?1049l"                // exit alternate screen (restores saved screen)
+    "\x1b[0m" + // reset all text attributes
+      "\x1b[?25h" + // show cursor
+      "\x1b[?1l\x1b>" + // reset cursor keys to normal mode (DECRST + DECKPNM)
+      "\x1b[?1049l" // exit alternate screen (restores saved screen)
   );
 }
 
@@ -489,33 +609,48 @@ function tuiStyleCodes(style) {
  * Degradation path: TrueColor → 256-color → 16-color → mono (no color)
  */
 function tuiColorToAnsi(color, isBackground) {
-  const profile = tuiColorProfile || 'truecolor';
+  const profile = tuiColorProfile || "truecolor";
 
   // NO_COLOR / mono: strip all color codes (bold/italic preserved in tuiStyleCodes)
-  if (profile === 'mono') return "";
+  if (profile === "mono") return "";
 
   const offset = isBackground ? 10 : 0;
 
   if (typeof color === "string") {
     // Named ANSI colors (16-color) — always supported in any non-mono profile
     const colorMap = {
-      black: 30, red: 31, green: 32, yellow: 33, blue: 34, magenta: 35, cyan: 36, white: 37,
-      brightBlack: 90, brightRed: 91, brightGreen: 92, brightYellow: 93,
-      brightBlue: 94, brightMagenta: 95, brightCyan: 96, brightWhite: 97,
+      black: 30,
+      red: 31,
+      green: 32,
+      yellow: 33,
+      blue: 34,
+      magenta: 35,
+      cyan: 36,
+      white: 37,
+      brightBlack: 90,
+      brightRed: 91,
+      brightGreen: 92,
+      brightYellow: 93,
+      brightBlue: 94,
+      brightMagenta: 95,
+      brightCyan: 96,
+      brightWhite: 97,
     };
     const code = colorMap[color];
     if (code !== undefined) {
-      return String(code >= 90 ? code + (isBackground ? 10 : 0) : code + offset);
+      return String(
+        code >= 90 ? code + (isBackground ? 10 : 0) : code + offset
+      );
     }
     return "";
   }
 
   if (color.r !== undefined) {
     // Truecolor (24-bit) — degrade based on profile
-    if (profile === 'truecolor') {
+    if (profile === "truecolor") {
       return `${isBackground ? 48 : 38};2;${color.r};${color.g};${color.b}`;
     }
-    if (profile === '256') {
+    if (profile === "256") {
       return `${isBackground ? 48 : 38};5;${tuiRgbTo256(color.r, color.g, color.b)}`;
     }
     // 16-color: map to nearest ANSI color
@@ -524,7 +659,7 @@ function tuiColorToAnsi(color, isBackground) {
 
   if (color.color256 !== undefined) {
     // 256-color — degrade to 16-color if needed
-    if (profile === 'truecolor' || profile === '256') {
+    if (profile === "truecolor" || profile === "256") {
       return `${isBackground ? 48 : 38};5;${color.color256}`;
     }
     // 16-color: map 256 to nearest ANSI color
@@ -551,11 +686,11 @@ export async function runTuiInit(req) {
   // SGR encoding), clear screen. tcell and Bubble Tea use the same modes.
   stdout.write(
     "\x1b[?1049h" + // enter alternate screen
-    "\x1b[?25l" +   // hide cursor
-    "\x1b[?1000h" + // enable button event mouse tracking (captures scroll)
-    "\x1b[?1006h" + // enable SGR mouse encoding (decimal, no coord limit)
-    "\x1b[?2004h" + // enable bracketed paste mode
-    "\x1b[2J\x1b[H" // clear screen, cursor to top-left
+      "\x1b[?25l" + // hide cursor
+      "\x1b[?1000h" + // enable button event mouse tracking (captures scroll)
+      "\x1b[?1006h" + // enable SGR mouse encoding (decimal, no coord limit)
+      "\x1b[?2004h" + // enable bracketed paste mode
+      "\x1b[2J\x1b[H" // clear screen, cursor to top-left
   );
 
   // Set raw mode
@@ -577,17 +712,35 @@ export async function runTuiInit(req) {
     try {
       tuiDebugLog = fs.openSync("tui-debug.log", "w");
       fs.writeSync(tuiDebugLog, `[${new Date().toISOString()}] TUI init\n`);
-    } catch (e) { tuiDebugLog = null; }
+    } catch (e) {
+      tuiDebugLog = null;
+    }
   }
 
   process.stdin.on("data", (data) => {
     if (tuiDebugLog) {
       const raw = data.toString();
-      const escaped = raw.replace(/\x1b/g, "\\x1b").replace(/[\x00-\x1f]/g, (c) => "\\x" + c.charCodeAt(0).toString(16).padStart(2, "0"));
-      fs.writeSync(tuiDebugLog, `[${Date.now()}] stdin(${raw.length}): ${escaped}\n`);
+      const escaped = raw
+        .replace(/\x1b/g, "\\x1b")
+        .replace(
+          /[\x00-\x1f]/g,
+          (c) => "\\x" + c.charCodeAt(0).toString(16).padStart(2, "0")
+        );
+      fs.writeSync(
+        tuiDebugLog,
+        `[${Date.now()}] stdin(${raw.length}): ${escaped}\n`
+      );
       if (tuiStdinLeftover) {
-        const loEsc = tuiStdinLeftover.replace(/\x1b/g, "\\x1b").replace(/[\x00-\x1f]/g, (c) => "\\x" + c.charCodeAt(0).toString(16).padStart(2, "0"));
-        fs.writeSync(tuiDebugLog, `  leftover(${tuiStdinLeftover.length}): ${loEsc}\n`);
+        const loEsc = tuiStdinLeftover
+          .replace(/\x1b/g, "\\x1b")
+          .replace(
+            /[\x00-\x1f]/g,
+            (c) => "\\x" + c.charCodeAt(0).toString(16).padStart(2, "0")
+          );
+        fs.writeSync(
+          tuiDebugLog,
+          `  leftover(${tuiStdinLeftover.length}): ${loEsc}\n`
+        );
       }
     }
 
@@ -600,10 +753,18 @@ export async function runTuiInit(req) {
         fs.writeSync(tuiDebugLog, `  -> null (no event)\n`);
       }
       if (tuiStdinLeftover) {
-        const loEsc = tuiStdinLeftover.replace(/\x1b/g, "\\x1b").replace(/[\x00-\x1f]/g, (c) => "\\x" + c.charCodeAt(0).toString(16).padStart(2, "0"));
+        const loEsc = tuiStdinLeftover
+          .replace(/\x1b/g, "\\x1b")
+          .replace(
+            /[\x00-\x1f]/g,
+            (c) => "\\x" + c.charCodeAt(0).toString(16).padStart(2, "0")
+          );
         fs.writeSync(tuiDebugLog, `  leftover after: ${loEsc}\n`);
       }
-      fs.writeSync(tuiDebugLog, `  queue: ${tuiEventQueue.length}, resolve: ${!!tuiEventResolve}\n`);
+      fs.writeSync(
+        tuiDebugLog,
+        `  queue: ${tuiEventQueue.length}, resolve: ${!!tuiEventResolve}\n`
+      );
     }
 
     if (!event) return;
@@ -616,7 +777,10 @@ export async function runTuiInit(req) {
     }
 
     // Track scroll for coalescing
-    if (event.type === "mouse" && (event.action === "scrollUp" || event.action === "scrollDown")) {
+    if (
+      event.type === "mouse" &&
+      (event.action === "scrollUp" || event.action === "scrollDown")
+    ) {
       tuiLastScrollDir = event.action;
       tuiLastScrollTime = Date.now();
     }
@@ -632,13 +796,25 @@ export async function runTuiInit(req) {
       // into a single net-delta event. This cancels out macOS rubber-band
       // bounce events mathematically: 5 scrollDowns + 3 scrollUps (bounce)
       // = net scrollDown with amount 2. One smooth scroll, no oscillation.
-      const last = tuiEventQueue.length > 0 ? tuiEventQueue[tuiEventQueue.length - 1] : null;
-      const isScroll = event.type === "mouse" && (event.action === "scrollUp" || event.action === "scrollDown");
-      const lastIsScroll = last && last.type === "mouse" && (last.action === "scrollUp" || last.action === "scrollDown");
+      const last =
+        tuiEventQueue.length > 0
+          ? tuiEventQueue[tuiEventQueue.length - 1]
+          : null;
+      const isScroll =
+        event.type === "mouse" &&
+        (event.action === "scrollUp" || event.action === "scrollDown");
+      const lastIsScroll =
+        last &&
+        last.type === "mouse" &&
+        (last.action === "scrollUp" || last.action === "scrollDown");
       if (isScroll && lastIsScroll) {
         // Net the deltas: down is positive, up is negative
-        const lastDelta = last.action === "scrollDown" ? (last.amount || 1) : -(last.amount || 1);
-        const newDelta = event.action === "scrollDown" ? (event.amount || 1) : -(event.amount || 1);
+        const lastDelta =
+          last.action === "scrollDown" ? last.amount || 1 : -(last.amount || 1);
+        const newDelta =
+          event.action === "scrollDown"
+            ? event.amount || 1
+            : -(event.amount || 1);
         const net = lastDelta + newDelta;
         if (net > 0) {
           last.action = "scrollDown";
@@ -682,7 +858,7 @@ export async function runTuiInit(req) {
       tuiEventResolve = null;
       resolve(resizeEvent);
     } else {
-      const existingIdx = tuiEventQueue.findIndex(e => e.type === "resize");
+      const existingIdx = tuiEventQueue.findIndex((e) => e.type === "resize");
       if (existingIdx >= 0) {
         tuiEventQueue[existingIdx] = resizeEvent;
       } else {
@@ -737,10 +913,13 @@ function tuiRenderScreen(screenData) {
   if (now - tuiLastRenderTime < TUI_MIN_RENDER_INTERVAL) {
     // Too soon — schedule deferred render for when the interval elapses
     if (tuiPendingRender) clearTimeout(tuiPendingRender);
-    tuiPendingRender = setTimeout(() => {
-      tuiPendingRender = null;
-      tuiFlushCells(stdout);
-    }, TUI_MIN_RENDER_INTERVAL - (now - tuiLastRenderTime));
+    tuiPendingRender = setTimeout(
+      () => {
+        tuiPendingRender = null;
+        tuiFlushCells(stdout);
+      },
+      TUI_MIN_RENDER_INTERVAL - (now - tuiLastRenderTime)
+    );
     return;
   }
   if (tuiPendingRender) {
@@ -800,7 +979,9 @@ export async function runTuiRenderAndWait(req) {
   // Each interval gets its own setInterval; ticks carry their interval + fire
   // timestamp so Elm-side routing can match subscriptions and pass Posix time.
   /** @type {number[]} */
-  const wantIntervals = args.tickIntervals || [];
+  const wantIntervals = (args.tickIntervals || []).filter(
+    (interval) => Number.isInteger(interval) && interval > 0
+  );
 
   // Clear timers we no longer need.
   tuiTickTimers.forEach((timer, interval) => {
@@ -845,3 +1026,35 @@ export async function runTuiExit(req) {
   tuiCleanup();
   return jsonResponse(req, null);
 }
+
+function tuiResetCellsForTest(w, h) {
+  tuiCellWidth = 0;
+  tuiCellHeight = 0;
+  tuiCurrCells = null;
+  tuiPrevCells = null;
+  tuiEnsureCellBuffers(w, h);
+}
+
+function tuiCloneCurrentCellsForTest() {
+  return tuiCurrCells.map((cell) => ({
+    ch: cell.ch,
+    sgr: cell.sgr,
+    link: cell.link,
+  }));
+}
+
+export const __testing = {
+  fillCellsForTest(w, h, screenData) {
+    tuiResetCellsForTest(w, h);
+    tuiFillCells(screenData);
+    return tuiCloneCurrentCellsForTest();
+  },
+
+  renderToStringForTest(w, h, screenData) {
+    const chunks = [];
+    tuiResetCellsForTest(w, h);
+    tuiFillCells(screenData);
+    tuiFlushCells({ write: (chunk) => chunks.push(chunk) });
+    return chunks.join("");
+  },
+};

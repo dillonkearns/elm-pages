@@ -106,7 +106,7 @@ fold handlers effect =
 
 type EffectResult msg
     = EffectDone
-    | EffectMsg msg
+    | EffectMsg msg (Effect msg)
     | EffectExit Int
 
 
@@ -123,7 +123,7 @@ toBackendTask effect =
             BackendTask.succeed (EffectExit code)
 
         RunBackendTask bt ->
-            bt |> BackendTask.map EffectMsg
+            bt |> BackendTask.map (\msg -> EffectMsg msg None)
 
         Batch effects ->
             processBatch effects
@@ -144,9 +144,28 @@ processBatch effects =
                             EffectDone ->
                                 processBatch rest
 
-                            EffectMsg _ ->
-                                BackendTask.succeed result
+                            EffectMsg msg remainingEffect ->
+                                BackendTask.succeed
+                                    (EffectMsg msg
+                                        (continueWith remainingEffect rest)
+                                    )
 
                             EffectExit _ ->
                                 BackendTask.succeed result
                     )
+
+
+continueWith : Effect msg -> List (Effect msg) -> Effect msg
+continueWith remainingEffect rest =
+    case ( remainingEffect, rest ) of
+        ( None, [] ) ->
+            None
+
+        ( None, _ ) ->
+            Batch rest
+
+        ( _, [] ) ->
+            remainingEffect
+
+        _ ->
+            Batch (remainingEffect :: rest)

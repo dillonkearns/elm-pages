@@ -201,7 +201,6 @@ import Browser
 import Bytes
 import Bytes.Decode
 import Bytes.Encode
-import Test.PagesProgram.CookieJar as CookieJar exposing (CookieEntry, CookieJar)
 import Dict
 import Expect exposing (Expectation)
 import FatalError exposing (FatalError)
@@ -227,6 +226,7 @@ import Test.BackendTask.Internal as BackendTaskTest
 import Test.Html.Event as Event
 import Test.Html.Query as Query
 import Test.Html.Selector as Selector
+import Test.PagesProgram.CookieJar as CookieJar exposing (CookieEntry, CookieJar)
 import Test.PagesProgram.Internal as Internal
     exposing
         ( AdvanceResult(..)
@@ -1137,6 +1137,7 @@ start simulateEffect config initialPath testSetup =
                                             "POST"
                                 }
                             )
+
                 extractCookies wrappedModel =
                     CookieJar.entries wrappedModel.cookieJar
             in
@@ -3648,7 +3649,7 @@ advanceResolver source maybeModel remainingPendingResolvers sim state (Resolver 
 
         matchingRequest =
             resolver.pendingRequestDetails
-                |> List.filter (\r -> r.url == simInfo.url)
+                |> List.filter (simulationMatchesRequestDetails sim)
                 |> List.head
 
         networkEntry =
@@ -3668,7 +3669,7 @@ advanceResolver source maybeModel remainingPendingResolvers sim state (Resolver 
                 ( found, updated ) =
                     List.foldl
                         (\entry ( matched, acc ) ->
-                            if not matched && entry.status == Pending && entry.url == simInfo.url then
+                            if not matched && simulationMatchesNetworkEntry sim entry then
                                 ( True
                                 , acc ++ [ { entry | status = Stubbed, responsePreview = simInfo.responsePreview, stepIndex = stepIdx } ]
                                 )
@@ -3734,12 +3735,7 @@ applySimulation sim (ProgramTest state) =
             ProgramTest state
 
         Nothing ->
-            let
-                target : String
-                target =
-                    simulationTarget sim
-            in
-            case findResolverByUrl target state.pendingFetcherEffects of
+            case findResolverBySimulation sim state.pendingFetcherEffects of
                 Just ( matchedFetcher, restFetchers ) ->
                     let
                         maybeModel =
@@ -3765,8 +3761,8 @@ applySimulation sim (ProgramTest state) =
                         Ready ready ->
                             -- No fetcher URL match. Fall through to pending BackendTask effects
                             -- from update (BackendTasks returned from update).
-                            case ready.pendingEffects of
-                                bt :: rest ->
+                            case selectPendingEffect sim ready.pendingEffects of
+                                Just ( bt, rest ) ->
                                     let
                                         testResult : Result String msg
                                         testResult =
@@ -3806,14 +3802,7 @@ applySimulation sim (ProgramTest state) =
 
                                                         updatedLog =
                                                             state.networkLog
-                                                                |> List.map
-                                                                    (\entry ->
-                                                                        if entry.status == Pending then
-                                                                            { entry | status = Stubbed, stepIndex = List.length state.snapshots }
-
-                                                                        else
-                                                                            entry
-                                                                    )
+                                                                |> markMatchingNetworkEntryStubbed sim (List.length state.snapshots)
                                                     in
                                                     ProgramTest
                                                         { state
@@ -3838,7 +3827,7 @@ applySimulation sim (ProgramTest state) =
                                                             )
                                                 }
 
-                                [] ->
+                                Nothing ->
                                     ProgramTest
                                         { state
                                             | error =
@@ -3883,49 +3872,105 @@ simulationUrl sim =
             portName
 
 
-{-| Target string used to match a simulation against pending BackendTask
-requests. For HTTP this is the URL; for custom ports this is just the
-port name (the `elm-pages-internal://port` URL scheme that
-`BackendTask.Custom.run` uses internally is stripped so the test layer
-matches on user-facing port names). Kept separate from
-[`simulationUrl`](#simulationUrl) which is for display.
--}
-simulationTarget : Simulation -> String
-simulationTarget sim =
+simulationMatchesRequestDetails : Simulation -> { url : String, method : String, headers : List ( String, String ), body : Maybe String } -> Bool
+simulationMatchesRequestDetails sim request =
     case sim of
         SimHttpGet url _ ->
-            url
+            request.method == "GET" && request.url == url
 
         SimHttpPost url _ ->
-            url
+            request.method == "POST" && request.url == url
 
-        SimHttpError _ url _ ->
-            url
+        SimHttpError method url _ ->
+            request.method == method && request.url == url
 
         SimCustom portName _ ->
-            portName
+            request.url == "elm-pages-internal://port" && pendingPortName request == Just portName
 
 
-{-| Find the first resolver in the list whose pendingUrls contains the target URL.
-Returns the matching resolver and the remaining list (with the match removed).
--}
-findResolverByUrl : String -> List (Resolver model msg) -> Maybe ( Resolver model msg, List (Resolver model msg) )
-findResolverByUrl targetUrl resolvers =
-    findResolverByUrlHelp targetUrl [] resolvers
+simulationMatchesNetworkEntry : Simulation -> NetworkEntry -> Bool
+simulationMatchesNetworkEntry sim entry =
+    entry.status
+        == Pending
+        && (case sim of
+                SimHttpGet url _ ->
+                    entry.method == "GET" && entry.url == url
+
+                SimHttpPost url _ ->
+                    entry.method == "POST" && entry.url == url
+
+                SimHttpError method url _ ->
+                    entry.method == method && entry.url == url
+
+                SimCustom portName _ ->
+                    entry.method == "PORT" && entry.url == portName
+           )
 
 
-findResolverByUrlHelp : String -> List (Resolver model msg) -> List (Resolver model msg) -> Maybe ( Resolver model msg, List (Resolver model msg) )
-findResolverByUrlHelp targetUrl before remaining =
+markMatchingNetworkEntryStubbed : Simulation -> Int -> List NetworkEntry -> List NetworkEntry
+markMatchingNetworkEntryStubbed sim stepIndex entries =
+    let
+        markFirst : NetworkEntry -> ( Bool, List NetworkEntry ) -> ( Bool, List NetworkEntry )
+        markFirst entry ( matched, acc ) =
+            if not matched && simulationMatchesNetworkEntry sim entry then
+                ( True, acc ++ [ { entry | status = Stubbed, stepIndex = stepIndex } ] )
+
+            else
+                ( matched, acc ++ [ entry ] )
+    in
+    entries
+        |> List.foldl markFirst ( False, [] )
+        |> Tuple.second
+
+
+findResolverBySimulation : Simulation -> List (Resolver model msg) -> Maybe ( Resolver model msg, List (Resolver model msg) )
+findResolverBySimulation sim resolvers =
+    findResolverBySimulationHelp sim [] resolvers
+
+
+findResolverBySimulationHelp : Simulation -> List (Resolver model msg) -> List (Resolver model msg) -> Maybe ( Resolver model msg, List (Resolver model msg) )
+findResolverBySimulationHelp sim before remaining =
     case remaining of
         [] ->
             Nothing
 
         ((Resolver r) as resolver) :: rest ->
-            if List.member targetUrl r.pendingUrls then
+            if List.any (simulationMatchesRequestDetails sim) r.pendingRequestDetails then
                 Just ( resolver, List.reverse before ++ rest )
 
             else
-                findResolverByUrlHelp targetUrl (resolver :: before) rest
+                findResolverBySimulationHelp sim (resolver :: before) rest
+
+
+selectPendingEffect : Simulation -> List (BackendTask FatalError msg) -> Maybe ( BackendTask FatalError msg, List (BackendTask FatalError msg) )
+selectPendingEffect sim effects =
+    selectPendingEffectHelp sim [] effects
+
+
+selectPendingEffectHelp : Simulation -> List (BackendTask FatalError msg) -> List (BackendTask FatalError msg) -> Maybe ( BackendTask FatalError msg, List (BackendTask FatalError msg) )
+selectPendingEffectHelp sim before remaining =
+    case remaining of
+        [] ->
+            Nothing
+
+        effect :: rest ->
+            if effectMatchesSimulation sim effect then
+                Just ( effect, List.reverse before ++ rest )
+
+            else
+                selectPendingEffectHelp sim (effect :: before) rest
+
+
+effectMatchesSimulation : Simulation -> BackendTask FatalError msg -> Bool
+effectMatchesSimulation sim effect =
+    case BackendTaskTest.fromBackendTask effect of
+        BackendTaskTest.Running runningState ->
+            runningState.pendingRequests
+                |> List.map requestToDetails
+                |> List.any (simulationMatchesRequestDetails sim)
+
+        _ ->
+            False
 
 
 {-| Record a snapshot for an assertion step (like Cypress's command log).
@@ -4911,8 +4956,6 @@ getFailureMessage expectation =
 
 
 
-
-
 -- PLATFORM HELPERS
 
 
@@ -5071,13 +5114,25 @@ processEffectsWrapped config baseUrl requestDefaults makeReady makePlatformResol
                 ( updatedWrappedModel, [], [] )
 
             Platform.RunCmd _ ->
-                ( wrappedModel, [], [] )
+                ( { wrappedModel
+                    | pendingDataError =
+                        Internal.unsupportedPlatformEffectError effect
+                  }
+                , []
+                , []
+                )
 
             Platform.UserCmd userEffect ->
                 handleUserCmd wrappedModel userEffect maxDepth
 
             Platform.BrowserLoadUrl _ ->
-                ( wrappedModel, [], [] )
+                ( { wrappedModel
+                    | pendingDataError =
+                        Internal.unsupportedPlatformEffectError effect
+                  }
+                , []
+                , []
+                )
 
             Platform.BrowserPushUrl pushPath ->
                 let
@@ -5887,6 +5942,9 @@ processSimulatedEffect config baseUrl requestDefaults makeReady makePlatformReso
                 let
                     transitionId =
                         wrappedModel.platformModel.nextTransitionKey
+
+                    formData =
+                        Internal.fetcherToFormData wrappedModel.platformModel.url.path fetcher
                 in
                 processEffectsWrapped config
                     baseUrl
@@ -5897,11 +5955,7 @@ processSimulatedEffect config baseUrl requestDefaults makeReady makePlatformReso
                     wrappedModel
                     (Platform.SubmitFetcher "user-effect"
                         transitionId
-                        { fields = []
-                        , method = Form.Post
-                        , action = ""
-                        , id = Nothing
-                        }
+                        formData
                     )
                     (maxDepth - 1)
 

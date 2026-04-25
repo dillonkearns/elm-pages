@@ -1,7 +1,9 @@
 module Tui.Sub.Internal exposing
     ( RawEvent(..)
-    , getInterests, getTickIntervals, routeEvents
     , decodeRawEvent
+    , getInterests
+    , getTickIntervals
+    , routeEvents
     )
 
 {-| Framework-internal hooks for `Tui.Sub`. Not part of the public API.
@@ -85,7 +87,10 @@ getTickIntervals sub =
                     List.foldl (\inner a -> collect inner a) acc subs
 
                 Every interval _ ->
-                    if List.member interval acc then
+                    if interval <= 0 then
+                        acc
+
+                    else if List.member interval acc then
                         acc
 
                     else
@@ -148,7 +153,7 @@ routeEvents sub event =
         Every subInterval toMsg ->
             case event of
                 RawTick { interval, time } ->
-                    if interval == subInterval then
+                    if subInterval > 0 && interval == subInterval then
                         [ toMsg time ]
 
                     else

@@ -1,33 +1,11 @@
 module Test.PagesProgram.Internal exposing
-    ( Snapshot
-    , StepKind(..)
-    , TargetSelector(..)
-    , NetworkEntry
-    , NetworkStatus(..)
-    , NetworkSource(..)
-    , FetcherEntry
-    , FetcherStatus(..)
-    , AssertionSelector(..)
-    , ProgramTest(..)
-    , State
-    , Phase(..)
-    , ReadyState
-    , Resolver(..)
-    , ResolverKind(..)
-    , Simulation(..)
-    , AdvanceResult(..)
-    , initialProgramTest
-    , initialProgramTestWithEffects
-    , resolveDataPhase
-    , mapViewToSnapshot
-    , describeEffects
-    , describeHttpRequest
-    , unsafeCoerceHtmlList
-    , crashNever
-    , stillRunningDescription
-    , requestDetailsFromRequests
-    , requestToDetails
-    , bodyToString
+    ( Snapshot, StepKind(..), TargetSelector(..), NetworkEntry, NetworkStatus(..), FetcherEntry, FetcherStatus(..), AssertionSelector(..)
+    , ProgramTest(..), State, Phase(..), ReadyState, Resolver(..), ResolverKind(..), Simulation(..), AdvanceResult(..)
+    , initialProgramTest, initialProgramTestWithEffects
+    , resolveDataPhase, mapViewToSnapshot, describeEffects, describeHttpRequest
+    , unsafeCoerceHtmlList, crashNever
+    , stillRunningDescription, requestDetailsFromRequests, requestToDetails, bodyToString
+    , NetworkSource(..), fetcherToFormData, unsupportedPlatformEffectError
     )
 
 {-| Internal types used by the visual test runner (Viewer) and the
@@ -48,7 +26,9 @@ import FatalError exposing (FatalError)
 import Form
 import Html exposing (Html)
 import Json.Encode as Encode
+import Pages.Fetcher
 import Pages.Internal.FatalError
+import Pages.Internal.Platform as Platform
 import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.StaticHttp.Request as StaticHttpRequest
 import Test.BackendTask.Internal as BackendTaskTest
@@ -226,6 +206,28 @@ type Simulation
     | SimHttpPost String Encode.Value
     | SimHttpError String String String
     | SimCustom String Encode.Value
+
+
+unsupportedPlatformEffectError : Platform.Effect userMsg pageData actionData sharedData userEffect errorPage -> Maybe String
+unsupportedPlatformEffectError effect =
+    case effect of
+        Platform.RunCmd _ ->
+            Just "Test.PagesProgram cannot simulate Platform.RunCmd. Convert application Cmd values to Test.PagesProgram.SimulatedEffect values so the test can resolve or explicitly ignore them."
+
+        Platform.BrowserLoadUrl url ->
+            Just ("Test.PagesProgram cannot simulate Platform.BrowserLoadUrl for external URL \"" ++ url ++ "\". Assert on internal navigation with expectBrowserUrl, or model this external load as an explicit user effect.")
+
+        _ ->
+            Nothing
+
+
+fetcherToFormData : String -> Pages.Fetcher.Fetcher msg -> { fields : List ( String, String ), method : Form.Method, action : String, id : Maybe String }
+fetcherToFormData currentPath (Pages.Fetcher.Fetcher fetcher) =
+    { fields = fetcher.fields
+    , method = Form.Post
+    , action = fetcher.url |> Maybe.withDefault currentPath
+    , id = Nothing
+    }
 
 
 {-| Outcome of advancing a resolver with a `Simulation`.

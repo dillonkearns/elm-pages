@@ -1,6 +1,5 @@
 module Tui exposing
-    ( Program, ProgramConfig, program, toScript
-    , programWithCliOptions
+    ( Program, ProgramConfig, program, toScript, programWithCliOptions
     , Mode(..), programOrScript, isInteractive
     , Context, ColorProfile(..)
     )
@@ -536,12 +535,16 @@ processEffectsThenRenderAndWait app context model effect =
                     EffectInternal.EffectDone ->
                         renderAndWait app context model
 
-                    EffectInternal.EffectMsg msg ->
+                    EffectInternal.EffectMsg msg remainingEffect ->
                         let
                             ( newModel, newEffect ) =
                                 app.update msg model
                         in
-                        processEffectsThenRenderAndWait app context newModel newEffect
+                        processEffectsThenRenderAndWait
+                            app
+                            context
+                            newModel
+                            (Effect.batch [ newEffect, remainingEffect ])
 
                     EffectInternal.EffectExit code ->
                         tuiExit code
