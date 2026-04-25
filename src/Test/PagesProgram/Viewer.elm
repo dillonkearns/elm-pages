@@ -2111,19 +2111,33 @@ viewEventChip cfg =
                 ]
     in
     if cfg.active && cfg.currentStepHere then
-        -- Wrap in an alignment-safe shell so the ring + glow halo
-        -- doesn't contribute to the chip's layout bounding box.
-        Html.span [ Attr.class "event-chip-now-shell" ]
-            [ chip
-            , Html.span
-                [ Attr.class "event-chip-now-ring"
-                , Attr.style "--ring-color" (eventKindColor cfg.kind)
-                ]
-                []
-            ]
+        withCurrentStepRing (eventKindColor cfg.kind) chip
 
     else
         chip
+
+
+{-| Wrap any inline element in the shared "this is the current step"
+ring + glow halo. The shell is `position: relative` and `display:
+inline-flex`, the ring is absolutely positioned at `inset: -2px`, so
+the wrapped element's layout box (and the surrounding row's height /
+alignment) is unchanged whether or not the ring is present.
+
+Used by both the event-chip timeline (Network + Fetcher panels) and
+the cookie box-pill selector. Color is supplied per call so each
+context can tie the ring to the right channel/state color.
+
+-}
+withCurrentStepRing : String -> Html msg -> Html msg
+withCurrentStepRing color inner =
+    Html.span [ Attr.class "current-step-shell" ]
+        [ inner
+        , Html.span
+            [ Attr.class "current-step-ring"
+            , Attr.style "--ring-color" color
+            ]
+            []
+        ]
 
 
 {-| Thin 8×1 line linking two event chips. Color follows the destination
@@ -3119,10 +3133,10 @@ viewCookieStack currentStep totalSteps name events =
 
 
 {-| C3 "box-pills" step selector. One pill per value-change event; left border
-colored by event kind (set = green, updated = yellow, removed = red). The pill
-matching the current event is filled cyan; the pill whose step equals the
-global step also shows a `·now` marker. Clicking a pill jumps the viewer to
-that change point.
+in the cookie channel's tonal range. The pill whose step equals the current
+viewer step gets the shared current-step ring halo (`withCurrentStepRing`)
+so this panel uses the same "you are here" visual as the Network and Fetcher
+event chips. Clicking a pill jumps the viewer to that change point.
 -}
 viewCookiePillRow : Int -> Maybe Int -> List ( Int, CookieEvent ) -> Html Msg
 viewCookiePillRow currentStep currentEventIdx events =
@@ -3147,24 +3161,25 @@ viewCookiePillRow currentStep currentEventIdx events =
 
                         isNow =
                             evStep == currentStep
-                    in
-                    Html.button
-                        [ Attr.classList
-                            [ ( "cookie-box-pill", True )
-                            , ( kindClass, True )
-                            , ( "cookie-box-pill-active", isActive )
-                            ]
-                        , Html.Events.onClick (GoToStep evStep)
-                        ]
-                        [ Html.span [ Attr.class "cookie-box-pill-step" ]
-                            [ Html.text (String.fromInt (evStep + 1)) ]
-                        , if isNow then
-                            Html.span [ Attr.class "cookie-box-pill-now" ]
-                                [ Html.text "·now" ]
 
-                          else
-                            Html.text ""
-                        ]
+                        pill =
+                            Html.button
+                                [ Attr.classList
+                                    [ ( "cookie-box-pill", True )
+                                    , ( kindClass, True )
+                                    , ( "cookie-box-pill-active", isActive )
+                                    ]
+                                , Html.Events.onClick (GoToStep evStep)
+                                ]
+                                [ Html.span [ Attr.class "cookie-box-pill-step" ]
+                                    [ Html.text (String.fromInt (evStep + 1)) ]
+                                ]
+                    in
+                    if isNow then
+                        withCurrentStepRing "#7dd3fc" pill
+
+                    else
+                        pill
                 )
         )
 
@@ -5178,16 +5193,6 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
-.cookie-box-pill-now {
-    font-size: 8px;
-    color: #5c6a7e;
-    letter-spacing: 0.04em;
-}
-
-.cookie-box-pill-active .cookie-box-pill-now {
-    color: #7dd3fc;
-}
-
 /* Single diff card per cookie: INITIAL / DIFF / REMOVED panel. */
 .cookie-diff-card {
     background: #141a22;
@@ -5492,22 +5497,29 @@ body {
     filter: brightness(1.1);
 }
 
-/* Current-step ring: wraps an active chip that happens to sit on the
-   current step with an alignment-safe halo. The ring is absolutely
-   positioned INSIDE a zero-padding shell, so the chip's bounding box
-   and the row's layout are unchanged. */
-.event-chip-now-shell {
+/* Current-step ring halo. Shared by the Network/Fetcher event chips
+   and the Cookie box-pill selector — wraps any inline element with a
+   thin colored outline + soft outer glow that says "this is the step
+   you're on right now."
+
+   Implemented as an absolutely-positioned overlay inside a
+   zero-padding shell so the wrapped element's bounding box (and
+   therefore the surrounding row's layout) is unchanged whether or
+   not the ring is present. Color is supplied via the `--ring-color`
+   custom property so each caller can tie it to the right kind /
+   channel color. */
+.current-step-shell {
     display: inline-flex;
     position: relative;
 }
 
-.event-chip-now-ring {
+.current-step-ring {
     position: absolute;
-    inset: -3px;
-    border-radius: 6px;
+    inset: -2px;
+    border-radius: 4px;
     box-shadow:
-        0 0 0 1.5px var(--ring-color, #7dd3fc),
-        0 0 10px color-mix(in oklab, var(--ring-color, #7dd3fc), transparent 50%);
+        0 0 0 1px var(--ring-color, #7dd3fc),
+        0 0 5px color-mix(in oklab, var(--ring-color, #7dd3fc), transparent 60%);
     pointer-events: none;
 }
 
