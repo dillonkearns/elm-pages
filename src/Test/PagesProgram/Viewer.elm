@@ -4215,7 +4215,7 @@ namedGroupChildCount startIndex snapshots =
 {-| Render a named group header row.
 -}
 viewNamedGroupHeader : Int -> String -> Bool -> Int -> Html Msg
-viewNamedGroupHeader groupStartIndex name isExpanded count =
+viewNamedGroupHeader groupStartIndex name isExpanded _ =
     Html.div
         [ Attr.class "named-group-header"
         , Html.Events.onClick (ToggleGroup (-(groupStartIndex + 1)))
@@ -4231,8 +4231,6 @@ viewNamedGroupHeader groupStartIndex name isExpanded count =
             ]
         , Html.span [ Attr.class "named-group-name" ]
             [ Html.text name ]
-        , Html.span [ Attr.class "named-group-count" ]
-            [ Html.text ("(" ++ String.fromInt count ++ ")") ]
         ]
 
 
