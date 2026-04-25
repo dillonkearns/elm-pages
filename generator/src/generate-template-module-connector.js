@@ -333,18 +333,21 @@ function testAppModule(templates) {
 `;
   }
 
-  // Per-route prefix strips. `Main.PageData` / `Main.PageModel` aren't
-  // exposed with their variants, so we can't pattern-match on them from
-  // TestApp. Instead, we run `Debug.toString` and strip the leading
-  // generated constructor name (e.g. "DataLogin ") so the user only
-  // sees the inner record they actually wrote. The `> "" ` ordering
-  // matters: longer/more-specific names go first to avoid shadowing.
-  const pageModelStrips = templates
-    .map((name) => `                |> String.replace "Model${name.join("__")} " ""`)
-    .join("\n");
-
-  const pageDataStrips = templates
-    .map((name) => `                |> String.replace "Data${name.join("__")} " ""`)
+  // Per-route prefix strips. `Main.PageData` / `Main.PageModel` /
+  // `Main.ActionData` aren't exposed with their variants, so we can't
+  // pattern-match on them from TestApp. Instead, we run `Debug.toString`
+  // on the whole snapshot record and strip the leading generated
+  // constructor name (e.g. "DataLogin ") wherever it appears so the
+  // user only sees the inner record they actually wrote.
+  const wrapperStrips = templates
+    .flatMap((name) => {
+      const tag = name.join("__");
+      return [
+        `        |> String.replace "Model${tag} " ""`,
+        `        |> String.replace "Data${tag} " ""`,
+        `        |> String.replace "ActionData${tag} " ""`,
+      ];
+    })
     .join("\n");
 
   return `module TestApp exposing (start, ProgramTest)
@@ -453,42 +456,50 @@ start initialPath testSetup =
 
 
 {-| Build the snapshot string the visual test runner shows in the
-Model tab. Surfaces the three things the test author actually cares
-about — the resolved Data, the route module's Model, and Shared.Model
-— while hiding the framework's internal wrappers (current, pageUrl,
-metadata, ModelVisibility__-style variants, etc.) that aren't
-user-defined.
+Model tab. Mirrors the conceptual shape an elm-pages route module
+sees: an "app" record (data + framework state), the route's user
+Model, and Shared.Model. Hides the wrapping records (current,
+pageUrl, metadata, etc.) and per-route generated variant prefixes
+that users didn't write.
+
+The "submit" field of app is a function and is omitted; url and
+path are also omitted since the URL bar above the iframe already
+shows them.
 -}
 viewerStateString : { wrappedModel | platformModel : Pages.Internal.Platform.Model Main.Model Main.PageData Main.ActionData Shared.Data } -> String
 viewerStateString wm =
     case wm.platformModel.pageData of
         Ok pd ->
-            "{ data = "
-                ++ stripDataPrefix (Debug.toString pd.pageData)
-                ++ ", model = "
-                ++ stripModelPrefix (Debug.toString pd.userModel.page)
-                ++ ", shared = "
-                ++ Debug.toString pd.userModel.global
-                ++ " }"
+            stripWrapperPrefixes
+                (Debug.toString
+                    { app =
+                        { data = pd.pageData
+                        , sharedData = pd.sharedData
+                        , action = pd.actionData
+                        , navigation = wm.platformModel.transition
+                        , concurrentSubmissions = wm.platformModel.inFlightFetchers
+                        , pageFormState = wm.platformModel.pageFormState
+                        }
+                    , model = pd.userModel.page
+                    , shared = pd.userModel.global
+                    }
+                )
 
         Err err ->
             "(error: " ++ err ++ ")"
 
 
-stripModelPrefix : String -> String
-stripModelPrefix s =
+{-| Strip generated constructor prefixes (ModelLogin, DataVisibility__,
+ActionDataLogin, etc.) so the user reads the inner record directly.
+-}
+stripWrapperPrefixes : String -> String
+stripWrapperPrefixes s =
     s
-${pageModelStrips}
-                |> String.replace "ModelErrorPage____ " ""
-                |> String.replace "NotFound" "(not-found)"
-
-
-stripDataPrefix : String -> String
-stripDataPrefix s =
-    s
-${pageDataStrips}
-                |> String.replace "Data404NotFoundPage____" "(404)"
-                |> String.replace "DataErrorPage____ " ""
+${wrapperStrips}
+        |> String.replace "ModelErrorPage____ " ""
+        |> String.replace "NotFound" "(not-found)"
+        |> String.replace "Data404NotFoundPage____" "(404)"
+        |> String.replace "DataErrorPage____ " ""
 `;
 }
 
