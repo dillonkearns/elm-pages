@@ -213,7 +213,7 @@ app tests =
                   , expandedGroups = defaultExpandedGroups initialSnapshots
                   , modelTreeExpanded = Set.empty
                   }
-                , Cmd.none
+                , focusSidebar
                 )
         , update = update
         , view = view
@@ -229,6 +229,18 @@ subscriptions _ =
         (Decode.field "key" Decode.string
             |> Decode.map KeyDown
         )
+
+
+{-| Refocus the steps rail container. Without this the iframe preview
+can grab focus (autofocused inputs, programmatic `Browser.Dom.focus`
+calls inside the rendered app) and steal arrow-key keyboard navigation
+— `Browser.Events.onKeyDown` listens on the parent window and never
+sees keydowns once focus has moved into the iframe document.
+-}
+focusSidebar : Cmd Msg
+focusSidebar =
+    Browser.Dom.focus "sidebar-steps"
+        |> Task.attempt (\_ -> NoOp)
 
 
 scrollToStep : Int -> Cmd Msg
@@ -547,7 +559,7 @@ update msg model =
                     { model | currentStepIndex = newIndex, previewMode = defaultPreviewMode snapshots newIndex }
             in
             ( newModel
-            , Cmd.batch [ scrollToStep newIndex, syncStepToUrl newModel newIndex ]
+            , Cmd.batch [ scrollToStep newIndex, syncStepToUrl newModel newIndex, focusSidebar ]
             )
 
         NextTest ->
@@ -748,7 +760,7 @@ update msg model =
                                 | currentStepIndex = parentIdx
                                 , expandedGroups = Set.remove parentIdx model.expandedGroups
                               }
-                            , scrollToStep parentIdx
+                            , Cmd.batch [ scrollToStep parentIdx, focusSidebar ]
                             )
 
                         else
@@ -773,7 +785,7 @@ update msg model =
                                 { model | currentStepIndex = newIndex, previewMode = defaultPreviewMode snapshots newIndex }
                         in
                         ( newModel
-                        , Cmd.batch [ scrollToStep newIndex, syncStepToUrl newModel newIndex ]
+                        , Cmd.batch [ scrollToStep newIndex, syncStepToUrl newModel newIndex, focusSidebar ]
                         )
 
                 "ArrowUp" ->
@@ -792,7 +804,7 @@ update msg model =
                                 { model | currentStepIndex = newIndex, previewMode = defaultPreviewMode snapshots newIndex }
                         in
                         ( newModel
-                        , Cmd.batch [ scrollToStep newIndex, syncStepToUrl newModel newIndex ]
+                        , Cmd.batch [ scrollToStep newIndex, syncStepToUrl newModel newIndex, focusSidebar ]
                         )
 
                 "Escape" ->
@@ -1270,7 +1282,11 @@ viewCommandLogSidebar model =
                 [ Html.span [ Attr.class "sidebar-title" ] [ Html.text "Command Log" ]
                 ]
             )
-        , Html.div [ Attr.class "sidebar-steps", Attr.id "sidebar-steps" ]
+        , Html.div
+            [ Attr.class "sidebar-steps"
+            , Attr.id "sidebar-steps"
+            , Attr.tabindex 0
+            ]
             (viewRailColumnHeader model
                 :: (let
                         namedGroupStartSet =
@@ -4360,6 +4376,16 @@ body {
     padding: 4px 0;
 }
 
+/* The steps rail is focusable (`tabindex=0`) so we can refocus it after
+   each navigation — that's how arrow-key nav keeps working when the
+   iframe preview steals focus. The default focus ring around the whole
+   container is noisy; the active step's own treatment already says
+   "focus is here." */
+.sidebar-steps:focus,
+.sidebar-steps:focus-visible {
+    outline: none;
+}
+
 .step-row {
     display: flex;
     align-items: center;
@@ -5582,12 +5608,77 @@ body {
 .event-chip-kind-fail { border-left-color: #fca5a5; }
 .event-chip-kind-sent { border-left-color: #86efac; }
 
+/* Two tiers of "active" state:
+
+   - `active && now` — solid kind-colored background + dark text + soft
+     glow. The user is *on* the step that produced this state.
+   - `active && !now` — kind-colored outline + soft glow only. The lane
+     is in this state right now, but the user has navigated elsewhere.
+     Still clearly visible (so you can read each lane's current state at
+     a glance) but quieter, so it doesn't compete with the chip the
+     user is actually on. */
+
+.event-chip-active:not(.event-chip-now).event-chip-kind-submit,
+.event-chip-active:not(.event-chip-now).event-chip-kind-sent {
+    border-top-color: #86efac;
+    border-right-color: #86efac;
+    border-bottom-color: #86efac;
+    color: #86efac;
+    box-shadow: 0 0 0 1px rgba(134, 239, 172, 0.18), 0 0 6px rgba(134, 239, 172, 0.18);
+}
+
+.event-chip-active:not(.event-chip-now).event-chip-kind-reload {
+    border-top-color: #fcd34d;
+    border-right-color: #fcd34d;
+    border-bottom-color: #fcd34d;
+    color: #fcd34d;
+    box-shadow: 0 0 0 1px rgba(252, 211, 77, 0.18), 0 0 6px rgba(252, 211, 77, 0.18);
+}
+
+.event-chip-active:not(.event-chip-now).event-chip-kind-complete {
+    border-top-color: #7dd3fc;
+    border-right-color: #7dd3fc;
+    border-bottom-color: #7dd3fc;
+    color: #7dd3fc;
+    box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.18), 0 0 6px rgba(125, 211, 252, 0.18);
+}
+
+.event-chip-active:not(.event-chip-now).event-chip-kind-fail {
+    border-top-color: #fca5a5;
+    border-right-color: #fca5a5;
+    border-bottom-color: #fca5a5;
+    color: #fca5a5;
+    box-shadow: 0 0 0 1px rgba(252, 165, 165, 0.18), 0 0 6px rgba(252, 165, 165, 0.18);
+}
+
+.cookie-box-pill-active:not(.cookie-box-pill-now).cookie-box-pill-kind-set {
+    border-top-color: #86efac;
+    border-right-color: #86efac;
+    border-bottom-color: #86efac;
+    color: #86efac;
+    box-shadow: 0 0 0 1px rgba(134, 239, 172, 0.18), 0 0 6px rgba(134, 239, 172, 0.18);
+}
+
+.cookie-box-pill-active:not(.cookie-box-pill-now).cookie-box-pill-kind-changed {
+    border-top-color: #fcd34d;
+    border-right-color: #fcd34d;
+    border-bottom-color: #fcd34d;
+    color: #fcd34d;
+    box-shadow: 0 0 0 1px rgba(252, 211, 77, 0.18), 0 0 6px rgba(252, 211, 77, 0.18);
+}
+
+.cookie-box-pill-active:not(.cookie-box-pill-now).cookie-box-pill-kind-removed {
+    border-top-color: #fca5a5;
+    border-right-color: #fca5a5;
+    border-bottom-color: #fca5a5;
+    color: #fca5a5;
+    box-shadow: 0 0 0 1px rgba(252, 165, 165, 0.18), 0 0 6px rgba(252, 165, 165, 0.18);
+}
+
 /* Solid kind-colored background + dark text + soft kind-colored glow.
    Only fires when a chip is BOTH the lane's active state AND the
    current step (`-active.-now`) — that's the moment the user is "on"
-   the event the chip represents. Active-without-now (e.g. resolved on
-   step 5, currently viewing step 12) keeps the neutral outline so it
-   doesn't pull the eye away from the row that actually matters. */
+   the event the chip represents. */
 .event-chip-active.event-chip-now {
     color: #0f1620;
     font-weight: 700;
