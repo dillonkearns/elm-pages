@@ -41,6 +41,8 @@ suite =
             , PagesProgram.test "toggles all todos complete" toggleAllTest
             , PagesProgram.test "clears completed todos" clearCompletedTest
             , PagesProgram.test "renders optimistic state during concurrent fetchers" optimisticUiTest
+            , PagesProgram.test "repeats toggles on a single item" repeatedToggleSingleItemTest
+            , PagesProgram.test "stress-tests stacked toggle fetchers per item" concurrentFetcherStressTest
             ]
         , PagesProgram.describe "Filtering"
             [ PagesProgram.test "switches All / Active / Completed filter views" filterViewTest
@@ -514,6 +516,175 @@ editTodoTest =
         -- Updated description appears
         |> PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy oat milk") ]
         |> PagesProgram.ensureViewHasNot [ PSelector.attribute (Attr.value "Buy milk") ]
+
+
+{-| Simpler companion to `concurrentFetcherStressTest`: toggle the
+same todo three times before resolving anything. Lets you watch the
+single fetcher card's payload flip through each click without the
+cross-talk of multiple ids.
+
+Starting state:
+
+  - Buy milk      (incomplete)
+  - Write tests   (complete)
+  - Walk the dog  (incomplete)
+  -> 2 items left
+
+Click sequence (no server responses yet):
+
+  1. Buy milk -> complete    (1 left)
+  2. Buy milk -> incomplete  (2 left)
+  3. Buy milk -> complete    (1 left)
+
+Resolution: three `setTodoCompletion` responses + one data reload.
+
+-}
+repeatedToggleSingleItemTest : TestApp.ProgramTest
+repeatedToggleSingleItemTest =
+    let
+        finalServerState =
+            Encode.list identity
+                [ Encode.object
+                    [ ( "title", Encode.string "Buy milk" )
+                    , ( "complete", Encode.bool True )
+                    , ( "id", Encode.string "todo-1" )
+                    ]
+                , Encode.object
+                    [ ( "title", Encode.string "Write tests" )
+                    , ( "complete", Encode.bool True )
+                    , ( "id", Encode.string "todo-2" )
+                    ]
+                , Encode.object
+                    [ ( "title", Encode.string "Walk the dog" )
+                    , ( "complete", Encode.bool False )
+                    , ( "id", Encode.string "todo-3" )
+                    ]
+                ]
+    in
+    startAfterMagicLinkWithTodos todosResponse
+        |> ensureItemsLeft 2
+        |> PagesProgram.group "Toggle Buy milk three times"
+            (toggleTodo "Buy milk"
+                >> ensureItemsLeft 1
+                >> toggleTodo "Buy milk"
+                >> ensureItemsLeft 2
+                >> toggleTodo "Buy milk"
+                >> ensureItemsLeft 1
+            )
+        |> PagesProgram.group "Verify optimistic state"
+            (PagesProgram.withinFind
+                [ PSelector.tag "li", PSelector.containing [ PSelector.attribute (Attr.value "Buy milk") ] ]
+                (PagesProgram.ensureViewHas [ PSelector.class "completed" ])
+            )
+        |> PagesProgram.group "Resolve three fetchers + reload"
+            (PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+                >> PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+                >> PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+                >> PagesProgram.simulateCustom "getTodosBySession" finalServerState
+            )
+        |> PagesProgram.group "Verify server-confirmed state"
+            (ensureItemsLeft 1
+                >> PagesProgram.withinFind
+                    [ PSelector.tag "li", PSelector.containing [ PSelector.attribute (Attr.value "Buy milk") ] ]
+                    (PagesProgram.ensureViewHas [ PSelector.class "completed" ])
+            )
+
+
+{-| Stress test for stacked fetchers: every item gets toggled at least
+once and "Buy milk" gets toggled three times, so six concurrent
+`setTodoCompletion` fetchers are mid-flight at once with two items
+carrying multiple fetchers each. Exercises both the optimistic-UI
+logic (the latest target wins per item, even when intermediate
+fetchers carry stale targets) and the fetcher inspector / event
+chip rendering when several fetchers share an id and resolve out of
+click order.
+
+Starting state:
+
+  - Buy milk      (incomplete)
+  - Write tests   (complete)
+  - Walk the dog  (incomplete)
+  -> 2 items left
+
+Toggle storm (no server responses yet):
+
+  1. Buy milk      -> complete    (1 left)   [fetcher #1, milk]
+  2. Write tests   -> incomplete  (2 left)   [fetcher #2, tests]
+  3. Buy milk      -> incomplete  (3 left)   [fetcher #3, milk again]
+  4. Walk the dog  -> complete    (2 left)   [fetcher #4, dog]
+  5. Write tests   -> complete    (1 left)   [fetcher #5, tests again]
+  6. Buy milk      -> complete    (0 left)   [fetcher #6, milk a third time]
+
+Resolution: six `setTodoCompletion` responses (the framework consumes
+them in FIFO order) followed by a single data reload. The optimistic
+view should land on `0 items left` before the reload and stay there
+after.
+
+-}
+concurrentFetcherStressTest : TestApp.ProgramTest
+concurrentFetcherStressTest =
+    let
+        finalServerState =
+            Encode.list identity
+                [ Encode.object
+                    [ ( "title", Encode.string "Buy milk" )
+                    , ( "complete", Encode.bool True )
+                    , ( "id", Encode.string "todo-1" )
+                    ]
+                , Encode.object
+                    [ ( "title", Encode.string "Write tests" )
+                    , ( "complete", Encode.bool True )
+                    , ( "id", Encode.string "todo-2" )
+                    ]
+                , Encode.object
+                    [ ( "title", Encode.string "Walk the dog" )
+                    , ( "complete", Encode.bool True )
+                    , ( "id", Encode.string "todo-3" )
+                    ]
+                ]
+    in
+    startAfterMagicLinkWithTodos todosResponse
+        |> ensureItemsLeft 2
+        |> PagesProgram.group "Toggle storm: 6 concurrent fetchers"
+            (toggleTodo "Buy milk"
+                >> ensureItemsLeft 1
+                >> toggleTodo "Write tests"
+                >> ensureItemsLeft 2
+                >> toggleTodo "Buy milk"
+                >> ensureItemsLeft 3
+                >> toggleTodo "Walk the dog"
+                >> ensureItemsLeft 2
+                >> toggleTodo "Write tests"
+                >> ensureItemsLeft 1
+                >> toggleTodo "Buy milk"
+                >> ensureItemsLeft 0
+            )
+        |> PagesProgram.group "Verify optimistic state (latest target per item)"
+            (PagesProgram.withinFind
+                [ PSelector.tag "li", PSelector.containing [ PSelector.attribute (Attr.value "Buy milk") ] ]
+                (PagesProgram.ensureViewHas [ PSelector.class "completed" ])
+                >> PagesProgram.withinFind
+                    [ PSelector.tag "li", PSelector.containing [ PSelector.attribute (Attr.value "Write tests") ] ]
+                    (PagesProgram.ensureViewHas [ PSelector.class "completed" ])
+                >> PagesProgram.withinFind
+                    [ PSelector.tag "li", PSelector.containing [ PSelector.attribute (Attr.value "Walk the dog") ] ]
+                    (PagesProgram.ensureViewHas [ PSelector.class "completed" ])
+            )
+        |> PagesProgram.group "Resolve all six fetchers + reload"
+            (PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+                >> PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+                >> PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+                >> PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+                >> PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+                >> PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+                >> PagesProgram.simulateCustom "getTodosBySession" finalServerState
+            )
+        |> PagesProgram.group "Verify server-confirmed state"
+            (ensureItemsLeft 0
+                >> PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
+                >> PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Write tests") ]
+                >> PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Walk the dog") ]
+            )
 
 
 {-| Navigate between All / Active / Completed filter views

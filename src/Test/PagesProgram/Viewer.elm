@@ -3499,13 +3499,27 @@ viewFetcherInspector currentStep allSnapshots =
                 isLive =
                     isLiveFetcher fetcherId
 
+                -- Show the payload that's live AT the current step. With
+                -- repeated submissions to the same fetcher id (e.g.
+                -- toggling the same todo three times in a row), the
+                -- framework coalesces them into one tracked fetcher whose
+                -- `.fields` get overwritten on each click -- so stepping
+                -- through the rail walks the payload through each
+                -- distinct value. Falling back to the first Submitting
+                -- entry keeps the row populated when the user lands
+                -- before the fetcher's lifecycle starts.
                 submitFields : List ( String, String )
                 submitFields =
-                    timeline
-                        |> List.filter (\( _, e ) -> e.status == FetcherSubmitting)
-                        |> List.head
-                        |> Maybe.map (Tuple.second >> .fields)
-                        |> Maybe.withDefault []
+                    case currentEntry of
+                        Just ( _, entry ) ->
+                            entry.fields
+
+                        Nothing ->
+                            timeline
+                                |> List.filter (\( _, e ) -> e.status == FetcherSubmitting)
+                                |> List.head
+                                |> Maybe.map (Tuple.second >> .fields)
+                                |> Maybe.withDefault []
 
                 pulseColor =
                     case currentEntry of
@@ -3597,6 +3611,15 @@ viewFetcherInspector currentStep allSnapshots =
         ]
 
 
+{-| Collapse runs of identical fetcher snapshots so the chip timeline
+shows one entry per real change. Two entries are "the same" when both
+their status and their submitted fields match -- if either flips, we
+keep the new entry. The fields check matters when the user re-submits
+the same fetcher id with a different payload (e.g. toggling the same
+todo back and forth before any server response): status stays
+`FetcherSubmitting` but the payload changes, and we want each distinct
+payload to show up as its own step in the timeline.
+-}
 dedupeFetcherTimeline : List ( Int, FetcherEntry ) -> List ( Int, FetcherEntry )
 dedupeFetcherTimeline entries =
     entries
@@ -3604,7 +3627,7 @@ dedupeFetcherTimeline entries =
             (\( i, entry ) acc ->
                 case acc of
                     ( _, prev ) :: _ ->
-                        if prev.status == entry.status then
+                        if prev.status == entry.status && prev.fields == entry.fields then
                             acc
 
                         else
