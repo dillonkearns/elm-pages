@@ -204,16 +204,17 @@ app tests =
                   , basePath = basePath
                   , searchQuery = ""
                   , viewportWidth = Nothing
-                  , showEffects = True
-                  , showNetwork = True
-                  , showNetworkBackend = True
-                  , showNetworkFrontend = True
-                  , showFetchers = True
-                  , showCookies = True
+                  , showEffects = False
+                  , showNetwork = False
+                  , showNetworkBackend = False
+                  , showNetworkFrontend = False
+                  , showFetchers = False
+                  , showCookies = False
                   , previewMode = After
                   , expandedGroups = defaultExpandedGroups initialSnapshots
                   , modelTreeExpanded = Set.empty
                   }
+                    |> applyChannelActivity (channelActivity initialSnapshots)
                 , focusSidebar
                 )
         , update = update
@@ -305,7 +306,17 @@ extractBasePath url =
 
 
 {-| Extract the test name from the URL path after the base path.
-e.g., "/_tests/FrameworkTests.counterClicksTest" -> Just "FrameworkTests.counterClicksTest"
+
+    extractTestName "/_tests"
+        { url | path = "/_tests/Site%20/%20Landing%20/%20renders" }
+        == Just "Site / Landing / renders"
+
+`Url.percentDecode` reverses the browser's encoding of spaces (`%20`)
+inside test names so the result matches the raw `NamedTest.name`
+stored in the model. Slashes in test names come from
+`toNamedSnapshots` joining describe ancestors with `" / "`; they
+survive the round-trip because URL paths preserve literal `/`.
+
 -}
 extractTestName : String -> Url -> Maybe String
 extractTestName basePath url =
@@ -318,7 +329,12 @@ extractTestName basePath url =
         Nothing
 
     else
-        Just rest
+        case Url.percentDecode rest of
+            Just decoded ->
+                Just decoded
+
+            Nothing ->
+                Just rest
 
 
 findTestIndex : String -> List NamedTest -> Maybe Int
@@ -587,6 +603,7 @@ update msg model =
                     , hoveredStepIndex = Nothing
                     , expandedGroups = defaultExpandedGroups newSnapshots
                   }
+                    |> applyChannelActivity (channelActivity newSnapshots)
                 , Cmd.batch [ scrollToStep 0, pushTestUrl model testName ]
                 )
 
@@ -614,6 +631,7 @@ update msg model =
                     , hoveredStepIndex = Nothing
                     , expandedGroups = defaultExpandedGroups newSnapshots
                   }
+                    |> applyChannelActivity (channelActivity newSnapshots)
                 , Cmd.batch [ scrollToStep 0, pushTestUrl model testName ]
                 )
 
@@ -646,6 +664,7 @@ update msg model =
                 , sidebarMode = CommandLog
                 , expandedGroups = defaultExpandedGroups newSnapshots
               }
+                |> applyChannelActivity (channelActivity newSnapshots)
             , Cmd.batch
                 [ scrollToStep stepIndex
                 , pushTestUrlWithStep model testName (Maybe.map (\l -> ( stepIndex, l )) stepLabel)
@@ -858,19 +877,29 @@ update msg model =
 
                                 stepIndex =
                                     resolveStepFromUrl url snapshots
-                            in
-                            ( { model
-                                | currentTestIndex = idx
-                                , currentStepIndex = stepIndex
-                                , hoveredStepIndex = Nothing
-                                , sidebarMode = CommandLog
-                                , expandedGroups =
-                                    if idx == model.currentTestIndex then
-                                        model.expandedGroups
 
-                                    else
-                                        Set.empty
-                              }
+                                isSameTest =
+                                    idx == model.currentTestIndex
+
+                                rebased =
+                                    { model
+                                        | currentTestIndex = idx
+                                        , currentStepIndex = stepIndex
+                                        , hoveredStepIndex = Nothing
+                                        , sidebarMode = CommandLog
+                                        , expandedGroups =
+                                            if isSameTest then
+                                                model.expandedGroups
+
+                                            else
+                                                Set.empty
+                                    }
+                            in
+                            ( if isSameTest then
+                                rebased
+
+                              else
+                                applyChannelActivity (channelActivity snapshots) rebased
                             , scrollToStep stepIndex
                             )
 
@@ -994,63 +1023,172 @@ testHasError test =
         |> List.any (\s -> s.stepKind == Error)
 
 
-{-| Split a `Module.Name.testName` style identifier into its module path
-and the test function name. Used by the suite overview to group tests
-under their owning module.
+{-| A node in the suite tree. `Test.PagesProgram.toNamedSnapshots`
+slash-joins describe ancestors with the leaf test name (e.g.
+`"Site / Blog / lists posts"`); we re-parse those paths here to render
+the suite as a nested tree of describe groups and leaf tests.
 -}
-splitTestName : String -> { module_ : String, name : String }
-splitTestName fullName =
-    case String.split "." fullName |> List.reverse of
+type TestNode
+    = TestGroup String (List TestNode)
+    | TestLeaf Int NamedTest
+
+
+{-| Split a slash-joined test path into its describe ancestors and the
+leaf test name.
+
+    parseTestPath "Site / Blog / lists posts"
+        = { ancestors = [ "Site", "Blog" ], leaf = "lists posts" }
+
+-}
+parseTestPath : String -> { ancestors : List String, leaf : String }
+parseTestPath fullName =
+    case fullName |> String.split " / " |> List.reverse of
         last :: revRest ->
-            { module_ = revRest |> List.reverse |> String.join "."
-            , name = last
-            }
+            { ancestors = List.reverse revRest, leaf = last }
 
         [] ->
-            { module_ = "", name = fullName }
+            { ancestors = [], leaf = fullName }
 
 
-{-| Group tests by their module name, preserving each test's original
-index in the test list (so click-to-open still navigates correctly).
-Groups appear in first-encounter order; tests within a group preserve
-declaration order with failing tests bubbled to the top.
+{-| Build a tree of describe groups and leaf tests from the flat list,
+preserving declaration order. Tests are inserted into the deepest
+matching ancestor group, creating new groups as needed.
 -}
-groupTestsByModule : List NamedTest -> List ( String, List ( Int, NamedTest ) )
-groupTestsByModule tests =
+buildTestTree : List NamedTest -> List TestNode
+buildTestTree tests =
+    tests
+        |> List.indexedMap Tuple.pair
+        |> List.foldl insertTestIntoTree []
+
+
+insertTestIntoTree : ( Int, NamedTest ) -> List TestNode -> List TestNode
+insertTestIntoTree ( idx, t ) acc =
     let
-        ordered =
-            tests
-                |> List.indexedMap Tuple.pair
-                |> List.foldl
-                    (\( idx, t ) acc ->
-                        let
-                            mod =
-                                (splitTestName t.name).module_
-                        in
-                        case List.partition (\( m, _ ) -> m == mod) acc of
-                            ( [ ( _, existing ) ], rest ) ->
-                                rest ++ [ ( mod, existing ++ [ ( idx, t ) ] ) ]
+        path =
+            parseTestPath t.name
 
-                            _ ->
-                                acc ++ [ ( mod, [ ( idx, t ) ] ) ]
-                    )
-                    []
+        leaf =
+            TestLeaf idx t
     in
-    ordered
-        |> List.map
-            (\( mod, members ) ->
-                ( mod
-                , members
-                    |> List.sortBy
-                        (\( _, t ) ->
-                            if testHasError t then
-                                0
+    insertAtPath path.ancestors leaf acc
 
-                            else
-                                1
-                        )
-                )
+
+insertAtPath : List String -> TestNode -> List TestNode -> List TestNode
+insertAtPath path leaf acc =
+    case path of
+        [] ->
+            acc ++ [ leaf ]
+
+        head :: rest ->
+            case findGroupIndex head acc of
+                Just i ->
+                    acc
+                        |> List.indexedMap
+                            (\j node ->
+                                if j == i then
+                                    case node of
+                                        TestGroup name children ->
+                                            TestGroup name (insertAtPath rest leaf children)
+
+                                        _ ->
+                                            node
+
+                                else
+                                    node
+                            )
+
+                Nothing ->
+                    acc ++ [ TestGroup head (insertAtPath rest leaf []) ]
+
+
+findGroupIndex : String -> List TestNode -> Maybe Int
+findGroupIndex name nodes =
+    nodes
+        |> List.indexedMap Tuple.pair
+        |> List.filterMap
+            (\( i, n ) ->
+                case n of
+                    TestGroup nm _ ->
+                        if nm == name then
+                            Just i
+
+                        else
+                            Nothing
+
+                    TestLeaf _ _ ->
+                        Nothing
             )
+        |> List.head
+
+
+{-| Aggregate passing / failing leaf counts under a node.
+-}
+testNodeStats : TestNode -> { passing : Int, failing : Int }
+testNodeStats node =
+    case node of
+        TestLeaf _ t ->
+            if testHasError t then
+                { passing = 0, failing = 1 }
+
+            else
+                { passing = 1, failing = 0 }
+
+        TestGroup _ children ->
+            children
+                |> List.foldl
+                    (\child acc ->
+                        let
+                            childStats =
+                                testNodeStats child
+                        in
+                        { passing = acc.passing + childStats.passing
+                        , failing = acc.failing + childStats.failing
+                        }
+                    )
+                    { passing = 0, failing = 0 }
+
+
+{-| Filter the suite tree by a search query. A group passes if its
+name matches the query (in which case all of its descendants are
+included) or if any descendant leaf matches.
+-}
+filterTestTree : String -> List TestNode -> List TestNode
+filterTestTree rawQuery nodes =
+    let
+        q =
+            String.toLower rawQuery
+    in
+    if String.isEmpty q then
+        nodes
+
+    else
+        nodes |> List.filterMap (filterTestNode q)
+
+
+filterTestNode : String -> TestNode -> Maybe TestNode
+filterTestNode q node =
+    case node of
+        TestLeaf _ t ->
+            if String.contains q (String.toLower t.name) then
+                Just node
+
+            else
+                Nothing
+
+        TestGroup name children ->
+            if String.contains q (String.toLower name) then
+                Just node
+
+            else
+                let
+                    keptChildren =
+                        children |> List.filterMap (filterTestNode q)
+                in
+                if List.isEmpty keptChildren then
+                    Nothing
+
+                else
+                    Just (TestGroup name keptChildren)
 
 
 {-| Locate the snapshot that triggered a test failure. Returns the
@@ -1191,8 +1329,7 @@ viewHeader model =
 
                 CommandLog ->
                     Html.div [ Attr.class "header-center-row" ]
-                        [ Html.span [ Attr.class "test-name" ]
-                            [ Html.text (currentTestName model) ]
+                        [ viewHeaderTestName (currentTestName model)
                         , viewStepCounter model
                         ]
             ]
@@ -1335,23 +1472,9 @@ viewSidebar model =
 viewTestListSidebar : Model -> Html Msg
 viewTestListSidebar model =
     let
-        q =
-            String.toLower model.searchQuery
-
-        matchesFilter t =
-            String.isEmpty q || String.contains q (String.toLower t.name)
-
-        filteredGroups =
-            groupTestsByModule model.tests
-                |> List.filterMap
-                    (\( mod, members ) ->
-                        case List.filter (\( _, t ) -> matchesFilter t) members of
-                            [] ->
-                                Nothing
-
-                            kept ->
-                                Just ( mod, kept )
-                    )
+        filteredTree =
+            buildTestTree model.tests
+                |> filterTestTree model.searchQuery
 
         totalTests =
             List.length model.tests
@@ -1369,43 +1492,105 @@ viewTestListSidebar model =
                 []
             ]
         , Html.div [ Attr.class "suite-sidebar-list" ]
-            (if List.isEmpty filteredGroups then
+            (if List.isEmpty filteredTree then
                 [ Html.div [ Attr.class "suite-sidebar-empty" ]
                     [ Html.text "No tests match" ]
                 ]
 
              else
-                filteredGroups |> List.map (viewSuiteSidebarGroup model)
+                filteredTree |> List.map (viewSuiteTreeNode model 0)
             )
         ]
 
 
-viewSuiteSidebarGroup : Model -> ( String, List ( Int, NamedTest ) ) -> Html Msg
-viewSuiteSidebarGroup model ( mod, members ) =
+viewSuiteTreeNode : Model -> Int -> TestNode -> Html Msg
+viewSuiteTreeNode model depth node =
+    case node of
+        TestLeaf idx test ->
+            viewSuiteSidebarTestRow model ( idx, test )
+
+        TestGroup name children ->
+            let
+                stats =
+                    testNodeStats node
+
+                statusBadge =
+                    if stats.failing > 0 then
+                        Html.span [ Attr.class "suite-group-count suite-group-count-failing" ]
+                            [ Html.text
+                                ("✗ "
+                                    ++ String.fromInt stats.failing
+                                    ++ " / "
+                                    ++ String.fromInt (stats.failing + stats.passing)
+                                )
+                            ]
+
+                    else
+                        -- All passing: skip the count to keep the sidebar
+                        -- quiet. Failures stay visible because they need
+                        -- attention.
+                        Html.text ""
+            in
+            Html.div
+                [ Attr.classList
+                    [ ( "suite-group", True )
+                    , ( "suite-group-depth-" ++ String.fromInt depth, True )
+                    ]
+                ]
+                [ Html.div [ Attr.class "suite-group-header" ]
+                    [ Html.span [ Attr.class "suite-group-name" ] [ Html.text name ]
+                    , statusBadge
+                    ]
+                , Html.div [ Attr.class "suite-group-children" ]
+                    (children |> List.map (viewSuiteTreeNode model (depth + 1)))
+                ]
+
+
+{-| Render the per-test header that appears in the command-log sidebar
+once a single test is selected. Ancestor describes form a small
+breadcrumb above the test name so the slash-joined path stays readable
+without dominating the panel.
+-}
+viewSidebarTestHeader : String -> Html Msg
+viewSidebarTestHeader fullName =
     let
-        total =
-            List.length members
+        path =
+            parseTestPath fullName
 
-        failing =
-            members |> List.filter (\( _, t ) -> testHasError t) |> List.length
-
-        statusBadge =
-            if failing > 0 then
-                Html.span [ Attr.class "suite-group-count suite-group-count-failing" ]
-                    [ Html.text ("✗ " ++ String.fromInt failing ++ " / " ++ String.fromInt total) ]
+        breadcrumb =
+            if List.isEmpty path.ancestors then
+                Html.text ""
 
             else
-                Html.span [ Attr.class "suite-group-count suite-group-count-passing" ]
-                    [ Html.text ("✓ " ++ String.fromInt total) ]
+                Html.div [ Attr.class "sidebar-test-path" ]
+                    [ Html.text (String.join " › " path.ancestors) ]
     in
-    Html.div [ Attr.class "suite-group" ]
-        [ Html.div [ Attr.class "suite-group-header" ]
-            [ Html.span [ Attr.class "suite-group-name" ] [ Html.text mod ]
-            , statusBadge
-            ]
-        , Html.div [ Attr.class "suite-group-tests" ]
-            (members |> List.map (viewSuiteSidebarTestRow model))
+    Html.div [ Attr.class "sidebar-test-header" ]
+        [ breadcrumb
+        , Html.div [ Attr.class "sidebar-test-name" ] [ Html.text path.leaf ]
         ]
+
+
+{-| Render the inline test name shown in the top header bar (CommandLog
+mode). Ancestors render as a muted breadcrumb prefix so the leaf name
+keeps its existing emphasis without a wall of slashes.
+-}
+viewHeaderTestName : String -> Html Msg
+viewHeaderTestName fullName =
+    let
+        path =
+            parseTestPath fullName
+    in
+    case path.ancestors of
+        [] ->
+            Html.span [ Attr.class "test-name" ] [ Html.text path.leaf ]
+
+        ancestors ->
+            Html.span [ Attr.class "test-name" ]
+                [ Html.span [ Attr.class "test-name-path" ]
+                    [ Html.text (String.join " › " ancestors ++ "  ›  ") ]
+                , Html.text path.leaf
+                ]
 
 
 viewSuiteSidebarTestRow : Model -> ( Int, NamedTest ) -> Html Msg
@@ -1417,8 +1602,8 @@ viewSuiteSidebarTestRow model ( idx, test ) =
         stepCount =
             List.length test.snapshots
 
-        nameOnly =
-            (splitTestName test.name).name
+        leafName =
+            (parseTestPath test.name).leaf
 
         meta =
             case firstErrorAt test of
@@ -1449,7 +1634,7 @@ viewSuiteSidebarTestRow model ( idx, test ) =
         ]
         [ statusGlyph
         , Html.div [ Attr.class "suite-test-body" ]
-            [ Html.div [ Attr.class "suite-test-name" ] [ Html.text nameOnly ]
+            [ Html.div [ Attr.class "suite-test-name" ] [ Html.text leafName ]
             , meta
             ]
         ]
@@ -1482,8 +1667,7 @@ viewCommandLogSidebar model =
                     , Html.Events.onClick ShowTestList
                     ]
                     [ Html.text "< All Tests" ]
-                , Html.span [ Attr.class "sidebar-title" ]
-                    [ Html.text (currentTestName model) ]
+                , viewSidebarTestHeader (currentTestName model)
                 ]
 
              else
@@ -1981,6 +2165,52 @@ computeStepEvents index snapshot previous =
     }
 
 
+{-| Whether each event channel has any activity in this test. Drives
+the per-test default of which channel toggles open: hide channels
+that would render an empty panel.
+-}
+type alias ChannelActivity =
+    { hasNetworkBackend : Bool
+    , hasNetworkFrontend : Bool
+    , hasFetcher : Bool
+    , hasCookie : Bool
+    , hasEffect : Bool
+    }
+
+
+channelActivity : List Snapshot -> ChannelActivity
+channelActivity snapshots =
+    { hasNetworkBackend =
+        snapshots
+            |> List.any (\s -> s.networkLog |> List.any (\e -> e.source == Backend))
+    , hasNetworkFrontend =
+        snapshots
+            |> List.any (\s -> s.networkLog |> List.any (\e -> e.source == Frontend))
+    , hasFetcher =
+        snapshots |> List.any (\s -> not (List.isEmpty s.fetcherLog))
+    , hasCookie =
+        snapshots |> List.any (\s -> not (List.isEmpty s.cookieLog))
+    , hasEffect =
+        snapshots |> List.any (\s -> not (List.isEmpty s.pendingEffects))
+    }
+
+
+{-| Apply per-test channel defaults: open the channel toggles whose
+panels would have something to show, close the rest. Reset on every
+test navigation so each test starts with a non-empty UI.
+-}
+applyChannelActivity : ChannelActivity -> Model -> Model
+applyChannelActivity activity model =
+    { model
+        | showNetwork = activity.hasNetworkBackend || activity.hasNetworkFrontend
+        , showNetworkBackend = activity.hasNetworkBackend
+        , showNetworkFrontend = activity.hasNetworkFrontend
+        , showFetchers = activity.hasFetcher
+        , showCookies = activity.hasCookie
+        , showEffects = activity.hasEffect
+    }
+
+
 fetcherSig : FetcherEntry -> String
 fetcherSig f =
     f.id ++ "|" ++ fetcherStatusString f.status
@@ -2405,8 +2635,16 @@ viewFailureReport failingTests _ =
 viewFailureCard : ( Int, NamedTest ) -> Html Msg
 viewFailureCard ( idx, test ) =
     let
-        split =
-            splitTestName test.name
+        path =
+            parseTestPath test.name
+
+        ancestorPrefix =
+            if List.isEmpty path.ancestors then
+                Html.text ""
+
+            else
+                Html.span [ Attr.class "suite-failure-card-module" ]
+                    [ Html.text (String.join " / " path.ancestors ++ " / ") ]
 
         totalSteps =
             List.length test.snapshots
@@ -2419,10 +2657,9 @@ viewFailureCard ( idx, test ) =
             [ Html.span [ Attr.class "suite-failure-x" ] [ Html.text "✗" ]
             , Html.div [ Attr.class "suite-failure-card-title-block" ]
                 [ Html.div [ Attr.class "suite-failure-card-title" ]
-                    [ Html.span [ Attr.class "suite-failure-card-module" ]
-                        [ Html.text (split.module_ ++ ".") ]
+                    [ ancestorPrefix
                     , Html.span [ Attr.class "suite-failure-card-name" ]
-                        [ Html.text split.name ]
+                        [ Html.text path.leaf ]
                     ]
                 , case atInfo of
                     Just { atStep } ->
@@ -2609,7 +2846,16 @@ viewErrorPanel errorMsg =
 
 viewUrlBar : Snapshot -> Html Msg
 viewUrlBar snapshot =
-    Html.div [ Attr.class "url-bar" ]
+    let
+        isUrlAssertion =
+            isUrlAssertionStep snapshot
+    in
+    Html.div
+        [ Attr.classList
+            [ ( "url-bar", True )
+            , ( "url-bar-asserted", isUrlAssertion )
+            ]
+        ]
         [ Html.span [ Attr.class "url-bar-icon" ] [ Html.text ">" ]
         , Html.span [ Attr.class "url-bar-text" ]
             [ Html.text
@@ -2618,6 +2864,16 @@ viewUrlBar snapshot =
                 )
             ]
         ]
+
+
+{-| Whether the current step is asserting against the browser URL. The
+URL bar gets the same green assertion-highlight treatment so the user's
+attention lands on the thing the test is checking.
+-}
+isUrlAssertionStep : Snapshot -> Bool
+isUrlAssertionStep snapshot =
+    String.startsWith "ensureBrowserUrl" snapshot.label
+        || String.startsWith "expectBrowserUrl" snapshot.label
 
 
 viewRenderedPage : Snapshot -> Html Msg
@@ -4956,6 +5212,11 @@ body {
     font-size: 14px;
 }
 
+.test-name-path {
+    color: #8896a6;
+    font-weight: 400;
+}
+
 /* Pass-10 B5: panel-toggle group lives in header-right with 6px gaps;
    the viewport-picker sits adjacent with 4px internal gap and a hairline
    separator to its right (rendered via ::after) so the two groups read
@@ -5094,6 +5355,32 @@ body {
     text-transform: uppercase;
     letter-spacing: 0.08em;
     font-weight: 700;
+}
+
+/* Per-test header: the leaf test name leads, ancestor describes sit
+   above as a small muted breadcrumb so the slash-joined path stays
+   readable without shouting. */
+.sidebar-test-header {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.sidebar-test-path {
+    font-size: 11px;
+    color: #8896a6;
+    letter-spacing: 0.02em;
+    line-height: 1.35;
+    word-break: normal;
+}
+
+.sidebar-test-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #e5edf5;
+    line-height: 1.3;
+    word-break: break-word;
 }
 
 .sidebar-steps {
@@ -5533,7 +5820,7 @@ body {
 .suite-group-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: baseline;
     gap: 8px;
     padding: 12px 14px 6px;
 }
@@ -5548,6 +5835,20 @@ body {
     white-space: normal;
     word-break: normal;
     line-height: 1.35;
+}
+
+/* Nested describes: less shouty than the outer section header. */
+.suite-group:not(.suite-group-depth-0) > .suite-group-header {
+    padding-top: 8px;
+    padding-bottom: 4px;
+}
+
+.suite-group:not(.suite-group-depth-0) > .suite-group-header > .suite-group-name {
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    color: #c8d3e0;
 }
 
 .suite-group-count {
@@ -5566,8 +5867,21 @@ body {
     color: #fca5a5;
 }
 
-.suite-group-tests {
+.suite-group-children {
     padding-left: 14px;
+}
+
+/* Outermost describe: children sit flush so the section heading
+   anchors the indent. Nested describes carry a soft guide line
+   to make the hierarchy easy to scan. */
+.suite-group-depth-0 > .suite-group-children {
+    padding-left: 0;
+}
+
+.suite-group:not(.suite-group-depth-0) > .suite-group-children {
+    border-left: 1px solid rgba(125, 211, 252, 0.08);
+    margin-left: 14px;
+    padding-left: 12px;
 }
 
 .suite-test-row {
@@ -5993,6 +6307,16 @@ body {
     border: 1px solid #0f3460;
     border-radius: 6px;
     flex-shrink: 0;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+/* Highlight the URL bar when the current step is an
+   `ensureBrowserUrl` / `expectBrowserUrl` assertion -- mirrors the
+   in-page assertion overlay (#7ee787 / rgba(126,231,135,0.1)) so the
+   user's eye lands on the thing the test is checking. */
+.url-bar-asserted {
+    border-color: #7ee787;
+    background: rgba(126, 231, 135, 0.1);
 }
 
 .url-bar-icon {
