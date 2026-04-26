@@ -469,6 +469,11 @@ main =
       ensureDirectDep("elm-explorations/test", "2.2.1");
     }
 
+    // `elm make` ignores test-dependencies, and leaving the cloned entries
+    // in here makes Lamdera reject the elm.json when a test-dep was just
+    // promoted into dependencies.direct (it sees the package listed twice).
+    testViewerElmJson["test-dependencies"] = { direct: {}, indirect: {} };
+
     fs.writeFileSync(
       path.join(testViewerDir, "elm.json"),
       JSON.stringify(testViewerElmJson, null, 4)
