@@ -20,6 +20,7 @@ module Test.PagesProgram.Viewer.Icons exposing
     , eventNetworkSized
     , eventUp
     , eventUpRight
+    , home
     , kindColor
     , kindFromSnapshot
     , stepKind
@@ -357,6 +358,23 @@ eventNetworkSized size color =
     strokeSvg s s "0 0 12 12" color "1.4"
         [ circle [ attr "cx" "6", attr "cy" "6", attr "r" "4.2" ]
         , path [ attr "d" "M1.8 6h8.4M6 1.8c1.5 1.7 1.5 6.7 0 8.4M6 1.8c-1.5 1.7-1.5 6.7 0 8.4" ]
+        ]
+
+
+{-| Outline house glyph for the breadcrumb's "All Tests" home chip.
+The roof descends to the eaves and the body sits below it; the doorway
+notch keeps the icon legible at the small chip size.
+-}
+home : Int -> String -> Html msg
+home size color =
+    let
+        s =
+            String.fromInt size
+    in
+    strokeSvg s s "0 0 12 12" color "1.4"
+        [ path [ attr "d" "M1.5 5.5L6 1.8l4.5 3.7" ]
+        , path [ attr "d" "M2.6 5v5.4h6.8V5" ]
+        , path [ attr "d" "M5 10.4V7.4h2v3" ]
         ]
 
 

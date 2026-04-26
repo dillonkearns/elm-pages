@@ -948,31 +948,6 @@ currentSnapshotCount model =
     List.length (currentSnapshots model)
 
 
-{-| Highest 1-indexed step number that's currently visible in the rail
-(excludes hidden children of collapsed groups + collapsed named groups).
-The header counter uses this so its denominator matches the row label
-the user sees at the bottom of the rail, not the raw snapshot count.
--}
-lastVisibleStepNumber : List Snapshot -> Set Int -> Int
-lastVisibleStepNumber snapshots expandedGroups =
-    let
-        isHiddenAt i =
-            let
-                child =
-                    isChildStep i snapshots
-            in
-            (child && not (Set.member (parentOfChild i snapshots) expandedGroups))
-                || isHiddenByNamedGroup i snapshots expandedGroups
-    in
-    snapshots
-        |> List.indexedMap (\i _ -> i)
-        |> List.filter (\i -> not (isHiddenAt i))
-        |> List.reverse
-        |> List.head
-        |> Maybe.map (\i -> i + 1)
-        |> Maybe.withDefault (List.length snapshots)
-
-
 {-| Interaction steps default to Before (so the user sees the element they
 clicked), all other step kinds default to After.
 -}
@@ -1298,77 +1273,142 @@ viewModelSidebar model =
 
 viewHeader : Model -> Html Msg
 viewHeader model =
-    let
-        passCount =
-            model.tests |> List.filter (\t -> not (testHasError t)) |> List.length
-
-        failCount =
-            List.length model.tests - passCount
-    in
     Html.div [ Attr.class "viewer-header" ]
-        [ Html.div [ Attr.class "header-left" ]
+        (Html.div [ Attr.class "header-left" ]
             [ Html.span [ Attr.class "header-logo" ] [ Html.text "elm-pages" ]
             , Html.span [ Attr.class "header-title" ] [ Html.text " Test Viewer" ]
             ]
-        , Html.div [ Attr.class "header-center" ]
-            [ case model.sidebarMode of
-                TestList ->
-                    Html.span [ Attr.class "header-summary" ]
-                        [ Html.span [ Attr.style "color" "#7ee787" ]
-                            [ Html.text (String.fromInt passCount ++ " passed") ]
-                        , if failCount > 0 then
-                            Html.span []
-                                [ Html.text "  "
-                                , Html.span [ Attr.style "color" "#e74c3c" ]
-                                    [ Html.text (String.fromInt failCount ++ " failed") ]
+            :: (case model.sidebarMode of
+                    TestList ->
+                        -- Suite overview: keep the header to a clean
+                        -- branding strip. The pass / fail tally is
+                        -- already conveyed prominently below (the big
+                        -- "N tests passing" card or the failure stack),
+                        -- and the channel toggles + viewport picker are
+                        -- per-test concerns that don't apply here.
+                        []
+
+                    CommandLog ->
+                        [ Html.div [ Attr.class "header-divider" ] []
+                        , viewBreadcrumb model
+                        , Html.div [ Attr.class "header-right" ]
+                            [ viewStepCounter model
+                            , viewViewportPicker model.viewportWidth
+                            , viewChannelToggle
+                                { on = model.showNetwork
+                                , msg = ToggleNetwork
+                                , label = "Network"
+                                , icon = Icons.eventNetworkSized
+                                }
+                            , viewChannelToggle
+                                { on = model.showFetchers
+                                , msg = ToggleFetchers
+                                , label = "Fetchers"
+                                , icon = Icons.eventFetcherSized
+                                }
+                            , viewChannelToggle
+                                { on = model.showCookies
+                                , msg = ToggleCookies
+                                , label = "Cookies"
+                                , icon = Icons.eventCookieSized
+                                }
+                            , viewChannelToggle
+                                { on = model.showEffects
+                                , msg = ToggleEffects
+                                , label = "Effects"
+                                , icon = Icons.eventEffectSized
+                                }
+                            , Html.button
+                                [ Attr.classList
+                                    [ ( "toggle-button", True )
+                                    , ( "toggle-active", model.showModel )
+                                    ]
+                                , Html.Events.onClick ToggleModel
                                 ]
-
-                          else
-                            Html.text ""
+                                [ Html.text "Model" ]
+                            ]
                         ]
+               )
+        )
 
-                CommandLog ->
-                    Html.div [ Attr.class "header-center-row" ]
-                        [ viewHeaderTestName (currentTestName model)
-                        , viewStepCounter model
-                        ]
-            ]
-        , Html.div [ Attr.class "header-right" ]
-            [ viewViewportPicker model.viewportWidth
-            , viewChannelToggle
-                { on = model.showNetwork
-                , msg = ToggleNetwork
-                , label = "Network"
-                , icon = Icons.eventNetworkSized
-                }
-            , viewChannelToggle
-                { on = model.showFetchers
-                , msg = ToggleFetchers
-                , label = "Fetchers"
-                , icon = Icons.eventFetcherSized
-                }
-            , viewChannelToggle
-                { on = model.showCookies
-                , msg = ToggleCookies
-                , label = "Cookies"
-                , icon = Icons.eventCookieSized
-                }
-            , viewChannelToggle
-                { on = model.showEffects
-                , msg = ToggleEffects
-                , label = "Effects"
-                , icon = Icons.eventEffectSized
-                }
-            , Html.button
-                [ Attr.classList
-                    [ ( "toggle-button", True )
-                    , ( "toggle-active", model.showModel )
-                    ]
-                , Html.Events.onClick ToggleModel
+
+{-| Toolbar breadcrumb: a clickable chain `[⌂ All Tests] › module ›
+describe[0] › … › leaf`. The Home chip is the only cyan-tinted segment
+and serves as the anchor for "back up" navigation; describe segments
+truncate before the leaf so the test's identifying name never
+disappears at narrow widths.
+-}
+viewBreadcrumb : Model -> Html Msg
+viewBreadcrumb model =
+    let
+        path =
+            parseTestPath (currentTestName model)
+
+        ( moduleName, describeNames ) =
+            case path.ancestors of
+                [] ->
+                    ( Nothing, [] )
+
+                first :: rest ->
+                    ( Just first, rest )
+
+        leafFailing =
+            case model.tests |> List.drop model.currentTestIndex |> List.head of
+                Just t ->
+                    testHasError t
+
+                Nothing ->
+                    False
+
+        separator =
+            Html.span [ Attr.class "breadcrumb-sep" ] [ Html.text "›" ]
+
+        nonLeafSegment label =
+            Html.button
+                [ Attr.class "breadcrumb-segment breadcrumb-segment-link"
+                , Html.Events.onClick ShowTestList
                 ]
-                [ Html.text "Model" ]
-            ]
-        ]
+                [ Html.text label ]
+
+        leafSegment =
+            Html.span
+                [ Attr.classList
+                    [ ( "breadcrumb-segment", True )
+                    , ( "breadcrumb-segment-leaf", True )
+                    , ( "breadcrumb-segment-leaf-fail", leafFailing )
+                    ]
+                ]
+                [ Html.text path.leaf ]
+
+        homeChip =
+            Html.button
+                [ Attr.class "breadcrumb-home"
+                , Html.Events.onClick ShowTestList
+                ]
+                [ Html.span [ Attr.class "breadcrumb-home-icon" ]
+                    [ Icons.home 11 "#7dd3fc" ]
+                , Html.span [ Attr.class "breadcrumb-home-label" ]
+                    [ Html.text "All Tests" ]
+                ]
+
+        moduleSegments =
+            case moduleName of
+                Just name ->
+                    [ separator, nonLeafSegment name ]
+
+                Nothing ->
+                    []
+
+        describeSegments =
+            describeNames
+                |> List.concatMap (\name -> [ separator, nonLeafSegment name ])
+    in
+    Html.div [ Attr.class "breadcrumb" ]
+        ([ homeChip ]
+            ++ moduleSegments
+            ++ describeSegments
+            ++ [ separator, leafSegment ]
+        )
 
 
 {-| A header toggle with a channel glyph + label. The glyph takes the
@@ -1412,17 +1452,29 @@ current-step indicator).
 viewStepCounter : Model -> Html Msg
 viewStepCounter model =
     let
+        snapshots =
+            currentSnapshots model
+
+        labels =
+            computeStepLabels snapshots
+
+        -- The counter tracks UI states, not assertions: an assertion
+        -- step shows the same primary number as the state-change it
+        -- verifies, so `Step 6 / 6` reads consistently while you walk
+        -- through 6, 6a, 6b, 6c.
         position =
-            model.currentStepIndex + 1
+            labels
+                |> List.drop model.currentStepIndex
+                |> List.head
+                |> Maybe.map .primary
+                |> Maybe.withDefault (model.currentStepIndex + 1)
 
-        lastVisible =
-            lastVisibleStepNumber (currentSnapshots model) model.expandedGroups
-
-        -- If the user has somehow landed on a hidden step (e.g. via a
-        -- permalink into a collapsed group), keep the denominator >= the
-        -- numerator so the counter never reads `21 / 18`.
         total =
-            max position lastVisible
+            labels
+                |> List.map .primary
+                |> List.maximum
+                |> Maybe.withDefault position
+                |> max position
     in
     Html.span [ Attr.class "step-counter" ]
         [ Html.span [ Attr.class "step-counter-label" ] [ Html.text "Step" ]
@@ -1546,53 +1598,6 @@ viewSuiteTreeNode model depth node =
                 ]
 
 
-{-| Render the per-test header that appears in the command-log sidebar
-once a single test is selected. Ancestor describes form a small
-breadcrumb above the test name so the slash-joined path stays readable
-without dominating the panel.
--}
-viewSidebarTestHeader : String -> Html Msg
-viewSidebarTestHeader fullName =
-    let
-        path =
-            parseTestPath fullName
-
-        breadcrumb =
-            if List.isEmpty path.ancestors then
-                Html.text ""
-
-            else
-                Html.div [ Attr.class "sidebar-test-path" ]
-                    [ Html.text (String.join " › " path.ancestors) ]
-    in
-    Html.div [ Attr.class "sidebar-test-header" ]
-        [ breadcrumb
-        , Html.div [ Attr.class "sidebar-test-name" ] [ Html.text path.leaf ]
-        ]
-
-
-{-| Render the inline test name shown in the top header bar (CommandLog
-mode). Ancestors render as a muted breadcrumb prefix so the leaf name
-keeps its existing emphasis without a wall of slashes.
--}
-viewHeaderTestName : String -> Html Msg
-viewHeaderTestName fullName =
-    let
-        path =
-            parseTestPath fullName
-    in
-    case path.ancestors of
-        [] ->
-            Html.span [ Attr.class "test-name" ] [ Html.text path.leaf ]
-
-        ancestors ->
-            Html.span [ Attr.class "test-name" ]
-                [ Html.span [ Attr.class "test-name-path" ]
-                    [ Html.text (String.join " › " ancestors ++ "  ›  ") ]
-                , Html.text path.leaf
-                ]
-
-
 viewSuiteSidebarTestRow : Model -> ( Int, NamedTest ) -> Html Msg
 viewSuiteSidebarTestRow model ( idx, test ) =
     let
@@ -1660,21 +1665,9 @@ viewCommandLogSidebar model =
             errorIndex |> Maybe.map (\ei -> ei - 1)
     in
     Html.div [ Attr.class "sidebar" ]
-        [ Html.div [ Attr.class "sidebar-header" ]
-            (if List.length model.tests > 1 then
-                [ Html.button
-                    [ Attr.class "sidebar-back"
-                    , Html.Events.onClick ShowTestList
-                    ]
-                    [ Html.text "< All Tests" ]
-                , viewSidebarTestHeader (currentTestName model)
-                ]
-
-             else
-                [ Html.span [ Attr.class "sidebar-title" ] [ Html.text "Command Log" ]
-                ]
-            )
-        , Html.div
+        [ -- Per-test header lives in the toolbar breadcrumb now;
+          -- the sidebar starts directly at the steps list.
+          Html.div
             [ Attr.class "sidebar-steps"
             , Attr.id "sidebar-steps"
             , Attr.tabindex 0
@@ -1683,6 +1676,9 @@ viewCommandLogSidebar model =
                 :: (let
                         namedGroupStartSet =
                             computeNamedGroupStarts snapshots
+
+                        stepLabels =
+                            computeStepLabels snapshots
                     in
                     snapshots
                         |> List.indexedMap Tuple.pair
@@ -1691,6 +1687,12 @@ viewCommandLogSidebar model =
                         let
                             isChild =
                                 isChildStep i snapshots
+
+                            stepLabel =
+                                stepLabels
+                                    |> List.drop i
+                                    |> List.head
+                                    |> Maybe.withDefault { primary = i + 1, sub = Nothing }
 
                             numChildren =
                                 childCount i snapshots
@@ -1746,7 +1748,7 @@ viewCommandLogSidebar model =
                                         eventDots =
                                             viewStepChannelGutter model events
                                     in
-                                    [ viewStepRow i snapshot model.currentStepIndex isHovering (model.hoveredStepIndex == Just i) (failureCauseIndex == Just i) isChild isGroupParent isExpanded numChildren eventDots ]
+                                    [ viewStepRow i stepLabel snapshot model.currentStepIndex isHovering (model.hoveredStepIndex == Just i) (failureCauseIndex == Just i) isChild isGroupParent isExpanded numChildren eventDots ]
                         in
                         groupHeader ++ stepRow
                     )
@@ -1770,16 +1772,19 @@ viewStepDrawer model =
 
         stepIndex =
             displayedStepIndex model
+
+        stepLabel =
+            formatStepLabel (stepLabelAt stepIndex snapshots)
     in
     case snapshots |> List.drop stepIndex |> List.head of
         Just snapshot ->
             case snapshot.stepKind of
                 Assertion ->
-                    viewAssertionDrawer stepIndex snapshot
+                    viewAssertionDrawer stepLabel snapshot
 
                 Interaction ->
                     if isNavigationLabel snapshot.label then
-                        viewNavigationDrawer stepIndex snapshot
+                        viewNavigationDrawer stepLabel snapshot
 
                     else
                         Html.text ""
@@ -1797,12 +1802,9 @@ isNavigationLabel label =
         || String.startsWith "redirected" label
 
 
-viewAssertionDrawer : Int -> Snapshot -> Html Msg
-viewAssertionDrawer stepIndex snapshot =
+viewAssertionDrawer : String -> Snapshot -> Html Msg
+viewAssertionDrawer stepLabel snapshot =
     let
-        kindBadge =
-            assertionKindBadge snapshot.assertionSelectors
-
         scopeSelector =
             -- Innermost scope is the element the assertion targets.
             -- A bare `ensureViewHas` (no `withinFind`) has empty scope
@@ -1820,17 +1822,71 @@ viewAssertionDrawer stepIndex snapshot =
                             Just s
                     )
 
-        expected =
+        -- For simple single-selector assertions the structured form
+        -- gives a tidy `Kind · "value"` display. Compound assertions
+        -- (multiple selectors, `containing [...]`) collapse to the
+        -- first selector under that scheme, throwing away most of
+        -- the information; in that case we fall back to the raw
+        -- argument from the label so the drawer matches what the
+        -- step's hover tooltip shows.
+        simpleKindBadge =
+            assertionKindBadge snapshot.assertionSelectors
+
+        simpleExpected =
             assertionExpected snapshot.assertionSelectors
+
+        isCompound =
+            case snapshot.assertionSelectors of
+                [] ->
+                    False
+
+                [ ByContaining _ ] ->
+                    True
+
+                [ _ ] ->
+                    False
+
+                _ ->
+                    True
+
+        compoundExpected : Maybe String
+        compoundExpected =
+            if isCompound then
+                splitAssertionLabel snapshot.label
+                    |> Maybe.map .argValue
+                    |> Maybe.andThen
+                        (\v ->
+                            if String.isEmpty v then
+                                Nothing
+
+                            else
+                                Just v
+                        )
+
+            else
+                Nothing
+
+        ( kindBadge, expectedRow ) =
+            case compoundExpected of
+                Just argValue ->
+                    ( Nothing
+                    , Just (drawerRow "Expected" "step-arg-empty" argValue)
+                    )
+
+                Nothing ->
+                    ( simpleKindBadge
+                    , simpleExpected
+                        |> Maybe.map (\( vc, vt ) -> drawerRow "Expected" vc vt)
+                    )
     in
     Html.div [ Attr.class "step-detail-drawer step-detail-drawer-assertion" ]
         [ Html.div [ Attr.class "drawer-header drawer-header-assertion" ]
             [ Html.span [ Attr.class "drawer-header-step" ]
-                [ Html.text ("Step " ++ String.fromInt (stepIndex + 1)) ]
+                [ Html.text ("Step " ++ stepLabel) ]
             , Html.span [ Attr.class "drawer-header-sep" ] [ Html.text "·" ]
             , Html.span [ Attr.class "drawer-header-kind" ] [ Html.text "Assertion" ]
             , case kindBadge of
-                Just badge ->
+                Just _ ->
                     Html.span [ Attr.class "drawer-header-sep" ] [ Html.text "·" ]
 
                 Nothing ->
@@ -1850,9 +1906,9 @@ viewAssertionDrawer stepIndex snapshot =
                 Nothing ->
                     []
              )
-                ++ (case expected of
-                        Just ( valueClass, valueText ) ->
-                            [ drawerRow "Expected" valueClass valueText ]
+                ++ (case expectedRow of
+                        Just row ->
+                            [ row ]
 
                         Nothing ->
                             []
@@ -1861,8 +1917,8 @@ viewAssertionDrawer stepIndex snapshot =
         ]
 
 
-viewNavigationDrawer : Int -> Snapshot -> Html Msg
-viewNavigationDrawer stepIndex snapshot =
+viewNavigationDrawer : String -> Snapshot -> Html Msg
+viewNavigationDrawer stepLabel snapshot =
     let
         ( kind, url ) =
             parseNavigationLabel snapshot.label
@@ -1870,7 +1926,7 @@ viewNavigationDrawer stepIndex snapshot =
     Html.div [ Attr.class "step-detail-drawer step-detail-drawer-navigation" ]
         [ Html.div [ Attr.class "drawer-header drawer-header-navigation" ]
             [ Html.span [ Attr.class "drawer-header-step" ]
-                [ Html.text ("Step " ++ String.fromInt (stepIndex + 1)) ]
+                [ Html.text ("Step " ++ stepLabel) ]
             , Html.span [ Attr.class "drawer-header-sep" ] [ Html.text "·" ]
             , Html.span [ Attr.class "drawer-header-kind" ] [ Html.text "Navigation" ]
             ]
@@ -2028,8 +2084,8 @@ viewRailColumnHeader model =
         ]
 
 
-viewStepRow : Int -> Snapshot -> Int -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Int -> Html Msg -> Html Msg
-viewStepRow index snapshot currentIndex isHovering isHovered isFailureCause isChild isGroupParent isExpanded numChildren eventDots =
+viewStepRow : Int -> StepLabel -> Snapshot -> Int -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Int -> Html Msg -> Html Msg
+viewStepRow index stepLabel snapshot currentIndex isHovering isHovered isFailureCause isChild isGroupParent isExpanded numChildren eventDots =
     let
         isActive =
             index == currentIndex
@@ -2053,7 +2109,17 @@ viewStepRow index snapshot currentIndex isHovering isHovered isFailureCause isCh
         , Html.Events.onMouseLeave UnhoverStep
         ]
         [ Html.span [ Attr.class "step-number" ]
-            [ Html.text (String.fromInt (index + 1)) ]
+            (Html.text (String.fromInt stepLabel.primary)
+                :: (case stepLabel.sub of
+                        Just letter ->
+                            [ Html.span [ Attr.class "step-number-sub" ]
+                                [ Html.text letter ]
+                            ]
+
+                        Nothing ->
+                            []
+                   )
+            )
         , Html.span [ Attr.class "step-icon" ]
             [ Icons.verbIconForSnapshot snapshot ]
         , Html.span [ Attr.class "step-label", Attr.title snapshot.label ]
@@ -2088,6 +2154,107 @@ type alias StepEvents =
     , cookie : Int
     , effect : Int
     }
+
+
+{-| Display label for a step in the rail. State-changing snapshots
+(start, interactions, effect resolutions) get sequential integers;
+assertions get the most recent integer plus a sub-letter (`a`, `b`,
+…), so the rail reads as `1, 1a, 2, 3, 4, 4a, 5, 6, 6a, 6b, …` --
+mapping the user's mental model of "the system is in state N, and
+here are the assertions verifying it."
+-}
+type alias StepLabel =
+    { primary : Int
+    , sub : Maybe String
+    }
+
+
+{-| Walk the snapshot list and produce one `StepLabel` per snapshot.
+-}
+computeStepLabels : List Snapshot -> List StepLabel
+computeStepLabels snapshots =
+    snapshots
+        |> List.foldl
+            (\snapshot acc ->
+                case snapshot.stepKind of
+                    Assertion ->
+                        let
+                            nextSub =
+                                acc.sub + 1
+                        in
+                        { labels = { primary = acc.primary, sub = Just (subLetter nextSub) } :: acc.labels
+                        , primary = acc.primary
+                        , sub = nextSub
+                        }
+
+                    _ ->
+                        let
+                            nextPrimary =
+                                acc.primary + 1
+                        in
+                        { labels = { primary = nextPrimary, sub = Nothing } :: acc.labels
+                        , primary = nextPrimary
+                        , sub = 0
+                        }
+            )
+            { labels = [], primary = 0, sub = 0 }
+        |> .labels
+        |> List.reverse
+
+
+{-| Map 1 → "a", 2 → "b", … 26 → "z", 27 → "aa", 28 → "ab", … so a
+runaway streak of assertions never collapses into a single character.
+-}
+subLetter : Int -> String
+subLetter n =
+    if n <= 0 then
+        ""
+
+    else if n <= 26 then
+        String.fromChar (Char.fromCode (Char.toCode 'a' + n - 1))
+
+    else
+        subLetter ((n - 1) // 26) ++ subLetter (((n - 1) |> modBy 26) + 1)
+
+
+{-| `1` for state-changes, `6c` for the third assertion under step 6.
+-}
+formatStepLabel : StepLabel -> String
+formatStepLabel label =
+    String.fromInt label.primary
+        ++ Maybe.withDefault "" label.sub
+
+
+{-| Look up the label for a single index.
+-}
+stepLabelAt : Int -> List Snapshot -> StepLabel
+stepLabelAt index snapshots =
+    computeStepLabels snapshots
+        |> List.drop index
+        |> List.head
+        |> Maybe.withDefault { primary = index + 1, sub = Nothing }
+
+
+{-| The state-change number a snapshot belongs to. The "now" indicators
+on the side panels (network chips, cookie pills, fetcher timelines,
+the header step counter) display this -- assertions don't represent a
+new UI state, they verify the current one, so a step on `6c` reads
+the same `6` on those indicators as the parent state-change does.
+-}
+primaryStepNumber : Int -> List Snapshot -> Int
+primaryStepNumber index snapshots =
+    (stepLabelAt index snapshots).primary
+
+
+{-| Whether two snapshot indices belong to the same state-change. The
+"now" highlight on a network/cookie/fetcher chip uses this so that
+clicking through `6a, 6b, 6c` keeps the chip for state-change `6`
+glowing, rather than only lighting up when the rail is exactly on
+the state-change row.
+-}
+sameStepState : Int -> Int -> List Snapshot -> Bool
+sameStepState a b snapshots =
+    primaryStepNumber a snapshots == primaryStepNumber b snapshots
 
 
 {-| Count event-channel activity introduced at this step. Uses `stepIndex` on
@@ -3164,6 +3331,7 @@ navigates to the event's step on click. `active` (filled-pill) and
 -}
 viewEventChip :
     { step : Int
+    , displayNumber : Int
     , kind : EventKind
     , active : Bool
     , future : Bool
@@ -3184,7 +3352,7 @@ viewEventChip cfg =
                 , Html.Events.onClick (GoToStep cfg.step)
                 ]
                 [ eventKindGlyph cfg.kind 11 "currentColor"
-                , Html.text (String.fromInt (cfg.step + 1))
+                , Html.text (String.fromInt cfg.displayNumber)
                 ]
     in
     if cfg.currentStepHere then
@@ -3239,6 +3407,7 @@ adopts the destination chip's kind + future flag.
 viewEventChipRow :
     List
         { step : Int
+        , displayNumber : Int
         , kind : EventKind
         , active : Bool
         , future : Bool
@@ -3351,6 +3520,7 @@ viewFetcherInspector currentStep allSnapshots =
                         |> List.map
                             (\( stepIdx, entry ) ->
                                 { step = stepIdx
+                                , displayNumber = primaryStepNumber stepIdx allSnapshots
                                 , kind = statusToEventKind entry.status
                                 , active =
                                     case currentEntry of
@@ -3360,7 +3530,7 @@ viewFetcherInspector currentStep allSnapshots =
                                         Nothing ->
                                             False
                                 , future = stepIdx > currentStep
-                                , currentStepHere = stepIdx == currentStep
+                                , currentStepHere = sameStepState stepIdx currentStep allSnapshots
                                 }
                             )
             in
@@ -3660,12 +3830,12 @@ viewNetworkSidebar model currentStep allSnapshots =
 
           else
             Html.div [ Attr.class "network-list" ]
-                (List.map (\l -> viewNetworkRow currentStep l) visibleLanes)
+                (List.map (\l -> viewNetworkRow currentStep allSnapshots l) visibleLanes)
         ]
 
 
-viewNetworkRow : Int -> NetworkLane -> Html Msg
-viewNetworkRow currentStep lane =
+viewNetworkRow : Int -> List Snapshot -> NetworkLane -> Html Msg
+viewNetworkRow currentStep allSnapshots lane =
     let
         isFuture =
             currentStep < lane.startStep
@@ -3755,10 +3925,11 @@ viewNetworkRow currentStep lane =
         startChip =
             viewEventChip
                 { step = lane.startStep
+                , displayNumber = primaryStepNumber lane.startStep allSnapshots
                 , kind = EventSent
                 , active = startActive
                 , future = isFuture
-                , currentStepHere = lane.startStep == currentStep
+                , currentStepHere = sameStepState lane.startStep currentStep allSnapshots
                 }
 
         -- Network is a two-event model: `sent` + `resolved`. In-flight is
@@ -3775,10 +3946,11 @@ viewNetworkRow currentStep lane =
                         }
                     , viewEventChip
                         { step = end
+                        , displayNumber = primaryStepNumber end allSnapshots
                         , kind = endKind
                         , active = endActive
                         , future = isFuture || not endReached
-                        , currentStepHere = end == currentStep
+                        , currentStepHere = sameStepState end currentStep allSnapshots
                         }
                     ]
 
@@ -3968,7 +4140,7 @@ viewCookieSidebar currentStep allSnapshots =
                 ((changing
                     |> List.map
                         (\name ->
-                            viewCookieStack currentStep totalSteps name (cookieEvents name)
+                            viewCookieStack currentStep totalSteps allSnapshots name (cookieEvents name)
                         )
                  )
                     ++ (if List.isEmpty noChange then
@@ -4077,8 +4249,8 @@ activeCookieEvent step events =
         |> List.head
 
 
-viewCookieStack : Int -> Int -> String -> List ( Int, CookieEvent ) -> Html Msg
-viewCookieStack currentStep totalSteps name events =
+viewCookieStack : Int -> Int -> List Snapshot -> String -> List ( Int, CookieEvent ) -> Html Msg
+viewCookieStack currentStep totalSteps allSnapshots name events =
     let
         currentEventIdx : Maybe Int
         currentEventIdx =
@@ -4157,7 +4329,7 @@ viewCookieStack currentStep totalSteps name events =
                     Html.text ""
             ]
         , if eventCount > 0 then
-            viewCookiePillRow currentStep currentEventIdx events
+            viewCookiePillRow currentStep allSnapshots currentEventIdx events
 
           else
             Html.text ""
@@ -4224,8 +4396,8 @@ viewer step gets the shared current-step ring halo (`withCurrentStepRing`)
 so this panel uses the same "you are here" visual as the Network and Fetcher
 event chips. Clicking a pill jumps the viewer to that change point.
 -}
-viewCookiePillRow : Int -> Maybe Int -> List ( Int, CookieEvent ) -> Html Msg
-viewCookiePillRow currentStep currentEventIdx events =
+viewCookiePillRow : Int -> List Snapshot -> Maybe Int -> List ( Int, CookieEvent ) -> Html Msg
+viewCookiePillRow currentStep allSnapshots currentEventIdx events =
     Html.div [ Attr.class "cookie-pill-row" ]
         (events
             |> List.indexedMap
@@ -4246,7 +4418,7 @@ viewCookiePillRow currentStep currentEventIdx events =
                             currentEventIdx == Just idx
 
                         isNow =
-                            evStep == currentStep
+                            sameStepState evStep currentStep allSnapshots
 
                         pill =
                             Html.button
@@ -4259,7 +4431,7 @@ viewCookiePillRow currentStep currentEventIdx events =
                                 , Html.Events.onClick (GoToStep evStep)
                                 ]
                                 [ Html.span [ Attr.class "cookie-box-pill-step" ]
-                                    [ Html.text (String.fromInt (evStep + 1)) ]
+                                    [ Html.text (String.fromInt (primaryStepNumber evStep allSnapshots)) ]
                                 ]
 
                         wrappedPill =
@@ -5173,6 +5345,12 @@ body {
     background: #16213e;
     border-bottom: 1px solid #0f3460;
     flex-shrink: 0;
+    /* Reserve the height of the per-test header so switching between
+       the suite overview and a test (or vice versa) doesn't shift the
+       layout. Matches the natural height of the CommandLog row, which
+       carries the tallest controls (channel toggles + Model button). */
+    min-height: 40px;
+    box-sizing: border-box;
 }
 
 .header-left {
@@ -5206,15 +5384,106 @@ body {
     gap: 12px;
 }
 
-.test-name {
-    color: #4cc9f0;
-    font-weight: 600;
-    font-size: 14px;
+/* === BREADCRUMB ===
+
+   The breadcrumb sits between the wordmark and the right-cluster
+   controls in CommandLog mode. The Home chip is the cyan anchor for
+   "back up" navigation; non-leaf segments are clickable links that
+   route to the suite overview; the leaf is the current location.
+   Long describe segments shrink first; the leaf never disappears. */
+
+.header-divider {
+    width: 1px;
+    height: 22px;
+    background: #243043;
+    flex-shrink: 0;
+    margin: 0 12px 0 4px;
 }
 
-.test-name-path {
-    color: #8896a6;
+.breadcrumb {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    overflow: hidden;
+}
+
+.breadcrumb-home {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px 3px 6px;
+    background: rgba(125, 211, 252, 0.08);
+    border: 1px solid rgba(125, 211, 252, 0.20);
+    border-radius: 4px;
+    color: #7dd3fc;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.1s, border-color 0.1s;
+}
+
+.breadcrumb-home:hover {
+    background: rgba(125, 211, 252, 0.14);
+    border-color: rgba(125, 211, 252, 0.32);
+}
+
+.breadcrumb-home-icon {
+    display: inline-flex;
+    align-items: center;
+}
+
+.breadcrumb-sep {
+    flex-shrink: 0;
+    color: #3a4555;
+    font-size: 13px;
     font-weight: 400;
+    margin: 0 8px;
+    user-select: none;
+}
+
+.breadcrumb-segment {
+    font-size: 13px;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+/* Non-leaf segments (module + describe levels) shrink to share the
+   middle column when the path overflows. */
+.breadcrumb-segment-link {
+    flex-shrink: 1;
+    background: transparent;
+    border: none;
+    padding: 2px 4px;
+    margin: 0 -4px;
+    border-radius: 3px;
+    color: #a4b1c2;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+}
+
+.breadcrumb-segment-link:hover {
+    background: rgba(255, 255, 255, 0.04);
+    color: #c8d3e0;
+}
+
+/* Leaf segment never shrinks -- the test's identifying name stays
+   visible at every viewport width. */
+.breadcrumb-segment-leaf {
+    flex-shrink: 0;
+    color: #c8d3e0;
+    font-weight: 600;
+    cursor: default;
+}
+
+.breadcrumb-segment-leaf-fail {
+    color: #fca5a5;
 }
 
 /* Pass-10 B5: panel-toggle group lives in header-right with 6px gaps;
@@ -5225,6 +5494,7 @@ body {
     display: flex;
     align-items: center;
     gap: 6px;
+    flex-shrink: 0;
 }
 
 .step-counter {
@@ -5342,45 +5612,17 @@ body {
     border-right: 1px solid #0f3460;
 }
 
-.sidebar-header {
-    padding: 12px 14px 10px;
-    border-bottom: 1px solid #0f3460;
-}
-
 /* Pass-10 A1: panel section headers anchor their panel — secondary
-   tier color + weight 700 so they stop reading as ghosted text. */
+   tier color + weight 700 so they stop reading as ghosted text. The
+   `sidebar-title` style is retained for non-test panel headings; the
+   per-test header that used to live in this column moved to the
+   toolbar breadcrumb. */
 .sidebar-title {
     font-size: 12px;
     color: #a4b1c2;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     font-weight: 700;
-}
-
-/* Per-test header: the leaf test name leads, ancestor describes sit
-   above as a small muted breadcrumb so the slash-joined path stays
-   readable without shouting. */
-.sidebar-test-header {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin-top: 6px;
-}
-
-.sidebar-test-path {
-    font-size: 11px;
-    color: #8896a6;
-    letter-spacing: 0.02em;
-    line-height: 1.35;
-    word-break: normal;
-}
-
-.sidebar-test-name {
-    font-size: 14px;
-    font-weight: 600;
-    color: #e5edf5;
-    line-height: 1.3;
-    word-break: break-word;
 }
 
 .sidebar-steps {
@@ -5558,6 +5800,19 @@ body {
     color: #a4b1c2;
     text-align: right;
     font-variant-numeric: tabular-nums;
+}
+
+/* Sub-letter on assertion rows -- "6a", "6b", … -- a notch smaller
+   and dimmer so the integer reads as the parent state-change and the
+   letter reads as the verification underneath it. */
+.step-number-sub {
+    font-size: 11px;
+    color: #6f7e91;
+    margin-left: 1px;
+}
+
+.step-row-active .step-number-sub {
+    color: #c8d3e0;
 }
 
 .step-row-active .step-number {
@@ -6160,23 +6415,6 @@ body {
 
 .search-input::placeholder {
     color: #556677;
-}
-
-.sidebar-back {
-    display: block;
-    width: 100%;
-    text-align: left;
-    padding: 6px 0;
-    border: none;
-    background: transparent;
-    color: #4cc9f0;
-    font-size: 12px;
-    cursor: pointer;
-    margin-bottom: 4px;
-}
-
-.sidebar-back:hover {
-    color: #7dd8f5;
 }
 
 .header-summary {
