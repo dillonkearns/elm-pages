@@ -1,10 +1,11 @@
-module Effect exposing (Effect(..), batch, fromCmd, map, none, perform)
+module Effect exposing (Effect(..), batch, fromCmd, map, none, perform, testPerform)
 
 import Browser.Navigation
 import Http
 import Json.Decode as Decode
 import Pages.Fetcher
 import Pages.ProgramConfig exposing (FormData)
+import Test.PagesProgram.SimulatedEffect as SimulatedEffect exposing (SimulatedEffect)
 import Url exposing (Url)
 
 
@@ -132,3 +133,31 @@ perform ({ fromPageMsg, key } as helpers) effect =
 
         SubmitFetcher record ->
             helpers.runFetcher record
+
+
+testPerform : Effect msg -> SimulatedEffect msg
+testPerform effect =
+    case effect of
+        None ->
+            SimulatedEffect.none
+
+        Cmd _ ->
+            SimulatedEffect.none
+
+        Batch list ->
+            SimulatedEffect.batch (List.map testPerform list)
+
+        GetStargazers toMsg ->
+            SimulatedEffect.dispatchMsg (toMsg (Ok 0))
+
+        SetField info ->
+            SimulatedEffect.setField info
+
+        FetchRouteData _ ->
+            SimulatedEffect.none
+
+        Submit _ ->
+            SimulatedEffect.none
+
+        SubmitFetcher fetcher ->
+            SimulatedEffect.submitFetcher fetcher
