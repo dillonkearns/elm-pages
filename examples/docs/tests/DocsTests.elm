@@ -39,7 +39,12 @@ docs section so Shared.data resolves on every test.
 baseSetup : BackendTaskTest.TestSetup
 baseSetup =
     BackendTaskTest.init
-        |> withDocsSection 1 "what-is-elm-pages" "What is elm-pages?\n\nIntro paragraph."
+        |> withDocsSection 1
+            "what-is-elm-pages"
+            """# What is elm-pages?
+
+Intro paragraph.
+"""
 
 
 withDocsSection : Int -> String -> String -> BackendTaskTest.TestSetup -> BackendTaskTest.TestSetup
@@ -52,7 +57,7 @@ withDocsSection order slug body setup =
                 ++ slug
                 ++ ".md"
             )
-            ("# " ++ body)
+            body
 
 
 withBlogPost :
@@ -65,22 +70,17 @@ withBlogPost :
     -> BackendTaskTest.TestSetup
     -> BackendTaskTest.TestSetup
 withBlogPost post setup =
-    let
-        frontmatter =
-            "---\n"
-                ++ "{ \"title\": \""
-                ++ post.title
-                ++ "\", \"description\": \""
-                ++ post.description
-                ++ "\", \"published\": \""
-                ++ post.published
-                ++ "\", \"image\": \"some-image\" }\n"
-                ++ "---\n\n"
-    in
     setup
         |> BackendTaskTest.withFile
             ("content/blog/" ++ post.slug ++ ".md")
-            (frontmatter ++ post.body)
+            (frontmatterBlock
+                [ ( "title", post.title )
+                , ( "description", post.description )
+                , ( "published", post.published )
+                , ( "image", "some-image" )
+                ]
+                ++ post.body
+            )
 
 
 withDraftBlogPost :
@@ -88,20 +88,35 @@ withDraftBlogPost :
     -> BackendTaskTest.TestSetup
     -> BackendTaskTest.TestSetup
 withDraftBlogPost post setup =
-    let
-        frontmatter =
-            "---\n"
-                ++ "{ \"draft\": true, \"title\": \""
-                ++ post.title
-                ++ "\", \"description\": \"draft\", \"published\": \""
-                ++ post.published
-                ++ "\", \"image\": \"x\" }\n"
-                ++ "---\n\n"
-    in
     setup
         |> BackendTaskTest.withFile
             ("content/blog/" ++ post.slug ++ ".md")
-            (frontmatter ++ "# Draft\n\nBody.")
+            (frontmatterBlockWith
+                [ ( "draft", Encode.bool True )
+                , ( "title", Encode.string post.title )
+                , ( "description", Encode.string "draft" )
+                , ( "published", Encode.string post.published )
+                , ( "image", Encode.string "x" )
+                ]
+                ++ """# Draft
+
+Body.
+"""
+            )
+
+
+frontmatterBlock : List ( String, String ) -> String
+frontmatterBlock fields =
+    frontmatterBlockWith (List.map (\( k, v ) -> ( k, Encode.string v )) fields)
+
+
+frontmatterBlockWith : List ( String, Encode.Value ) -> String
+frontmatterBlockWith fields =
+    """---
+""" ++ Encode.encode 2 (Encode.object fields) ++ """
+---
+
+"""
 
 
 airtableResponse : Encode.Value
@@ -163,14 +178,20 @@ blogIndexListsPostsTest =
                 , title = "Hello, World"
                 , description = "First post"
                 , published = "2020-01-01"
-                , body = "# Hello, World\n\nFirst body."
+                , body = """# Hello, World
+
+First body.
+"""
                 }
             |> withBlogPost
                 { slug = "second-post"
                 , title = "Goodbye, World"
                 , description = "Second post"
                 , published = "2020-02-01"
-                , body = "# Goodbye, World\n\nSecond body."
+                , body = """# Goodbye, World
+
+Second body.
+"""
                 }
         )
         |> PagesProgram.withModelInspector Debug.toString
@@ -190,7 +211,10 @@ draftPostsHiddenFromIndexTest =
                 , title = "Published Post"
                 , description = "..."
                 , published = "2020-01-01"
-                , body = "# Published Post\n\nBody."
+                , body = """# Published Post
+
+Body.
+"""
                 }
             |> withDraftBlogPost
                 { slug = "draft", title = "Draft Post", published = "2020-02-01" }
@@ -213,7 +237,10 @@ blogPostRendersTest =
                 , title = "Hello, World"
                 , description = "First post"
                 , published = "2020-01-01"
-                , body = "# Hello, World\n\nThis is the body of the post."
+                , body = """# Hello, World
+
+This is the body of the post.
+"""
                 }
         )
         |> PagesProgram.withModelInspector Debug.toString
@@ -240,7 +267,12 @@ docsSectionNavigationTest : TestApp.ProgramTest
 docsSectionNavigationTest =
     TestApp.start "/docs/getting-started"
         (baseSetup
-            |> withDocsSection 2 "getting-started" "Getting Started\n\nHow to start."
+            |> withDocsSection 2
+                "getting-started"
+                """# Getting Started
+
+How to start.
+"""
         )
         |> PagesProgram.withModelInspector Debug.toString
         |> PagesProgram.ensureViewHas
