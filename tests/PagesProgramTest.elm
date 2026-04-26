@@ -348,6 +348,49 @@ all =
                         |> PagesProgram.pressEnter [ PSelector.id "free-input" ]
                         |> PagesProgram.ensureViewHas [ PSelector.text "last: Enter" ]
                         |> PagesProgram.done
+            , test "fails loudly when the selector matches no element" <|
+                \() ->
+                    PagesProgramInternal.initialProgramTest
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view =
+                            \_ _ ->
+                                { title = "Empty"
+                                , body = [ Html.input [ Attr.id "real-input" ] [] ]
+                                }
+                        }
+                        |> PagesProgram.pressEnter [ PSelector.id "missing" ]
+                        |> PagesProgram.done
+                        |> expectFailContaining "pressEnter"
+            , test "fails loudly when the selector matches multiple elements" <|
+                \() ->
+                    let
+                        result : Expectation
+                        result =
+                            PagesProgramInternal.initialProgramTest
+                                { data = BackendTask.succeed ()
+                                , init = \() -> ( {}, [] )
+                                , update = \_ model -> ( model, [] )
+                                , view =
+                                    \_ _ ->
+                                        { title = "Multi"
+                                        , body =
+                                            [ Html.form []
+                                                [ Html.input [ Attr.class "edit-input" ] [] ]
+                                            , Html.form []
+                                                [ Html.input [ Attr.class "edit-input" ] [] ]
+                                            ]
+                                        }
+                                }
+                                |> PagesProgram.pressEnter [ PSelector.class "edit-input" ]
+                                |> PagesProgram.done
+                    in
+                    result
+                        |> Expect.all
+                            [ expectFailContaining "pressEnter"
+                            , expectFailContaining "multiple"
+                            ]
             ]
         , describe "pressKey"
             [ test "fires a keydown with the given key on the matched element" <|
@@ -405,6 +448,47 @@ all =
                         |> PagesProgram.pressKey "Enter" [ PSelector.id "f" ]
                         |> PagesProgram.ensureViewHas [ PSelector.text "submits=0" ]
                         |> PagesProgram.done
+            , test "fails loudly when the selector matches no element" <|
+                \() ->
+                    PagesProgramInternal.initialProgramTest
+                        { data = BackendTask.succeed ()
+                        , init = \() -> ( {}, [] )
+                        , update = \_ model -> ( model, [] )
+                        , view =
+                            \_ _ ->
+                                { title = "Empty"
+                                , body = [ Html.input [ Attr.id "real-input" ] [] ]
+                                }
+                        }
+                        |> PagesProgram.pressKey "Escape" [ PSelector.id "missing" ]
+                        |> PagesProgram.done
+                        |> expectFailContaining "pressKey \"Escape\""
+            , test "fails loudly when the selector matches multiple elements" <|
+                \() ->
+                    let
+                        result : Expectation
+                        result =
+                            PagesProgramInternal.initialProgramTest
+                                { data = BackendTask.succeed ()
+                                , init = \() -> ( {}, [] )
+                                , update = \_ model -> ( model, [] )
+                                , view =
+                                    \_ _ ->
+                                        { title = "Multi"
+                                        , body =
+                                            [ Html.input [ Attr.class "kb" ] []
+                                            , Html.input [ Attr.class "kb" ] []
+                                            ]
+                                        }
+                                }
+                                |> PagesProgram.pressKey "Escape" [ PSelector.class "kb" ]
+                                |> PagesProgram.done
+                    in
+                    result
+                        |> Expect.all
+                            [ expectFailContaining "pressKey \"Escape\""
+                            , expectFailContaining "multiple"
+                            ]
             ]
         , describe "simulateHttpGet for effects from update"
             [ test "simulateHttpGet resolves BackendTask effect from update" <|

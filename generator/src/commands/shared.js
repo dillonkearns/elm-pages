@@ -1176,8 +1176,9 @@ function moduleDefinesValue(content, valueName) {
 //      handling comments, strings, ports, and `exposing (..)` correctly.
 //   2. classifyAllTestValues: reads the file once, strips comments and
 //      string literals, then parses each name's top-level type annotation
-//      to classify it as a Test, Test.Tui.Test, or ProgramTest. Function
-//      types are rejected (a helper returning a Test is not itself a test).
+//      to classify it as a Test, Test.Tui.Test, or Test.PagesProgram.Test.
+//      Function types are rejected (a helper returning a Test is not itself
+//      a test).
 
 const DEFAULT_TEST_ROOTS = [
   { glob: "tests/**/*.elm", baseDir: "tests" },
@@ -1188,7 +1189,7 @@ const DEFAULT_TEST_ROOTS = [
 // component after stripping any top-level function arrows.
 const VANILLA_RESULT_RE = /^(?:Test|Test\.Test)$/;
 const TUI_RESULT_RE = /^(?:Test\.Tui\.Test|TuiTest\.Test)$/;
-const PROGRAM_RESULT_RE = /^(?:\S+\.)?ProgramTest(?:\s+.+)?$/;
+const PROGRAM_RESULT_RE = /^(?:Test\.PagesProgram\.Test|PagesProgram\.Test)$/;
 
 /**
  * Return the exposed lowercase top-level names in an Elm module using the

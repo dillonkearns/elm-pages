@@ -1,13 +1,4 @@
-module TodoTeaTests exposing
-    ( fullLoginFlowTest
-    , addTodoTest
-    , toggleTodoTest
-    , deleteTodoTest
-    , toggleAllTest
-    , clearCompletedTest
-    , filterViewTest
-    , addMultipleTodosTest
-    )
+module TodoTeaTests exposing (suite)
 
 {-| End-to-end tests for the TEA-focused TodoMVC.
 
@@ -31,6 +22,30 @@ import Test.PagesProgram as PagesProgram
 import Test.Html.Selector as Selector
 import TestApp
 import Time
+
+
+
+-- SUITE
+
+
+suite : PagesProgram.Test
+suite =
+    PagesProgram.describe "TodoMVC (TEA-focused)"
+        [ PagesProgram.describe "Auth"
+            [ PagesProgram.test "completes the magic-link login flow" fullLoginFlowTest
+            ]
+        , PagesProgram.describe "Todo management"
+            [ PagesProgram.test "adds a todo via Enter" addTodoTest
+            , PagesProgram.test "toggles a todo's completion" toggleTodoTest
+            , PagesProgram.test "deletes a todo" deleteTodoTest
+            , PagesProgram.test "toggles all todos with the toggle-all checkbox" toggleAllTest
+            , PagesProgram.test "clears completed todos" clearCompletedTest
+            , PagesProgram.test "adds multiple todos in sequence" addMultipleTodosTest
+            ]
+        , PagesProgram.describe "Filtering"
+            [ PagesProgram.test "switches All / Active / Completed filter views" filterViewTest
+            ]
+        ]
 
 
 baseSetup =

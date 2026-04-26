@@ -1,14 +1,4 @@
-module SmoothieTests exposing
-    ( smoothieListTest
-    , addToCartTest
-    , optimisticCartTest
-    , concurrentFetchersTest
-    , staleFetcherDataReloadTest
-    , signoutTest
-    , signupSuccessTest
-    , smoothieNotFoundTest
-    , internalErrorTest
-    )
+module SmoothieTests exposing (suite)
 
 {-| Test suite for the Smoothies shopping cart example.
 
@@ -31,6 +21,31 @@ import Test.Html.Selector as Selector exposing (text)
 import Test.PagesProgram as PagesProgram
 import Test.Html.Selector as PSelector
 import TestApp
+
+
+
+-- SUITE
+
+
+suite : PagesProgram.Test
+suite =
+    PagesProgram.describe "Smoothies shopping cart"
+        [ PagesProgram.describe "Auth"
+            [ PagesProgram.test "signs in and lands on the smoothie list" smoothieListTest
+            , PagesProgram.test "signs out and redirects to /login" signoutTest
+            , PagesProgram.test "signs up a new account and lands on the index" signupSuccessTest
+            ]
+        , PagesProgram.describe "Cart"
+            [ PagesProgram.test "adds an item to the cart" addToCartTest
+            , PagesProgram.test "shows optimistic cart updates on each click" optimisticCartTest
+            , PagesProgram.test "handles concurrent fetcher submissions" concurrentFetchersTest
+            , PagesProgram.test "skips stale data reloads from earlier fetchers" staleFetcherDataReloadTest
+            ]
+        , PagesProgram.describe "Error pages"
+            [ PagesProgram.test "renders the not-found page for unknown smoothies" smoothieNotFoundTest
+            , PagesProgram.test "renders the internal-error page on backend failure" internalErrorTest
+            ]
+        ]
 
 
 hasuraUrl : String

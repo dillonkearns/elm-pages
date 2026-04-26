@@ -148,15 +148,18 @@ export async function run(elmModulePath, options, options2) {
       console.error(
         "No test values found.\n\n" +
           "Expose values with one of these type annotations:\n\n" +
-          "    myPageTest : TestApp.ProgramTest\n" +
-          "    myPageTest =\n" +
-          '        TestApp.start "/" BackendTaskTest.init\n' +
-          '            |> PagesProgram.ensureViewHas [ text "Hello" ]\n\n' +
-          "    myTuiTests : TuiTest.Test\n" +
-          "    myTuiTests =\n" +
+          "    suite : PagesProgram.Test\n" +
+          "    suite =\n" +
+          '        PagesProgram.describe "My route"\n' +
+          '            [ PagesProgram.test "renders" <|\n' +
+          '                TestApp.start "/" BackendTaskTest.init\n' +
+          '                    |> PagesProgram.ensureViewHas [ text "Hello" ]\n' +
+          "            ]\n\n" +
+          "    suite : TuiTest.Test\n" +
+          "    suite =\n" +
           '        TuiTest.describe "My TUI" [ TuiTest.test "works" <| ... ]\n\n' +
-          "    mySuite : Test\n" +
-          "    mySuite =\n" +
+          "    suite : Test\n" +
+          "    suite =\n" +
           '        Test.describe "plain tests" [ Test.test "works" <| \\() -> ... ]\n'
       );
       process.exit(1);
@@ -475,10 +478,8 @@ function generateCompanionModule(
   const entries = [];
   for (const name of program) {
     entries.push(
-      `Test.test "${name}" <|\n` +
-        `            \\() ->\n` +
-        `                ${userModule}.${name}\n` +
-        `                    |> Test.PagesProgram.done`
+      `Test.describe "${name}"\n` +
+        `            [ Test.PagesProgram.toTest ${userModule}.${name} ]`
     );
   }
   for (const name of tui) {

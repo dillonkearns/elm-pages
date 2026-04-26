@@ -32,11 +32,11 @@ function writeElmModule(source, name = "Example") {
 }
 
 describe("test value discovery", () => {
-  it("finds ProgramTest values with multiline type annotations", async () => {
+  it("finds PagesProgram.Test values with multiline type annotations", async () => {
     const filePath = writeElmModule(`module Example exposing (programTest, helper)
 
 programTest :
-    TestApp.ProgramTest
+    PagesProgram.Test
 programTest =
     Debug.todo "not evaluated"
 
@@ -48,6 +48,28 @@ helper =
     assert.deepStrictEqual(await findProgramTestValues(filePath), [
       "programTest",
     ]);
+  });
+
+  it("recognizes a fully-qualified Test.PagesProgram.Test annotation", async () => {
+    const filePath = writeElmModule(`module Example exposing (suite)
+
+suite : Test.PagesProgram.Test
+suite =
+    Debug.todo "not evaluated"
+`);
+
+    assert.deepStrictEqual(await findProgramTestValues(filePath), ["suite"]);
+  });
+
+  it("ignores a bare TestApp.ProgramTest value (legacy discovery removed)", async () => {
+    const filePath = writeElmModule(`module Example exposing (programTest)
+
+programTest : TestApp.ProgramTest
+programTest =
+    Debug.todo "not evaluated"
+`);
+
+    assert.deepStrictEqual(await findProgramTestValues(filePath), []);
   });
 
   it("finds TuiTest values with multiline type annotations", async () => {
@@ -66,7 +88,7 @@ helper =
     assert.deepStrictEqual(await findTuiTestValues(filePath), ["tuiTest"]);
   });
 
-  it("discovers ProgramTests from tests and snapshot-tests/src", async () => {
+  it("discovers PagesProgram.Test suites from tests and snapshot-tests/src", async () => {
     const tempDir = fs.mkdtempSync(
       path.join(os.tmpdir(), "elm-pages-program-tests-")
     );
@@ -77,21 +99,21 @@ helper =
 
     fs.writeFileSync(
       path.join(tempDir, "tests", "FrameworkTests.elm"),
-      `module FrameworkTests exposing (counterTest)
+      `module FrameworkTests exposing (suite)
 
-counterTest : TestApp.ProgramTest
-counterTest =
+suite : PagesProgram.Test
+suite =
     Debug.todo "not evaluated"
 `
     );
 
     fs.writeFileSync(
       path.join(tempDir, "snapshot-tests/src", "VisualTests.elm"),
-      `module VisualTests exposing (responsiveTest)
+      `module VisualTests exposing (suite)
 
-responsiveTest :
-    TestApp.ProgramTest
-responsiveTest =
+suite :
+    PagesProgram.Test
+suite =
     Debug.todo "not evaluated"
 `
     );
@@ -102,12 +124,12 @@ responsiveTest =
       {
         moduleName: "FrameworkTests",
         file: "tests/FrameworkTests.elm",
-        values: ["counterTest"],
+        values: ["suite"],
       },
       {
         moduleName: "VisualTests",
         file: "snapshot-tests/src/VisualTests.elm",
-        values: ["responsiveTest"],
+        values: ["suite"],
       },
     ]);
   });
@@ -170,52 +192,55 @@ realTest =
   });
 
   it("rejects helpers that take a ProgramTest as input", async () => {
-    const filePath = writeElmModule(`module Example exposing (myHelper, myTest)
+    const filePath = writeElmModule(`module Example exposing (myHelper, suite)
 
-myHelper : ProgramTest model msg -> Int
+myHelper : PagesProgram.ProgramTest model msg -> Int
 myHelper _ =
     0
 
-myTest : TestApp.ProgramTest
-myTest =
+suite : PagesProgram.Test
+suite =
     Debug.todo "not evaluated"
 `);
 
-    assert.deepStrictEqual(await findProgramTestValues(filePath), ["myTest"]);
+    assert.deepStrictEqual(await findProgramTestValues(filePath), ["suite"]);
   });
 
   it("rejects helpers that return a ProgramTest (function types)", async () => {
-    const filePath = writeElmModule(`module Example exposing (buildTest, myTest)
+    const filePath = writeElmModule(`module Example exposing (buildTest, suite)
 
 buildTest : Int -> TestApp.ProgramTest
 buildTest _ =
     Debug.todo "not evaluated"
 
-myTest : TestApp.ProgramTest
-myTest =
+suite : PagesProgram.Test
+suite =
     Debug.todo "not evaluated"
 `);
 
-    assert.deepStrictEqual(await findProgramTestValues(filePath), ["myTest"]);
+    assert.deepStrictEqual(await findProgramTestValues(filePath), ["suite"]);
   });
 
-  it("classifies a multi-line annotation with record-field colons", async () => {
-    const filePath = writeElmModule(`module Example exposing (loginTest)
+  it("classifies a PagesProgram.Test next to multi-line record-field helper annotations", async () => {
+    const filePath = writeElmModule(`module Example exposing (suite)
 
-loginTest :
-    ProgramTest
+loginHelper :
+    PagesProgram.ProgramTest
         { email : String
         , password : String
         , loggedIn : Bool
         }
         LoginMsg
-loginTest =
+    -> Int
+loginHelper _ =
+    0
+
+suite : PagesProgram.Test
+suite =
     Debug.todo "not evaluated"
 `);
 
-    assert.deepStrictEqual(await findProgramTestValues(filePath), [
-      "loginTest",
-    ]);
+    assert.deepStrictEqual(await findProgramTestValues(filePath), ["suite"]);
   });
 
   it("handles exposing (Type(..)) in exports", async () => {

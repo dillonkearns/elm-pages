@@ -384,16 +384,14 @@ export async function start(options) {
 
     // Generate TestViewer.elm
     const imports = allTests.map((t) => `import ${t.moduleName}`).join("\n");
-    const entries = allTests
+    const namedSnapshotExprs = allTests
       .flatMap((t) =>
         t.values.map(
           (name) =>
-            `        ( "${t.moduleName}.${name}"\n` +
-            `        , Test.PagesProgram.toSnapshots ${t.moduleName}.${name}\n` +
-            `        )`
+            `Test.PagesProgram.toNamedSnapshots ${t.moduleName}.${name}`
         )
       )
-      .join("\n        , ");
+      .join("\n            , ");
 
     const viewerElm = `module TestViewer exposing (main)
 
@@ -406,8 +404,10 @@ import Test.PagesProgram.Viewer as Viewer
 main : Program Viewer.Flags Viewer.Model Viewer.Msg
 main =
     Viewer.app
-        [ ${entries}
-        ]
+        (List.concat
+            [ ${namedSnapshotExprs}
+            ]
+        )
 `;
 
     const testViewerDir = path.join(

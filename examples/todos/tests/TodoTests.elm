@@ -1,15 +1,4 @@
-module TodoTests exposing
-    ( fullLoginFlowTest
-    , loginAndRevisitLoginTest
-    , logoutAndLoginAsDifferentUserTest
-    , preSignedInSessionTest
-    , toggleAllTest
-    , clearCompletedTest
-    , optimisticUiTest
-    , createTodoTest
-    , editTodoTest
-    , filterViewTest
-    )
+module TodoTests exposing (suite)
 
 {-| End-to-end test flows for the Todos full-stack example.
 
@@ -31,6 +20,32 @@ import Test.PagesProgram.CookieJar as CookieJar
 import Test.PagesProgram.Session as Session
 import TestApp
 import Time
+
+
+
+-- SUITE
+
+
+suite : PagesProgram.Test
+suite =
+    PagesProgram.describe "Todos full-stack example"
+        [ PagesProgram.describe "Auth flows"
+            [ PagesProgram.test "completes the magic-link login flow" fullLoginFlowTest
+            , PagesProgram.test "shows the already-signed-in branch when revisiting /login" loginAndRevisitLoginTest
+            , PagesProgram.test "logs out and signs in as a different user" logoutAndLoginAsDifferentUserTest
+            , PagesProgram.test "loads with a pre-signed session cookie" preSignedInSessionTest
+            ]
+        , PagesProgram.describe "Todo management"
+            [ PagesProgram.test "creates a new todo via Enter" createTodoTest
+            , PagesProgram.test "edits an existing todo inline" editTodoTest
+            , PagesProgram.test "toggles all todos complete" toggleAllTest
+            , PagesProgram.test "clears completed todos" clearCompletedTest
+            , PagesProgram.test "renders optimistic state during concurrent fetchers" optimisticUiTest
+            ]
+        , PagesProgram.describe "Filtering"
+            [ PagesProgram.test "switches All / Active / Completed filter views" filterViewTest
+            ]
+        ]
 
 
 
@@ -470,9 +485,11 @@ editTodoTest : TestApp.ProgramTest
 editTodoTest =
     startAfterMagicLinkWithTodos todosResponse
         |> PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
-        -- Edit "Buy milk" -> "Buy oat milk"
+        -- Edit "Buy milk" -> "Buy oat milk". The page renders one edit
+        -- form per todo, so target the unique input id ("todo-" ++ todo.id)
+        -- so pressEnter resolves to a single input + parent form.
         |> PagesProgram.fillIn "edit-todo-1" "description" "Buy oat milk"
-        |> PagesProgram.pressEnter [ PSelector.class "edit-input" ]
+        |> PagesProgram.pressEnter [ PSelector.id "todo-todo-1" ]
         -- Resolve updateTodo action + data reload
         |> PagesProgram.simulateCustom "updateTodo" Encode.null
         |> PagesProgram.simulateCustom "getTodosBySession"

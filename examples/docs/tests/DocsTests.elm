@@ -1,14 +1,4 @@
-module DocsTests exposing
-    ( landingPageTest
-    , landingPageHasNavToDocsTest
-    , blogIndexListsPostsTest
-    , blogPostRendersTest
-    , draftPostsHiddenFromIndexTest
-    , docsLandingTest
-    , docsSectionNavigationTest
-    , showcaseLoadsFromAirtableTest
-    , navigateLandingToDocsTest
-    )
+module DocsTests exposing (suite, landingPageTest)
 
 {-| End-to-end tests for the elm-pages docs site.
 
@@ -26,6 +16,33 @@ import Test.BackendTask as BackendTaskTest
 import Test.Html.Selector as Selector
 import Test.PagesProgram as PagesProgram
 import TestApp
+
+
+
+-- SUITE
+
+
+suite : PagesProgram.Test
+suite =
+    PagesProgram.describe "elm-pages docs site"
+        [ PagesProgram.describe "Landing page"
+            [ PagesProgram.test "renders the marquee headline" landingPageTest
+            , PagesProgram.test "links to the docs" landingPageHasNavToDocsTest
+            , PagesProgram.test "navigates from landing to docs" navigateLandingToDocsTest
+            ]
+        , PagesProgram.describe "Blog"
+            [ PagesProgram.test "lists published posts" blogIndexListsPostsTest
+            , PagesProgram.test "renders a post page" blogPostRendersTest
+            , PagesProgram.test "hides drafts from the index" draftPostsHiddenFromIndexTest
+            ]
+        , PagesProgram.describe "Docs"
+            [ PagesProgram.test "default section renders at /docs" docsLandingTest
+            , PagesProgram.test "navigates to a specific section" docsSectionNavigationTest
+            ]
+        , PagesProgram.describe "Showcase"
+            [ PagesProgram.test "loads records from Airtable" showcaseLoadsFromAirtableTest
+            ]
+        ]
 
 
 
@@ -141,7 +158,7 @@ airtableResponse =
 
 
 
--- TESTS
+-- TEST PIPELINES
 
 
 {-| Trivial: visit the landing page and verify a marquee headline renders.
@@ -149,7 +166,6 @@ airtableResponse =
 landingPageTest : TestApp.ProgramTest
 landingPageTest =
     TestApp.start "/" baseSetup
-        |> PagesProgram.withModelInspector Debug.toString
         |> PagesProgram.ensureViewHas
             [ Selector.text "Pull in typed Elm data to your pages" ]
 
@@ -159,7 +175,6 @@ landingPageTest =
 landingPageHasNavToDocsTest : TestApp.ProgramTest
 landingPageHasNavToDocsTest =
     TestApp.start "/" baseSetup
-        |> PagesProgram.withModelInspector Debug.toString
         |> PagesProgram.ensureViewHas
             [ Selector.tag "a"
             , Selector.containing [ Selector.text "Check out the Docs" ]
@@ -194,7 +209,6 @@ Second body.
 """
                 }
         )
-        |> PagesProgram.withModelInspector Debug.toString
         |> PagesProgram.ensureViewHas [ Selector.text "Hello, World" ]
         |> PagesProgram.ensureViewHas [ Selector.text "Goodbye, World" ]
 
@@ -219,7 +233,6 @@ Body.
             |> withDraftBlogPost
                 { slug = "draft", title = "Draft Post", published = "2020-02-01" }
         )
-        |> PagesProgram.withModelInspector Debug.toString
         |> PagesProgram.ensureViewHas [ Selector.text "Published Post" ]
         |> PagesProgram.ensureViewHasNot [ Selector.text "Draft Post" ]
 
@@ -243,7 +256,6 @@ This is the body of the post.
 """
                 }
         )
-        |> PagesProgram.withModelInspector Debug.toString
         |> PagesProgram.ensureViewHas
             [ Selector.tag "h1", Selector.containing [ Selector.text "Hello, World" ] ]
         |> PagesProgram.ensureViewHas
@@ -256,7 +268,6 @@ Exercises Section\_\_'s default-slug fallback.
 docsLandingTest : TestApp.ProgramTest
 docsLandingTest =
     TestApp.start "/docs" baseSetup
-        |> PagesProgram.withModelInspector Debug.toString
         |> PagesProgram.ensureViewHas
             [ Selector.text "What is elm-pages?" ]
 
@@ -274,7 +285,6 @@ docsSectionNavigationTest =
 How to start.
 """
         )
-        |> PagesProgram.withModelInspector Debug.toString
         |> PagesProgram.ensureViewHas
             [ Selector.text "Getting Started" ]
 
@@ -288,7 +298,6 @@ showcaseLoadsFromAirtableTest =
         (baseSetup
             |> BackendTaskTest.withEnv "AIRTABLE_TOKEN" "test-token"
         )
-        |> PagesProgram.withModelInspector Debug.toString
         |> PagesProgram.simulateHttpGet
             "https://api.airtable.com/v0/appDykQzbkQJAidjt/elm-pages%20showcase?maxRecords=100&view=Grid%202"
             airtableResponse
@@ -301,7 +310,6 @@ showcaseLoadsFromAirtableTest =
 navigateLandingToDocsTest : TestApp.ProgramTest
 navigateLandingToDocsTest =
     TestApp.start "/" baseSetup
-        |> PagesProgram.withModelInspector Debug.toString
         |> PagesProgram.ensureViewHas
             [ Selector.text "Pull in typed Elm data to your pages" ]
         |> PagesProgram.clickLink "Check out the Docs"
