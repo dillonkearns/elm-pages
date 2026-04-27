@@ -1982,12 +1982,7 @@ formatOneSelector selector =
 parseNavigationLabel : String -> ( String, String )
 parseNavigationLabel label =
     if String.startsWith "navigateTo " label then
-        -- `navigateTo` represents the test landing at a URL — clicking
-        -- a magic link, browser-bar paste, etc. The framework treats
-        -- this exactly like a server-issued redirect (fresh data load
-        -- on the new path, route resolution from scratch) so it reads
-        -- as "Redirect" to a test author scanning the step list.
-        ( "Redirect", stripOuterQuotes (String.dropLeft 11 label) )
+        ( "navigateTo", stripOuterQuotes (String.dropLeft 11 label) )
 
     else if String.startsWith "redirected→" label then
         ( "Redirect", stripOuterQuotes (String.dropLeft 11 label) )
