@@ -308,14 +308,14 @@ extractBasePath url =
 {-| Extract the test name from the URL path after the base path.
 
     extractTestName "/_tests"
-        { url | path = "/_tests/Site%20/%20Landing%20/%20renders" }
+        { url | path = "/_tests/Site/Landing/renders" }
         == Just "Site / Landing / renders"
 
-`Url.percentDecode` reverses the browser's encoding of spaces (`%20`)
-inside test names so the result matches the raw `NamedTest.name`
-stored in the model. Slashes in test names come from
-`toNamedSnapshots` joining describe ancestors with `" / "`; they
-survive the round-trip because URL paths preserve literal `/`.
+Each describe/test level is its own URL path segment (percent-encoded
+for spaces). We split on `/`, decode each segment, and rejoin with
+`" / "` so the result matches the raw `NamedTest.name` stored in the
+model (which `toNamedSnapshots` builds by joining describe ancestors
+with `" / "`).
 
 -}
 extractTestName : String -> Url -> Maybe String
@@ -329,12 +329,11 @@ extractTestName basePath url =
         Nothing
 
     else
-        case Url.percentDecode rest of
-            Just decoded ->
-                Just decoded
-
-            Nothing ->
-                Just rest
+        rest
+            |> String.split "/"
+            |> List.map (\seg -> Url.percentDecode seg |> Maybe.withDefault seg)
+            |> String.join " / "
+            |> Just
 
 
 findTestIndex : String -> List NamedTest -> Maybe Int
@@ -368,35 +367,23 @@ initialStepForTest tests testIndex =
         |> Maybe.withDefault 0
 
 
-{-| Resolve a step index from URL query params with best-effort matching.
+{-| Resolve a step index from the `?step=` query param.
 
-1. If step N still has the saved label -- exact match
-2. If step N has a different label -- find nearest step with that label
-3. If no steps match the label -- clamp to step N anyway
+If `step` is missing, jump to the first error step (or 0). If present,
+clamp to the snapshot range.
 
 -}
 resolveStepFromUrl : Url -> List Snapshot -> Int
 resolveStepFromUrl url snapshots =
     let
-        params =
-            parseQueryParams url
-
         maybeStep =
-            params
+            parseQueryParams url
                 |> List.filter (\( k, _ ) -> k == "step")
                 |> List.head
                 |> Maybe.andThen (\( _, v ) -> String.toInt v)
-
-        maybeLabel =
-            params
-                |> List.filter (\( k, _ ) -> k == "at")
-                |> List.head
-                |> Maybe.map Tuple.second
-                |> Maybe.andThen Url.percentDecode
     in
     case maybeStep of
         Nothing ->
-            -- No step in URL, use default (error step or 0)
             snapshots
                 |> List.indexedMap Tuple.pair
                 |> List.filter (\( _, s ) -> s.stepKind == Error)
@@ -405,47 +392,7 @@ resolveStepFromUrl url snapshots =
                 |> Maybe.withDefault 0
 
         Just stepIdx ->
-            let
-                clamped =
-                    clamp 0 (List.length snapshots - 1) stepIdx
-            in
-            case maybeLabel of
-                Nothing ->
-                    clamped
-
-                Just label ->
-                    -- Check if step at saved index still has the same label
-                    let
-                        labelAtIndex =
-                            snapshots
-                                |> List.drop clamped
-                                |> List.head
-                                |> Maybe.map .label
-                    in
-                    if labelAtIndex == Just label then
-                        -- Exact match at expected index
-                        clamped
-
-                    else
-                        -- Label shifted. Find nearest step with that label.
-                        let
-                            candidates =
-                                snapshots
-                                    |> List.indexedMap Tuple.pair
-                                    |> List.filter (\( _, s ) -> s.label == label)
-
-                            nearest =
-                                candidates
-                                    |> List.sortBy (\( i, _ ) -> abs (i - clamped))
-                                    |> List.head
-                        in
-                        case nearest of
-                            Just ( i, _ ) ->
-                                i
-
-                            Nothing ->
-                                -- Label gone entirely, fall back to index
-                                clamped
+            clamp 0 (List.length snapshots - 1) stepIdx
 
 
 parseQueryParams : Url -> List ( String, String )
@@ -479,37 +426,37 @@ syncStepToUrl model stepIndex =
                 |> List.drop model.currentTestIndex
                 |> List.head
                 |> Maybe.map .name
-
-        label =
-            currentSnapshots model
-                |> List.drop stepIndex
-                |> List.head
-                |> Maybe.map .label
     in
     case testName of
         Just name ->
             Nav.replaceUrl model.navKey
-                (buildTestUrl model (Just name) (Maybe.map (\l -> ( stepIndex, l )) label))
+                (buildTestUrl model (Just name) (Just stepIndex))
 
         Nothing ->
             Cmd.none
 
 
-buildTestUrl : Model -> Maybe String -> Maybe ( Int, String ) -> String
+buildTestUrl : Model -> Maybe String -> Maybe Int -> String
 buildTestUrl model maybeName maybeStep =
     let
         basePart =
             case maybeName of
                 Just name ->
-                    model.basePath ++ "/" ++ name
+                    model.basePath
+                        ++ "/"
+                        ++ (name
+                                |> String.split " / "
+                                |> List.map Url.percentEncode
+                                |> String.join "/"
+                           )
 
                 Nothing ->
                     model.basePath
 
         queryPart =
             case maybeStep of
-                Just ( idx, label ) ->
-                    "?step=" ++ String.fromInt idx ++ "&at=" ++ Url.percentEncode label
+                Just idx ->
+                    "?step=" ++ String.fromInt idx
 
                 Nothing ->
                     ""
@@ -526,7 +473,7 @@ pushTestUrl model maybeName =
 
 {-| Push URL with step info for test navigation (creates history entry).
 -}
-pushTestUrlWithStep : Model -> Maybe String -> Maybe ( Int, String ) -> Cmd Msg
+pushTestUrlWithStep : Model -> Maybe String -> Maybe Int -> Cmd Msg
 pushTestUrlWithStep model maybeName maybeStep =
     Nav.pushUrl model.navKey (buildTestUrl model maybeName maybeStep)
 
@@ -649,11 +596,6 @@ update msg model =
                 stepIndex =
                     initialStepForTest model.tests clampedIndex
 
-                stepLabel =
-                    test
-                        |> Maybe.andThen (\t -> t.snapshots |> List.drop stepIndex |> List.head)
-                        |> Maybe.map .label
-
                 newSnapshots =
                     test |> Maybe.map .snapshots |> Maybe.withDefault []
             in
@@ -667,7 +609,7 @@ update msg model =
                 |> applyChannelActivity (channelActivity newSnapshots)
             , Cmd.batch
                 [ scrollToStep stepIndex
-                , pushTestUrlWithStep model testName (Maybe.map (\l -> ( stepIndex, l )) stepLabel)
+                , pushTestUrlWithStep model testName (Just stepIndex)
                 ]
             )
 
