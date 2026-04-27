@@ -14,7 +14,7 @@ import Form.Validation as Validation
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Keyed as Keyed
-import Html.Lazy exposing (lazy, lazy2)
+import Html.Lazy exposing (lazy, lazy2, lazy3)
 import Icon
 import Json.Decode as Decode
 import Json.Encode as Encode
@@ -64,7 +64,6 @@ type alias Model =
 type alias Entry =
     { description : String
     , completed : Bool
-    , isSaving : Bool
     , id : String
     }
 
@@ -94,7 +93,6 @@ toOptimisticTodo : Todo -> Entry
 toOptimisticTodo todo =
     { description = todo.description
     , completed = todo.completed
-    , isSaving = False
     , id = todo.id
     }
 
@@ -381,7 +379,6 @@ view app shared model =
                                     { description = description
                                     , completed = False
                                     , id = ""
-                                    , isSaving = True
                                     }
 
                             _ ->
@@ -422,6 +419,10 @@ view app shared model =
                     )
                 |> Dict.fromList
 
+        savingIds : Set String
+        savingIds =
+            Dict.keys togglingItems |> Set.fromList
+
         togglingAllTo : Maybe Bool
         togglingAllTo =
             pendingFetchers
@@ -452,7 +453,7 @@ view app shared model =
                                 Nothing ->
                                     case togglingItems |> Dict.get item.id of
                                         Just toggleTo ->
-                                            Just { item | completed = toggleTo, isSaving = True }
+                                            Just { item | completed = toggleTo }
 
                                         Nothing ->
                                             Just item
@@ -533,7 +534,7 @@ view app shared model =
                                         app
                             )
                     )
-                , viewEntries app optimisticVisibility optimisticEntities
+                , viewEntries app optimisticVisibility savingIds optimisticEntities
                 , viewControls app optimisticVisibility optimisticEntities
                 ]
             , infoFooter
@@ -719,8 +720,8 @@ clearCompletedForm =
 -- VIEW ALL ENTRIES
 
 
-viewEntries : App Data ActionData RouteParams -> Visibility -> List Entry -> Html (PagesMsg Msg)
-viewEntries app visibility entries =
+viewEntries : App Data ActionData RouteParams -> Visibility -> Set String -> List Entry -> Html (PagesMsg Msg)
+viewEntries app visibility savingIds entries =
     let
         isVisible todo =
             case visibility of
@@ -755,7 +756,7 @@ viewEntries app visibility entries =
                 )
                 app
         , Keyed.ul [ class "todo-list" ] <|
-            List.map (viewKeyedEntry app) (List.filter isVisible entries)
+            List.map (viewKeyedEntry app savingIds) (List.filter isVisible entries)
         ]
 
 
@@ -763,13 +764,17 @@ viewEntries app visibility entries =
 -- VIEW INDIVIDUAL ENTRIES
 
 
-viewKeyedEntry : App Data ActionData RouteParams -> Entry -> ( String, Html (PagesMsg Msg) )
-viewKeyedEntry app todo =
-    ( todo.id, lazy2 viewEntry app todo )
+viewKeyedEntry : App Data ActionData RouteParams -> Set String -> Entry -> ( String, Html (PagesMsg Msg) )
+viewKeyedEntry app savingIds todo =
+    let
+        isSaving =
+            todo.id == "" || Set.member todo.id savingIds
+    in
+    ( todo.id, lazy3 viewEntry app isSaving todo )
 
 
-viewEntry : App Data ActionData RouteParams -> Entry -> Html (PagesMsg Msg)
-viewEntry app todo =
+viewEntry : App Data ActionData RouteParams -> Bool -> Entry -> Html (PagesMsg Msg)
+viewEntry app isSaving todo =
     li
         [ classList
             [ ( "completed", todo.completed )
@@ -792,7 +797,7 @@ viewEntry app todo =
                         |> Pages.Form.withConcurrent
                     )
                     app
-            , if todo.isSaving then
+            , if isSaving then
                 LoadingSpinner.view
 
               else
