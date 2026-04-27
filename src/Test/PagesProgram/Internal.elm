@@ -6,6 +6,9 @@ module Test.PagesProgram.Internal exposing
     , unsafeCoerceHtmlList, crashNever
     , stillRunningDescription, requestDetailsFromRequests, requestToDetails, bodyToString
     , NetworkSource(..), fetcherToFormData, unsupportedPlatformEffectError
+    , done, toSnapshots
+    , Step(..)
+    , withinFindImpl, groupImpl
     )
 
 {-| Internal types used by the visual test runner (Viewer) and the
@@ -18,10 +21,14 @@ should not be relied upon by end users.
 @docs resolveDataPhase, mapViewToSnapshot, describeEffects, describeHttpRequest
 @docs unsafeCoerceHtmlList, crashNever
 @docs stillRunningDescription, requestDetailsFromRequests, requestToDetails, bodyToString
+@docs done, toSnapshots
+@docs Step
+@docs withinFindImpl, groupImpl
 
 -}
 
 import BackendTask exposing (BackendTask)
+import Expect
 import FatalError exposing (FatalError)
 import Form
 import Html exposing (Html)
@@ -33,12 +40,13 @@ import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.StaticHttp.Request as StaticHttpRequest
 import Test.BackendTask.Internal as BackendTaskTest
 import Test.Html.Query as Query
+import Test.Html.Selector
 import Test.PagesProgram.CookieJar as CookieJar exposing (CookieEntry)
 import Test.PagesProgram.SimulatedSub exposing (SimulatedSub)
 
 
 {-| Structured selector data used by the visual runner to highlight matching
-elements. Derived from the label string produced by `Test.Html.Query.has`'s
+elements. Derived from the label string produced by `Query.has`'s
 failure description.
 -}
 type AssertionSelector
@@ -598,3 +606,198 @@ bodyToString body =
 
         StaticHttpBody.MultipartBody _ _ ->
             Just "<multipart data>"
+
+
+{-| Internal: finalize a `ProgramTest` to an `Expect.Expectation`.
+
+Public callers go through `Test.PagesProgram.test` or
+`Test.PagesProgram.expect`. Exposed here so the framework's own meta
+tests can finalize chained `ProgramTest` values directly without
+threading them through a `List Step`.
+-}
+done : ProgramTest model msg -> Expect.Expectation
+done (ProgramTest state) =
+    case state.error of
+        Just msg ->
+            Expect.fail msg
+
+        Nothing ->
+            case state.phase of
+                Resolving (Resolver r) ->
+                    Expect.fail
+                        ("Test ended while BackendTask data is still resolving.\n\n"
+                            ++ r.pendingDescription
+                        )
+
+                Ready ready ->
+                    let
+                        modelError =
+                            ready.getModelError ready.model
+
+                        pendingEffectDescriptions =
+                            describeEffects ready.pendingEffects
+
+                        pendingFetcherDescriptions =
+                            state.pendingFetcherEffects
+                                |> List.map
+                                    (\(Resolver resolver) ->
+                                        resolver.pendingDescription
+                                    )
+
+                        allPendingDescriptions =
+                            pendingEffectDescriptions ++ pendingFetcherDescriptions
+
+                        pendingCount =
+                            List.length ready.pendingEffects + List.length state.pendingFetcherEffects
+                    in
+                    case modelError of
+                        Just errMsg ->
+                            Expect.fail errMsg
+
+                        Nothing ->
+                            if pendingCount == 0 then
+                                Expect.pass
+
+                            else
+                                let
+                                    descriptionText =
+                                        if List.isEmpty allPendingDescriptions then
+                                            ""
+
+                                        else
+                                            "\n\nPending:\n"
+                                                ++ (allPendingDescriptions
+                                                        |> List.map (\d -> "  - " ++ d)
+                                                        |> String.join "\n"
+                                                   )
+                                in
+                                Expect.fail
+                                    ("There are "
+                                        ++ String.fromInt pendingCount
+                                        ++ " pending BackendTask effect(s) or fetcher resolution(s) that must be resolved before ending the test."
+                                        ++ descriptionText
+                                    )
+
+
+{-| Internal: extract recorded snapshots from a `ProgramTest`. Appends
+an error snapshot if the pipeline encountered an error.
+-}
+toSnapshots : ProgramTest model msg -> List Snapshot
+toSnapshots (ProgramTest state) =
+    case state.error of
+        Just errorMsg ->
+            let
+                latestCookieLog : List ( String, CookieJar.CookieEntry )
+                latestCookieLog =
+                    state.snapshots
+                        |> List.reverse
+                        |> List.head
+                        |> Maybe.map .cookieLog
+                        |> Maybe.withDefault []
+            in
+            state.snapshots
+                ++ [ { label = "ERROR"
+                     , title = "Error"
+                     , body = [ Html.text errorMsg ]
+                     , rerender = \() -> { title = "Error", body = [ Html.text errorMsg ] }
+                     , hasPendingEffects = False
+                     , modelState = Nothing
+                     , stepKind = Error
+                     , browserUrl = Nothing
+                     , errorMessage = Just errorMsg
+                     , pendingEffects = []
+                     , networkLog = state.networkLog
+                     , targetElement = Nothing
+                     , assertionSelectors = []
+                     , scopeSelectors = []
+                     , fetcherLog = []
+                     , cookieLog = latestCookieLog
+                     , groupLabel = Nothing
+                     }
+                   ]
+
+        Nothing ->
+            state.snapshots
+
+
+{-| Internal: opaque step value. The constructor is exposed at the
+Internal level so `Test.PagesProgram` can build and unwrap `Step`
+values when assembling pipelines. End-user code only sees
+`Test.PagesProgram.Step` (the type alias) and never constructs or
+pattern-matches on it.
+-}
+type Step model msg
+    = Step (ProgramTest model msg -> ProgramTest model msg)
+
+
+{-| Internal: chainable `withinFind` implementation. Takes a closure
+mapping `ProgramTest -> ProgramTest`. Pre-computed `assertionSels` and
+`label` are passed in so this module doesn't have to depend on
+`Test.PagesProgram.SelectorLabel` (which depends on Internal).
+-}
+withinFindImpl : List Test.Html.Selector.Selector -> List AssertionSelector -> String -> (ProgramTest model msg -> ProgramTest model msg) -> ProgramTest model msg -> ProgramTest model msg
+withinFindImpl selectors assertionSels label action (ProgramTest state) =
+    case state.error of
+        Just _ ->
+            ProgramTest state
+
+        Nothing ->
+            case state.phase of
+                Resolving _ ->
+                    ProgramTest state
+
+                Ready ready ->
+                    let
+                        scopedReady =
+                            { ready
+                                | viewScope = ready.viewScope >> Query.find selectors
+                                , scopeLabels = ready.scopeLabels ++ [ label ]
+                                , scopeSelectors = ready.scopeSelectors ++ [ assertionSels ]
+                            }
+
+                        scopedState =
+                            { state | phase = Ready scopedReady }
+
+                        (ProgramTest resultState) =
+                            action (ProgramTest scopedState)
+                    in
+                    ProgramTest
+                        { resultState
+                            | phase =
+                                case resultState.phase of
+                                    Ready resultReady ->
+                                        Ready { resultReady | viewScope = ready.viewScope, scopeLabels = ready.scopeLabels, scopeSelectors = ready.scopeSelectors }
+
+                                    other ->
+                                        other
+                        }
+
+
+{-| Internal: chainable `group` implementation.
+-}
+groupImpl : String -> (ProgramTest model msg -> ProgramTest model msg) -> ProgramTest model msg -> ProgramTest model msg
+groupImpl name pipeline (ProgramTest state) =
+    case state.error of
+        Just _ ->
+            ProgramTest state
+
+        Nothing ->
+            let
+                startIndex =
+                    List.length state.snapshots
+
+                (ProgramTest innerState) =
+                    pipeline (ProgramTest state)
+
+                updatedSnapshots =
+                    innerState.snapshots
+                        |> List.indexedMap
+                            (\i snap ->
+                                if i >= startIndex then
+                                    { snap | groupLabel = Just name }
+
+                                else
+                                    snap
+                            )
+            in
+            ProgramTest { innerState | snapshots = updatedSnapshots }

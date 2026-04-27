@@ -1,44 +1,40 @@
 module PlatformTests exposing (suite)
 
 import Json.Encode as Encode
-import Pages.StaticHttp.Request
-import RequestsAndPending
 import Test exposing (Test, describe, test)
-import Test.PagesProgram as PagesProgram
+import Test.BackendTask as BackendTaskTest
 import Test.Html.Selector as PSelector
+import Test.PagesProgram as PagesProgram
 import TestApp
 
 
 suite : Test
 suite =
-    describe "Platform-based tests"
-        [ test "renders index with shared layout" <|
+    describe "Hello example"
+        [ test "renders the message fetched from example.com" <|
             \() ->
-                TestApp.start "/" mockData
-                    |> PagesProgram.ensureViewHas
+                PagesProgram.expect (TestApp.start "/" BackendTaskTest.init)
+                    [ PagesProgram.simulateHttpGet
+                        "https://example.com/message"
+                        (Encode.object
+                            [ ( "message", Encode.string "This is my message!!" ) ]
+                        )
+                    , PagesProgram.ensureViewHas
                         [ PSelector.text "elm-pages is up and running!"
                         , PSelector.text "The message is: This is my message!!"
                         ]
-                    |> PagesProgram.done
-        , test "shared layout buttons work" <|
+                    ]
+        , test "links to the blog post" <|
             \() ->
-                TestApp.start "/" mockData
-                    |> PagesProgram.ensureViewHas [ PSelector.text "Open Menu" ]
-                    |> PagesProgram.clickButton "Open Menu"
-                    |> PagesProgram.ensureViewHas [ PSelector.text "Close Menu" ]
-                    |> PagesProgram.clickButton "Close Menu"
-                    |> PagesProgram.ensureViewHas [ PSelector.text "Open Menu" ]
-                    |> PagesProgram.done
+                PagesProgram.expect (TestApp.start "/" BackendTaskTest.init)
+                    [ PagesProgram.simulateHttpGet
+                        "https://example.com/message"
+                        (Encode.object
+                            [ ( "message", Encode.string "Hello!" ) ]
+                        )
+                    , PagesProgram.ensureViewHas
+                        [ PSelector.tag "a"
+                        , PSelector.text "My blog post"
+                        ]
+                    ]
         ]
-
-
-mockData : Pages.StaticHttp.Request.Request -> Maybe RequestsAndPending.Response
-mockData request =
-    RequestsAndPending.Response Nothing
-        (RequestsAndPending.JsonBody
-            (Encode.object
-                [ ( "message", Encode.string "This is my message!!" )
-                ]
-            )
-        )
-        |> Just

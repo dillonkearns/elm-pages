@@ -393,13 +393,18 @@ import Test.PagesProgram.CookieJar as CookieJar
 import Time
 
 
-{-| Type alias for framework-driven test values. Use this in type annotations
-so the visual test runner can discover your tests:
+{-| Type alias for framework-driven test values. Use this when binding
+the starting \`ProgramTest\` for a test:
 
-    myTest : TestApp.ProgramTest
-    myTest =
+    startCounter : TestApp.ProgramTest
+    startCounter =
         TestApp.start "/" testSetup
-            |> PagesProgram.ensureViewHas [ ... ]
+
+    suite : PagesProgram.Test
+    suite =
+        PagesProgram.test "loads"
+            startCounter
+            [ PagesProgram.ensureViewHas [ ... ] ]
 
 The \`virtualFs\` field is the expanded shape of the framework-internal
 virtual filesystem + environment record. Users don't read or construct
@@ -437,12 +442,13 @@ framework behavior works identically to production.
 Use Test.BackendTask.init to set up the virtual filesystem, then pass
 it alongside the initial path:
 
-    TestApp.start "/"
-        (BackendTaskTest.init
-            |> BackendTaskTest.withFile "greeting.txt" "Hello!"
+    PagesProgram.expect
+        (TestApp.start "/"
+            (BackendTaskTest.init
+                |> BackendTaskTest.withFile "greeting.txt" "Hello!"
+            )
         )
-        |> PagesProgram.ensureViewHas [ Selector.text "Hello!" ]
-        |> PagesProgram.done
+        [ PagesProgram.ensureViewHas [ Selector.text "Hello!" ] ]
 
 -}
 start initialPath testSetup =

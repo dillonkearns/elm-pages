@@ -158,6 +158,13 @@ port gotBatchSub : (List { key : String, json : Json.Decode.Value, bytes : Maybe
 /**
  * Generate a ScriptMain.elm that runs named TUI tests through the
  * interactive terminal stepper.
+ *
+ * Public-API contract: the generated module MUST only import
+ * `Test.Tui` (public, via elm.json exposed-modules) plus the user's
+ * own test module. Reaching into `Test.Tui.Internal` from generated
+ * code is not allowed - snapshot consumption goes through the public
+ * `Test.Tui.toNamedSnapshots` surface.
+ *
  * @param {string} moduleName
  * @param {string[]} tuiTestValues - names of exposed `Test.Tui.Test` values
  */

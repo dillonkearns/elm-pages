@@ -46,39 +46,45 @@ suite =
     describe "Blog"
             [ test "loads and displays posts from API" <|
                 \() ->
-                    blogApp
-                        |> PagesProgram.simulateHttpGet
+                    PagesProgram.expect
+                        (blogApp
+                        )
+                        [ PagesProgram.simulateHttpGet
                             "https://api.example.com/posts"
                             samplePosts
-                    |> PagesProgram.ensureViewHas [ PSelector.tag "h1", PSelector.text "Blog" ]
-                    |> PagesProgram.ensureViewHas [ PSelector.text "Getting Started with Elm" ]
-                    |> PagesProgram.ensureViewHas [ PSelector.text "BackendTask Deep Dive" ]
-                    |> PagesProgram.ensureViewHas [ PSelector.text "Testing Elm Apps" ]
-                    |> PagesProgram.ensureViewHas [ PSelector.text "by Dillon Kearns" ]
-                    |> PagesProgram.done
+                        , PagesProgram.ensureViewHas [ PSelector.tag "h1", PSelector.text "Blog" ]
+                        , PagesProgram.ensureViewHas [ PSelector.text "Getting Started with Elm" ]
+                        , PagesProgram.ensureViewHas [ PSelector.text "BackendTask Deep Dive" ]
+                        , PagesProgram.ensureViewHas [ PSelector.text "Testing Elm Apps" ]
+                        , PagesProgram.ensureViewHas [ PSelector.text "by Dillon Kearns" ]
+                        ]
             , test "clicking Show GitHub Stars fetches and displays count" <|
                 \() ->
-                    blogApp
-                        |> PagesProgram.simulateHttpGet
+                    PagesProgram.expect
+                        (blogApp
+                        )
+                        [ PagesProgram.simulateHttpGet
                             "https://api.example.com/posts"
                             samplePosts
-                    |> PagesProgram.ensureViewHas [ PSelector.text "Show GitHub Stars" ]
-                    |> PagesProgram.clickButton "Show GitHub Stars"
-                    |> PagesProgram.simulateHttpGet
+                        , PagesProgram.ensureViewHas [ PSelector.text "Show GitHub Stars" ]
+                        , PagesProgram.clickButton "Show GitHub Stars"
+                        , PagesProgram.simulateHttpGet
                         "https://api.github.com/repos/dillonkearns/elm-pages"
                         (Encode.object [ ( "stargazers_count", Encode.int 4200 ) ])
-                    |> PagesProgram.ensureViewHasNot [ PSelector.text "Show GitHub Stars" ]
-                    |> PagesProgram.ensureViewHas [ PSelector.text "elm-pages has 4200 stars" ]
-                    |> PagesProgram.done
+                        , PagesProgram.ensureViewHasNot [ PSelector.text "Show GitHub Stars" ]
+                        , PagesProgram.ensureViewHas [ PSelector.text "elm-pages has 4200 stars" ]
+                        ]
             , test "posts render with author attribution" <|
                 \() ->
-                    blogApp
-                        |> PagesProgram.simulateHttpGet
+                    PagesProgram.expect
+                        (blogApp
+                        )
+                        [ PagesProgram.simulateHttpGet
                             "https://api.example.com/posts"
                             (Encode.list identity
                             [ post "My Post" "Jane Doe" "A great post." ]
                         )
-                    |> PagesProgram.ensureViewHas [ PSelector.text "My Post" ]
-                    |> PagesProgram.ensureViewHas [ PSelector.class "author", PSelector.text "by Jane Doe" ]
-                    |> PagesProgram.done
+                        , PagesProgram.ensureViewHas [ PSelector.text "My Post" ]
+                        , PagesProgram.ensureViewHas [ PSelector.class "author", PSelector.text "by Jane Doe" ]
+                        ]
         ]

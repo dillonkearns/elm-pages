@@ -12,21 +12,24 @@ These build on [`TuiTest.ensureModel`](Test-Tui#ensureModel) to query
 the opaque `FrameworkModel` for focus, selection, and scroll state — no
 need to render debug info in your view or parse the screen output.
 
+Each helper returns a `List` of [`Test.Tui.Step`](Test-Tui#Step) values
+so it composes with `++` against the rest of your scenario:
+
     import Tui.Layout.Test as LayoutTest
 
-    test "Tab moves focus to diff pane" <|
-        \() ->
-            myApp
-                |> TuiTest.pressKeyWith { key = Tui.Sub.Tab, modifiers = [] }
-                |> LayoutTest.ensureFocusedPane "diff"
-                |> TuiTest.expectRunning
+    TuiTest.test "Tab moves focus to diff pane"
+        myApp
+        ([ TuiTest.pressKeyWith { key = Tui.Sub.Tab, modifiers = [] } ]
+            ++ LayoutTest.ensureFocusedPane "diff"
+            ++ [ TuiTest.expectRunning ]
+        )
 
-    test "j navigates to third commit" <|
-        \() ->
-            myApp
-                |> TuiTest.pressKeyN 2 'j'
-                |> LayoutTest.ensureSelectedIndex "commits" 2
-                |> TuiTest.expectRunning
+    TuiTest.test "j navigates to third commit"
+        myApp
+        ([ TuiTest.pressKeyN 2 'j' ]
+            ++ LayoutTest.ensureSelectedIndex "commits" 2
+            ++ [ TuiTest.expectRunning ]
+        )
 
 
 ## Layout State
@@ -56,15 +59,14 @@ import Tui.Sub
 
 {-| Assert which pane is currently focused.
 
-    test |> LayoutTest.ensureFocusedPane "commits"
+    LayoutTest.ensureFocusedPane "commits"
 
 -}
 ensureFocusedPane :
     String
-    -> TuiTest.TuiTest (Layout.FrameworkModel model msg) (Layout.FrameworkMsg msg)
-    -> TuiTest.TuiTest (Layout.FrameworkModel model msg) (Layout.FrameworkMsg msg)
+    -> List (TuiTest.Step (Layout.FrameworkModel model msg) (Layout.FrameworkMsg msg))
 ensureFocusedPane expectedPaneId =
-    TuiTest.ensureModel
+    [ TuiTest.ensureModel
         (\frameworkModel ->
             let
                 actual : Maybe String
@@ -88,21 +90,21 @@ ensureFocusedPane expectedPaneId =
                            )
                     )
         )
-        >> TuiTest.annotateAssertion ("ensureFocusedPane \"" ++ expectedPaneId ++ "\" ✓")
+    , TuiTest.annotateAssertion ("ensureFocusedPane \"" ++ expectedPaneId ++ "\" ✓")
+    ]
 
 
 {-| Assert the selected index for a pane.
 
-    test |> LayoutTest.ensureSelectedIndex "commits" 3
+    LayoutTest.ensureSelectedIndex "commits" 3
 
 -}
 ensureSelectedIndex :
     String
     -> Int
-    -> TuiTest.TuiTest (Layout.FrameworkModel model msg) (Layout.FrameworkMsg msg)
-    -> TuiTest.TuiTest (Layout.FrameworkModel model msg) (Layout.FrameworkMsg msg)
+    -> List (TuiTest.Step (Layout.FrameworkModel model msg) (Layout.FrameworkMsg msg))
 ensureSelectedIndex paneId expectedIndex =
-    TuiTest.ensureModel
+    [ TuiTest.ensureModel
         (\frameworkModel ->
             let
                 actual : Int
@@ -122,21 +124,21 @@ ensureSelectedIndex paneId expectedIndex =
                         ++ String.fromInt actual
                     )
         )
-        >> TuiTest.annotateAssertion ("ensureSelectedIndex \"" ++ paneId ++ "\" " ++ String.fromInt expectedIndex ++ " ✓")
+    , TuiTest.annotateAssertion ("ensureSelectedIndex \"" ++ paneId ++ "\" " ++ String.fromInt expectedIndex ++ " ✓")
+    ]
 
 
 {-| Assert the scroll position for a pane.
 
-    test |> LayoutTest.ensureScrollPosition "docs" 0
+    LayoutTest.ensureScrollPosition "docs" 0
 
 -}
 ensureScrollPosition :
     String
     -> Int
-    -> TuiTest.TuiTest (Layout.FrameworkModel model msg) (Layout.FrameworkMsg msg)
-    -> TuiTest.TuiTest (Layout.FrameworkModel model msg) (Layout.FrameworkMsg msg)
+    -> List (TuiTest.Step (Layout.FrameworkModel model msg) (Layout.FrameworkMsg msg))
 ensureScrollPosition paneId expectedOffset =
-    TuiTest.ensureModel
+    [ TuiTest.ensureModel
         (\frameworkModel ->
             let
                 actual : Int
@@ -156,7 +158,8 @@ ensureScrollPosition paneId expectedOffset =
                         ++ String.fromInt actual
                     )
         )
-        >> TuiTest.annotateAssertion ("ensureScrollPosition \"" ++ paneId ++ "\" " ++ String.fromInt expectedOffset ++ " ✓")
+    , TuiTest.annotateAssertion ("ensureScrollPosition \"" ++ paneId ++ "\" " ++ String.fromInt expectedOffset ++ " ✓")
+    ]
 
 
 {-| Assert that a pane's rendered content contains the given text. Only
@@ -165,18 +168,16 @@ searches within the pane's border — text in other panes won't match.
 The first argument is the pane **title** as it appears on screen (e.g.
 `"Commits"`, not the pane ID `"commits"`).
 
-    test
-        |> LayoutTest.ensurePaneHas "Commits" "abc123"
-        |> LayoutTest.ensurePaneDoesNotHave "Diff" "abc123"
+    LayoutTest.ensurePaneHas "Commits" "abc123"
+        ++ LayoutTest.ensurePaneDoesNotHave "Diff" "abc123"
 
 -}
 ensurePaneHas :
     String
     -> String
-    -> TuiTest.TuiTest (Layout.FrameworkModel model msg) (Layout.FrameworkMsg msg)
-    -> TuiTest.TuiTest (Layout.FrameworkModel model msg) (Layout.FrameworkMsg msg)
+    -> List (TuiTest.Step (Layout.FrameworkModel model msg) (Layout.FrameworkMsg msg))
 ensurePaneHas paneTitle needle =
-    TuiTest.ensureView
+    [ TuiTest.ensureView
         (\screenText ->
             let
                 paneText : String
@@ -204,22 +205,22 @@ ensurePaneHas paneTitle needle =
                         ++ indentText paneText
                     )
         )
-        >> TuiTest.annotateAssertion ("ensurePaneHas \"" ++ paneTitle ++ "\" \"" ++ needle ++ "\" ✓")
+    , TuiTest.annotateAssertion ("ensurePaneHas \"" ++ paneTitle ++ "\" \"" ++ needle ++ "\" ✓")
+    ]
 
 
 {-| Assert that a pane's rendered content does NOT contain the given text.
 The first argument is the pane **title** as it appears on screen.
 
-    test |> LayoutTest.ensurePaneDoesNotHave "Diff" "Loading"
+    LayoutTest.ensurePaneDoesNotHave "Diff" "Loading"
 
 -}
 ensurePaneDoesNotHave :
     String
     -> String
-    -> TuiTest.TuiTest (Layout.FrameworkModel model msg) (Layout.FrameworkMsg msg)
-    -> TuiTest.TuiTest (Layout.FrameworkModel model msg) (Layout.FrameworkMsg msg)
+    -> List (TuiTest.Step (Layout.FrameworkModel model msg) (Layout.FrameworkMsg msg))
 ensurePaneDoesNotHave paneTitle needle =
-    TuiTest.ensureView
+    [ TuiTest.ensureView
         (\screenText ->
             let
                 paneText : String
@@ -247,21 +248,20 @@ ensurePaneDoesNotHave paneTitle needle =
             else
                 Expect.pass
         )
-        >> TuiTest.annotateAssertion ("ensurePaneDoesNotHave \"" ++ paneTitle ++ "\" \"" ++ needle ++ "\" ✓")
+    , TuiTest.annotateAssertion ("ensurePaneDoesNotHave \"" ++ paneTitle ++ "\" \"" ++ needle ++ "\" ✓")
+    ]
 
 
 {-| Assert on the user model inside a `FrameworkModel`. Use this when you
 need to check domain-specific state that isn't part of the layout framework.
 
-    test
-        |> LayoutTest.ensureUserModel
-            (\model -> Expect.equal "abc123" model.selectedCommit)
+    LayoutTest.ensureUserModel
+        (\model -> Expect.equal "abc123" model.selectedCommit)
 
 -}
 ensureUserModel :
     (model -> Expect.Expectation)
-    -> TuiTest.TuiTest (Layout.FrameworkModel model msg) (Layout.FrameworkMsg msg)
-    -> TuiTest.TuiTest (Layout.FrameworkModel model msg) (Layout.FrameworkMsg msg)
+    -> TuiTest.Step (Layout.FrameworkModel model msg) (Layout.FrameworkMsg msg)
 ensureUserModel assertion =
     TuiTest.ensureModel
         (\frameworkModel ->

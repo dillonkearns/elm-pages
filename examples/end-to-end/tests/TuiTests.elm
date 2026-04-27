@@ -19,12 +19,12 @@ tuiTests : TuiTest.Test
 tuiTests =
     TuiTest.describe "Counter"
         [ TuiTest.test "increments and exits"
-            (counterApp
-                |> TuiTest.pressKey 'j'
-                |> TuiTest.ensureViewHas "Count: 1"
-                |> TuiTest.pressKey 'q'
-                |> TuiTest.expectExit
-            )
+            counterApp
+            [ TuiTest.pressKey 'j'
+            , TuiTest.ensureViewHas "Count: 1"
+            , TuiTest.pressKey 'q'
+            , TuiTest.expectExit
+            ]
         ]
 
 

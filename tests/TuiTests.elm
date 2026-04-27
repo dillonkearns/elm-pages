@@ -431,86 +431,108 @@ suite =
         , describe "TuiTest - Counter"
             [ test "initial view shows count 0" <|
                 \() ->
-                    counterTest
-                        |> TuiTest.ensureViewHas "Count: 0"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                    TuiTest.expect
+                        (counterTest
+                        )
+                        [ TuiTest.ensureViewHas "Count: 0"
+                        , TuiTest.expectRunning
+                        ]
             , test "k increments" <|
                 \() ->
-                    counterTest
-                        |> TuiTest.pressKey 'k'
-                        |> TuiTest.ensureViewHas "Count: 1"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                    TuiTest.expect
+                        (counterTest
+                        )
+                        [ TuiTest.pressKey 'k'
+                        , TuiTest.ensureViewHas "Count: 1"
+                        , TuiTest.expectRunning
+                        ]
             , test "j decrements" <|
                 \() ->
-                    counterTest
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.ensureViewHas "Count: -1"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                    TuiTest.expect
+                        (counterTest
+                        )
+                        [ TuiTest.pressKey 'j'
+                        , TuiTest.ensureViewHas "Count: -1"
+                        , TuiTest.expectRunning
+                        ]
             , test "multiple key presses accumulate" <|
                 \() ->
-                    counterTest
-                        |> TuiTest.pressKey 'k'
-                        |> TuiTest.pressKey 'k'
-                        |> TuiTest.pressKey 'k'
-                        |> TuiTest.ensureViewHas "Count: 3"
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.ensureViewHas "Count: 2"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                    TuiTest.expect
+                        (counterTest
+                        )
+                        [ TuiTest.pressKey 'k'
+                        , TuiTest.pressKey 'k'
+                        , TuiTest.pressKey 'k'
+                        , TuiTest.ensureViewHas "Count: 3"
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.ensureViewHas "Count: 2"
+                        , TuiTest.expectRunning
+                        ]
             , test "q exits" <|
                 \() ->
-                    counterTest
-                        |> TuiTest.pressKey 'k'
-                        |> TuiTest.pressKey 'q'
-                        |> TuiTest.expectExit
-                        |> TuiTest.done
+                    TuiTest.expect
+                        (counterTest
+                        )
+                        [ TuiTest.pressKey 'k'
+                        , TuiTest.pressKey 'q'
+                        , TuiTest.expectExit
+                        ]
             , test "Escape exits" <|
                 \() ->
-                    counterTest
-                        |> TuiTest.pressKeyWith
+                    TuiTest.expect
+                        (counterTest
+                        )
+                        [ TuiTest.pressKeyWith
                             { key = Tui.Sub.Escape, modifiers = [] }
-                        |> TuiTest.expectExit
-                        |> TuiTest.done
+                        , TuiTest.expectExit
+                        ]
             , test "arrow keys work" <|
                 \() ->
-                    counterTest
-                        |> TuiTest.pressKeyWith
+                    TuiTest.expect
+                        (counterTest
+                        )
+                        [ TuiTest.pressKeyWith
                             { key = Tui.Sub.Arrow Tui.Sub.Up, modifiers = [] }
-                        |> TuiTest.ensureViewHas "Count: 1"
-                        |> TuiTest.pressKeyWith
+                        , TuiTest.ensureViewHas "Count: 1"
+                        , TuiTest.pressKeyWith
                             { key = Tui.Sub.Arrow Tui.Sub.Down, modifiers = [] }
-                        |> TuiTest.ensureViewHas "Count: 0"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.ensureViewHas "Count: 0"
+                        , TuiTest.expectRunning
+                        ]
             , test "unsubscribed keys are ignored" <|
                 \() ->
-                    counterTest
-                        |> TuiTest.pressKey 'x'
-                        |> TuiTest.ensureViewHas "Count: 0"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                    TuiTest.expect
+                        (counterTest
+                        )
+                        [ TuiTest.pressKey 'x'
+                        , TuiTest.ensureViewHas "Count: 0"
+                        , TuiTest.expectRunning
+                        ]
             , test "resize updates context in view (framework-managed)" <|
                 \() ->
-                    counterTest
-                        |> TuiTest.resize { width = 120, height = 40 }
-                        |> TuiTest.ensureViewHas "120×40"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                    TuiTest.expect
+                        (counterTest
+                        )
+                        [ TuiTest.resize { width = 120, height = 40 }
+                        , TuiTest.ensureViewHas "120×40"
+                        , TuiTest.expectRunning
+                        ]
             , test "ensureViewDoesNotHave passes when text is absent" <|
                 \() ->
-                    counterTest
-                        |> TuiTest.ensureViewDoesNotHave "Error"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                    TuiTest.expect
+                        (counterTest
+                        )
+                        [ TuiTest.ensureViewDoesNotHave "Error"
+                        , TuiTest.expectRunning
+                        ]
             , test "ensureViewDoesNotHave fails when text is present" <|
                 \() ->
-                    counterTest
-                        |> TuiTest.ensureViewDoesNotHave "Count:"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                    TuiTest.expect
+                        (counterTest
+                        )
+                        [ TuiTest.ensureViewDoesNotHave "Count:"
+                        , TuiTest.expectRunning
+                        ]
                         |> (\result ->
                                 case result of
                                     -- We expect this to fail
@@ -522,33 +544,41 @@ suite =
         , describe "TuiTest - onResize"
             [ test "startWithContext routes initial context through subscriptions" <|
                 \() ->
-                    contextTest False { width = 120, height = 40, colorProfile = Tui.TrueColor }
-                        |> TuiTest.ensureViewHas "Stored: 120×40"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                    TuiTest.expect
+                        (contextTest False { width = 120, height = 40, colorProfile = Tui.TrueColor }
+                        )
+                        [ TuiTest.ensureViewHas "Stored: 120×40"
+                        , TuiTest.expectRunning
+                        ]
             , test "resize routes context through subscriptions" <|
                 \() ->
-                    contextTest False { width = 80, height = 24, colorProfile = Tui.TrueColor }
-                        |> TuiTest.resize { width = 120, height = 40 }
-                        |> TuiTest.ensureViewHas "Stored: 120×40"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                    TuiTest.expect
+                        (contextTest False { width = 80, height = 24, colorProfile = Tui.TrueColor }
+                        )
+                        [ TuiTest.resize { width = 120, height = 40 }
+                        , TuiTest.ensureViewHas "Stored: 120×40"
+                        , TuiTest.expectRunning
+                        ]
             , test "startWithContext keeps effects returned from initial context update" <|
                 \() ->
-                    contextTest True { width = 120, height = 40, colorProfile = Tui.TrueColor }
-                        |> TuiTest.resolveEffect
-                        |> TuiTest.ensureViewHas "Effect: 120×40"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                    TuiTest.expect
+                        (contextTest True { width = 120, height = 40, colorProfile = Tui.TrueColor }
+                        )
+                        [ TuiTest.resolveEffect
+                        , TuiTest.ensureViewHas "Effect: 120×40"
+                        , TuiTest.expectRunning
+                        ]
             , test "resize keeps effects returned from context update" <|
                 \() ->
-                    contextTest True { width = 80, height = 24, colorProfile = Tui.TrueColor }
-                        |> TuiTest.resolveEffect
-                        |> TuiTest.resize { width = 120, height = 40 }
-                        |> TuiTest.resolveEffect
-                        |> TuiTest.ensureViewHas "Effect: 120×40"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                    TuiTest.expect
+                        (contextTest True { width = 80, height = 24, colorProfile = Tui.TrueColor }
+                        )
+                        [ TuiTest.resolveEffect
+                        , TuiTest.resize { width = 120, height = 40 }
+                        , TuiTest.resolveEffect
+                        , TuiTest.ensureViewHas "Effect: 120×40"
+                        , TuiTest.expectRunning
+                        ]
             ]
         , describe "Tui.Sub.Internal.decodeRawEvent"
             [ test "decodes keypress events" <|
@@ -588,106 +618,119 @@ suite =
         , describe "TuiTest - Stars (BackendTask Effects)"
             [ test "initial view shows default repo and prompt" <|
                 \() ->
-                    starsTest
-                        |> TuiTest.ensureViewHas "dillonkearns/elm-pages"
-                        |> TuiTest.ensureViewHas "Press Enter to fetch"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                    TuiTest.expect
+                        (starsTest
+                        )
+                        [ TuiTest.ensureViewHas "dillonkearns/elm-pages"
+                        , TuiTest.ensureViewHas "Press Enter to fetch"
+                        , TuiTest.expectRunning
+                        ]
             , test "typing clears results and updates input" <|
                 \() ->
-                    starsTest
-                        -- clear default input
-                        |> repeatN 22 (TuiTest.pressKeyWith { key = Tui.Sub.Backspace, modifiers = [] })
-                        |> TuiTest.pressKey 'f'
-                        |> TuiTest.pressKey 'o'
-                        |> TuiTest.pressKey 'o'
-                        |> TuiTest.ensureViewHas "Repo: foo"
-                        |> TuiTest.ensureViewDoesNotHave "dillonkearns"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                    TuiTest.expect starsTest
+                        (-- clear default input
+                         repeatN 22 (TuiTest.pressKeyWith { key = Tui.Sub.Backspace, modifiers = [] })
+                            ++ [ TuiTest.pressKey 'f'
+                               , TuiTest.pressKey 'o'
+                               , TuiTest.pressKey 'o'
+                               , TuiTest.ensureViewHas "Repo: foo"
+                               , TuiTest.ensureViewDoesNotHave "dillonkearns"
+                               , TuiTest.expectRunning
+                               ]
+                        )
             , test "Enter triggers loading state" <|
                 \() ->
-                    starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
-                        |> TuiTest.ensureViewHas "Loading..."
-                        |> TuiTest.resolveEffectWith
+                    TuiTest.expect
+                        (starsTest
+                        )
+                        [ TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
+                        , TuiTest.ensureViewHas "Loading..."
+                        , TuiTest.resolveEffectWith
                             (BackendTaskTest.simulateHttpGet
                                 "https://api.github.com/repos/dillonkearns/elm-pages"
                                 (Encode.object [ ( "stargazers_count", Encode.int 0 ) ])
                             )
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.expectRunning
+                        ]
             , test "simulating BackendTask result shows stars" <|
                 \() ->
-                    starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
-                        |> TuiTest.ensureViewHas "Loading..."
-                        |> TuiTest.resolveEffectWith
+                    TuiTest.expect
+                        (starsTest
+                        )
+                        [ TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
+                        , TuiTest.ensureViewHas "Loading..."
+                        , TuiTest.resolveEffectWith
                             (BackendTaskTest.simulateHttpGet
                                 "https://api.github.com/repos/dillonkearns/elm-pages"
                                 (Encode.object [ ( "stargazers_count", Encode.int 1234 ) ])
                             )
-                        |> TuiTest.ensureViewHas "Stars: 1234"
-                        |> TuiTest.ensureViewDoesNotHave "Loading"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.ensureViewHas "Stars: 1234"
+                        , TuiTest.ensureViewDoesNotHave "Loading"
+                        , TuiTest.expectRunning
+                        ]
             , test "simulating BackendTask error shows error" <|
                 \() ->
-                    starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
-                        |> TuiTest.resolveEffectWith
+                    TuiTest.expect
+                        (starsTest
+                        )
+                        [ TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
+                        , TuiTest.resolveEffectWith
                             (BackendTaskTest.simulateHttpError
                                 "GET"
                                 "https://api.github.com/repos/dillonkearns/elm-pages"
                                 BackendTaskTest.NetworkError
                             )
-                        |> TuiTest.ensureViewHas "Request failed"
-                        |> TuiTest.ensureViewDoesNotHave "Loading"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.ensureViewHas "Request failed"
+                        , TuiTest.ensureViewDoesNotHave "Loading"
+                        , TuiTest.expectRunning
+                        ]
             , test "typing after results clears them" <|
                 \() ->
-                    starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
-                        |> TuiTest.resolveEffectWith
+                    TuiTest.expect
+                        (starsTest
+                        )
+                        [ TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
+                        , TuiTest.resolveEffectWith
                             (BackendTaskTest.simulateHttpGet
                                 "https://api.github.com/repos/dillonkearns/elm-pages"
                                 (Encode.object [ ( "stargazers_count", Encode.int 999 ) ])
                             )
-                        |> TuiTest.ensureViewHas "Stars: 999"
+                        , TuiTest.ensureViewHas "Stars: 999"
                         -- Now type something — results should clear
-                        |> TuiTest.pressKey 'x'
-                        |> TuiTest.ensureViewDoesNotHave "Stars:"
-                        |> TuiTest.ensureViewHas "Press Enter to fetch"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.pressKey 'x'
+                        , TuiTest.ensureViewDoesNotHave "Stars:"
+                        , TuiTest.ensureViewHas "Press Enter to fetch"
+                        , TuiTest.expectRunning
+                        ]
             , test "full flow: type, fetch, see result, edit, fetch again" <|
                 \() ->
-                    starsTest
-                        |> repeatN 22 (TuiTest.pressKeyWith { key = Tui.Sub.Backspace, modifiers = [] })
-                        |> typeString "elm/core"
-                        |> TuiTest.ensureViewHas "Repo: elm/core"
-                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
-                        |> TuiTest.ensureViewHas "Loading..."
-                        |> TuiTest.resolveEffectWith
-                            (BackendTaskTest.simulateHttpGet
-                                "https://api.github.com/repos/elm/core"
-                                (Encode.object [ ( "stargazers_count", Encode.int 7500 ) ])
-                            )
-                        |> TuiTest.ensureViewHas "Stars: 7500"
-                        -- Edit: remove "core" (4 chars) and type "compiler"
-                        |> repeatN 4 (TuiTest.pressKeyWith { key = Tui.Sub.Backspace, modifiers = [] })
-                        |> typeString "compiler"
-                        |> TuiTest.ensureViewHas "Repo: elm/compiler"
-                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
-                        |> TuiTest.resolveEffectWith
-                            (BackendTaskTest.simulateHttpGet
-                                "https://api.github.com/repos/elm/compiler"
-                                (Encode.object [ ( "stargazers_count", Encode.int 7800 ) ])
-                            )
-                        |> TuiTest.ensureViewHas "Stars: 7800"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                    TuiTest.expect starsTest
+                        (repeatN 22 (TuiTest.pressKeyWith { key = Tui.Sub.Backspace, modifiers = [] })
+                            ++ typeString "elm/core"
+                            ++ [ TuiTest.ensureViewHas "Repo: elm/core"
+                               , TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
+                               , TuiTest.ensureViewHas "Loading..."
+                               , TuiTest.resolveEffectWith
+                                    (BackendTaskTest.simulateHttpGet
+                                        "https://api.github.com/repos/elm/core"
+                                        (Encode.object [ ( "stargazers_count", Encode.int 7500 ) ])
+                                    )
+                               , TuiTest.ensureViewHas "Stars: 7500"
+                               ]
+                            -- Edit: remove "core" (4 chars) and type "compiler"
+                            ++ repeatN 4 (TuiTest.pressKeyWith { key = Tui.Sub.Backspace, modifiers = [] })
+                            ++ typeString "compiler"
+                            ++ [ TuiTest.ensureViewHas "Repo: elm/compiler"
+                               , TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
+                               , TuiTest.resolveEffectWith
+                                    (BackendTaskTest.simulateHttpGet
+                                        "https://api.github.com/repos/elm/compiler"
+                                        (Encode.object [ ( "stargazers_count", Encode.int 7800 ) ])
+                                    )
+                               , TuiTest.ensureViewHas "Stars: 7800"
+                               , TuiTest.expectRunning
+                               ]
+                        )
             ]
         , describe "Tui.Effect runtime processing"
             [ test "batched BackendTask effects keep the remaining effects after the first message" <|
@@ -703,43 +746,48 @@ suite =
         , describe "TuiTest - resolveEffect (Test.BackendTask integration)"
             [ test "resolveEffect with simulateHttpGet resolves the pending BackendTask" <|
                 \() ->
-                    starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
-                        |> TuiTest.ensureViewHas "Loading..."
-                        |> TuiTest.resolveEffectWith
+                    TuiTest.expect
+                        (starsTest
+                        )
+                        [ TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
+                        , TuiTest.ensureViewHas "Loading..."
+                        , TuiTest.resolveEffectWith
                             (BackendTaskTest.simulateHttpGet
                                 "https://api.github.com/repos/dillonkearns/elm-pages"
                                 (Encode.object [ ( "stargazers_count", Encode.int 1234 ) ])
                             )
-                        |> TuiTest.ensureViewHas "Stars: 1234"
-                        |> TuiTest.ensureViewDoesNotHave "Loading"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.ensureViewHas "Stars: 1234"
+                        , TuiTest.ensureViewDoesNotHave "Loading"
+                        , TuiTest.expectRunning
+                        ]
             , test "resolveEffect with different repo after editing" <|
                 \() ->
-                    starsTest
-                        |> repeatN 22 (TuiTest.pressKeyWith { key = Tui.Sub.Backspace, modifiers = [] })
-                        |> typeString "elm/core"
-                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
-                        |> TuiTest.resolveEffectWith
-                            (BackendTaskTest.simulateHttpGet
-                                "https://api.github.com/repos/elm/core"
-                                (Encode.object [ ( "stargazers_count", Encode.int 7500 ) ])
-                            )
-                        |> TuiTest.ensureViewHas "Stars: 7500"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                    TuiTest.expect starsTest
+                        (repeatN 22 (TuiTest.pressKeyWith { key = Tui.Sub.Backspace, modifiers = [] })
+                            ++ typeString "elm/core"
+                            ++ [ TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
+                               , TuiTest.resolveEffectWith
+                                    (BackendTaskTest.simulateHttpGet
+                                        "https://api.github.com/repos/elm/core"
+                                        (Encode.object [ ( "stargazers_count", Encode.int 7500 ) ])
+                                    )
+                               , TuiTest.ensureViewHas "Stars: 7500"
+                               , TuiTest.expectRunning
+                               ]
+                        )
             , test "resolveEffect fails gracefully with no pending effect" <|
                 \() ->
-                    starsTest
-                        -- Don't press Enter — no pending effect
-                        |> TuiTest.resolveEffectWith
+                    TuiTest.expect
+                        (starsTest
+                            -- Don't press Enter — no pending effect
+                        )
+                        [ TuiTest.resolveEffectWith
                             (BackendTaskTest.simulateHttpGet
                                 "https://api.github.com/repos/foo/bar"
                                 (Encode.int 0)
                             )
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.expectRunning
+                        ]
                         |> (\_ ->
                                 -- We expect this to fail with a helpful message
                                 Expect.pass
@@ -748,36 +796,44 @@ suite =
         , describe "TuiTest - error messages"
             [ test "expectRunning fails with helpful message when effects are pending" <|
                 \() ->
-                    starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
+                    TuiTest.expect
+                        (starsTest
+                        )
+                        [ TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         -- Don't resolve the HTTP effect
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.expectRunning
+                        ]
                         |> expectFailureContaining "pending BackendTask"
             , test "expectExit fails with helpful message when effects are pending" <|
                 \() ->
-                    starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
-                        |> TuiTest.expectExit
-                        |> TuiTest.done
+                    TuiTest.expect
+                        (starsTest
+                        )
+                        [ TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
+                        , TuiTest.expectExit
+                        ]
                         |> expectFailureContaining "pending BackendTask"
             , test "resolveEffect with no pending effect fails with helpful message" <|
                 \() ->
-                    starsTest
-                        -- Don't press Enter — no effect triggered
-                        |> TuiTest.resolveEffectWith
+                    TuiTest.expect
+                        (starsTest
+                            -- Don't press Enter — no effect triggered
+                        )
+                        [ TuiTest.resolveEffectWith
                             (BackendTaskTest.simulateHttpGet
                                 "https://api.github.com/repos/foo/bar"
                                 (Encode.int 0)
                             )
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.expectRunning
+                        ]
                         |> expectFailureContaining "No pending BackendTask"
             , test "expectRunning gives exact guidance for auto-resolvable effects" <|
                 \() ->
-                    contextTest True { width = 120, height = 40, colorProfile = Tui.TrueColor }
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                    TuiTest.expect
+                        (contextTest True { width = 120, height = 40, colorProfile = Tui.TrueColor }
+                        )
+                        [ TuiTest.expectRunning
+                        ]
                         |> expectFailureDescription
                             """There is 1 pending BackendTask effect that must be resolved before ending the test.
 
@@ -786,43 +842,53 @@ Use TuiTest.resolveEffect to run the next effect with the default Test.BackendTa
 Use TuiTest.resolveEffectWith when the effect needs custom simulation (for example HTTP, commands, or custom effects)."""
             , test "pressKey after exit fails with helpful message" <|
                 \() ->
-                    counterTest
-                        |> TuiTest.pressKey 'q'
-                        |> TuiTest.pressKey 'k'
-                        |> TuiTest.expectExit
-                        |> TuiTest.done
+                    TuiTest.expect
+                        (counterTest
+                        )
+                        [ TuiTest.pressKey 'q'
+                        , TuiTest.pressKey 'k'
+                        , TuiTest.expectExit
+                        ]
                         |> expectFailureContaining "the TUI has already exited"
             , test "resolveEffect with wrong URL surfaces Test.BackendTask error" <|
                 \() ->
-                    starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
-                        |> TuiTest.resolveEffectWith
+                    TuiTest.expect
+                        (starsTest
+                        )
+                        [ TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
+                        , TuiTest.resolveEffectWith
                             (BackendTaskTest.simulateHttpGet
                                 "https://WRONG-URL.com"
                                 (Encode.int 0)
                             )
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.expectRunning
+                        ]
                         |> expectFailureContaining "WRONG-URL"
             , test "ensureViewHas failure shows actual screen content" <|
                 \() ->
-                    counterTest
-                        |> TuiTest.ensureViewHas "this text is not on screen"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                    TuiTest.expect
+                        (counterTest
+                        )
+                        [ TuiTest.ensureViewHas "this text is not on screen"
+                        , TuiTest.expectRunning
+                        ]
                         |> expectFailureContaining "Count: 0"
             ]
         , describe "TuiTest - Snapshots"
             [ test "toSnapshots captures initial state" <|
                 \() ->
-                    counterTest
-                        |> TuiTest.toSnapshots
+                    TuiTest.snapshots
+                        (counterTest
+                        )
+                        []
                         |> List.length
                         |> Expect.equal 1
             , test "initial snapshot screen is a Screen (use Tui.Screen.toString to query)" <|
                 \() ->
-                    counterTest
-                        |> TuiTest.toSnapshots
+                    TuiTest.snapshots
+                        (counterTest
+                        )
+                        []
                         |> List.head
                         |> Maybe.map (.screen >> Tui.Screen.toString)
                         |> Maybe.withDefault ""
@@ -830,85 +896,96 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
                         |> Expect.equal True
             , test "initial snapshot label is init" <|
                 \() ->
-                    counterTest
-                        |> TuiTest.toSnapshots
+                    TuiTest.snapshots
+                        (counterTest
+                        )
+                        []
                         |> List.head
                         |> Maybe.map .label
                         |> Expect.equal (Just "init")
             , test "each pressKey adds a snapshot" <|
                 \() ->
-                    counterTest
-                        |> TuiTest.pressKey 'k'
-                        |> TuiTest.pressKey 'k'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.toSnapshots
+                    TuiTest.snapshots
+                        (counterTest
+                        )
+                        [ TuiTest.pressKey 'k'
+                        , TuiTest.pressKey 'k'
+                        , TuiTest.pressKey 'j'
+                        ]
                         |> List.length
                         |> Expect.equal 4
             , test "snapshots capture screen at each step" <|
                 \() ->
-                    let
-                        snapshots : List TuiTest.Snapshot
-                        snapshots =
-                            counterTest
-                                |> TuiTest.pressKey 'k'
-                                |> TuiTest.pressKey 'k'
-                                |> TuiTest.toSnapshots
-                    in
-                    snapshots
+                    TuiTest.snapshots counterTest
+                        [ TuiTest.pressKey 'k'
+                        , TuiTest.pressKey 'k'
+                        ]
                         |> List.map (.screen >> Tui.Screen.toString)
                         |> List.map (String.contains "Count: 0")
                         |> Expect.equal [ True, False, False ]
             , test "snapshots have descriptive labels" <|
                 \() ->
-                    counterTest
-                        |> TuiTest.pressKey 'k'
-                        |> TuiTest.pressKeyWith { key = Tui.Sub.Arrow Tui.Sub.Down, modifiers = [] }
-                        |> TuiTest.toSnapshots
+                    TuiTest.snapshots
+                        (counterTest
+                        )
+                        [ TuiTest.pressKey 'k'
+                        , TuiTest.pressKeyWith { key = Tui.Sub.Arrow Tui.Sub.Down, modifiers = [] }
+                        ]
                         |> List.map .label
                         |> Expect.equal [ "init", "pressKey 'k'", "pressKey Arrow Down" ]
             , test "snapshots track pending effects" <|
                 \() ->
-                    starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
-                        |> TuiTest.toSnapshots
+                    TuiTest.snapshots
+                        (starsTest
+                        )
+                        [ TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
+                        ]
                         |> List.map .hasPendingEffects
                         |> Expect.equal [ False, True ]
             , test "resolveEffect adds a snapshot" <|
                 \() ->
-                    starsTest
-                        |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
-                        |> TuiTest.resolveEffectWith
+                    TuiTest.snapshots
+                        (starsTest
+                        )
+                        [ TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
+                        , TuiTest.resolveEffectWith
                             (BackendTaskTest.simulateHttpGet
                                 "https://api.github.com/repos/dillonkearns/elm-pages"
                                 (Encode.object [ ( "stargazers_count", Encode.int 42 ) ])
                             )
-                        |> TuiTest.toSnapshots
+                        ]
                         |> List.length
                         |> Expect.equal 3
             , test "snapshots have no modelState by default" <|
                 \() ->
-                    counterTest
-                        |> TuiTest.pressKey 'k'
-                        |> TuiTest.toSnapshots
+                    TuiTest.snapshots
+                        (counterTest
+                        )
+                        [ TuiTest.pressKey 'k'
+                        ]
                         |> List.map .modelState
                         |> Expect.equal [ Nothing, Nothing ]
             , test "withModelToString captures model state at each step" <|
                 \() ->
-                    counterTest
-                        |> TuiTest.withModelToString Debug.toString
-                        |> TuiTest.pressKey 'k'
-                        |> TuiTest.toSnapshots
+                    TuiTest.snapshots
+                        (counterTest
+                        )
+                        [ TuiTest.withModelToString Debug.toString
+                        , TuiTest.pressKey 'k'
+                        ]
                         |> List.map .modelState
                         |> List.map (Maybe.withDefault "")
                         |> List.map (String.contains "count")
                         |> Expect.equal [ True, True ]
             , test "withModelToString shows changing values" <|
                 \() ->
-                    counterTest
-                        |> TuiTest.withModelToString Debug.toString
-                        |> TuiTest.pressKey 'k'
-                        |> TuiTest.pressKey 'k'
-                        |> TuiTest.toSnapshots
+                    TuiTest.snapshots
+                        (counterTest
+                        )
+                        [ TuiTest.withModelToString Debug.toString
+                        , TuiTest.pressKey 'k'
+                        , TuiTest.pressKey 'k'
+                        ]
                         |> List.filterMap .modelState
                         |> List.map (String.contains "count = 2")
                         |> Expect.equal [ False, False, True ]
@@ -916,70 +993,84 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
         , describe "TuiTest - everyMillis + advanceTime"
             [ test "advanceTime 0 fires nothing" <|
                 \() ->
-                    singleIntervalTickerTest 50
-                        |> TuiTest.advanceTime 0
-                        |> TuiTest.ensureModel
+                    TuiTest.expect
+                        (singleIntervalTickerTest 50
+                        )
+                        [ TuiTest.advanceTime 0
+                        , TuiTest.ensureModel
                             (\m -> m.ticks |> Expect.equal [])
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.expectRunning
+                        ]
             , test "advanceTime below one interval fires nothing" <|
                 \() ->
-                    singleIntervalTickerTest 50
-                        |> TuiTest.advanceTime 49
-                        |> TuiTest.ensureModel
+                    TuiTest.expect
+                        (singleIntervalTickerTest 50
+                        )
+                        [ TuiTest.advanceTime 49
+                        , TuiTest.ensureModel
                             (\m -> m.ticks |> Expect.equal [])
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.expectRunning
+                        ]
             , test "advanceTime exactly one interval fires once at the interval boundary" <|
                 \() ->
-                    singleIntervalTickerTest 50
-                        |> TuiTest.advanceTime 50
-                        |> TuiTest.ensureModel
+                    TuiTest.expect
+                        (singleIntervalTickerTest 50
+                        )
+                        [ TuiTest.advanceTime 50
+                        , TuiTest.ensureModel
                             (\m -> m.ticks |> Expect.equal [ ( 50, 50 ) ])
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.expectRunning
+                        ]
             , test "advanceTime three intervals fires three times at 50, 100, 150" <|
                 \() ->
-                    singleIntervalTickerTest 50
-                        |> TuiTest.advanceTime 150
-                        |> TuiTest.ensureModel
+                    TuiTest.expect
+                        (singleIntervalTickerTest 50
+                        )
+                        [ TuiTest.advanceTime 150
+                        , TuiTest.ensureModel
                             (\m ->
                                 m.ticks
                                     |> Expect.equal
                                         [ ( 50, 50 ), ( 50, 100 ), ( 50, 150 ) ]
                             )
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.expectRunning
+                        ]
             , test "consecutive advanceTime calls continue the clock forward" <|
                 \() ->
-                    singleIntervalTickerTest 50
-                        |> TuiTest.advanceTime 50
-                        |> TuiTest.advanceTime 50
-                        |> TuiTest.ensureModel
+                    TuiTest.expect
+                        (singleIntervalTickerTest 50
+                        )
+                        [ TuiTest.advanceTime 50
+                        , TuiTest.advanceTime 50
+                        , TuiTest.ensureModel
                             (\m ->
                                 m.ticks
                                     |> Expect.equal [ ( 50, 50 ), ( 50, 100 ) ]
                             )
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.expectRunning
+                        ]
             , test "Posix timestamp reaching a long elapsed window is correct" <|
                 \() ->
-                    singleIntervalTickerTest 1000
-                        |> TuiTest.advanceTime 5000
-                        |> TuiTest.ensureModel
+                    TuiTest.expect
+                        (singleIntervalTickerTest 1000
+                        )
+                        [ TuiTest.advanceTime 5000
+                        , TuiTest.ensureModel
                             (\m ->
                                 m.ticks
                                     |> List.map Tuple.second
                                     |> Expect.equal
                                         [ 1000, 2000, 3000, 4000, 5000 ]
                             )
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.expectRunning
+                        ]
             , test "multiple intervals fire independently at their own rates" <|
                 \() ->
-                    twoIntervalTickerTest 50 1000
-                        |> TuiTest.advanceTime 1000
-                        |> TuiTest.ensureModel
+                    TuiTest.expect
+                        (twoIntervalTickerTest 50 1000
+                        )
+                        [ TuiTest.advanceTime 1000
+                        , TuiTest.ensureModel
                             (\m ->
                                 Expect.all
                                     [ \_ ->
@@ -995,26 +1086,30 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
                                     ]
                                     ()
                             )
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.expectRunning
+                        ]
             , test "ticks across intervals arrive in chronological order" <|
                 \() ->
-                    twoIntervalTickerTest 50 100
-                        |> TuiTest.advanceTime 200
-                        |> TuiTest.ensureModel
+                    TuiTest.expect
+                        (twoIntervalTickerTest 50 100
+                        )
+                        [ TuiTest.advanceTime 200
+                        , TuiTest.ensureModel
                             (\m ->
                                 m.ticks
                                     |> List.map Tuple.second
                                     |> isSorted
                                     |> Expect.equal True
                             )
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.expectRunning
+                        ]
             , test "two subscriptions at the same interval both fire" <|
                 \() ->
-                    sameIntervalDualSubTest 1000
-                        |> TuiTest.advanceTime 1000
-                        |> TuiTest.ensureModel
+                    TuiTest.expect
+                        (sameIntervalDualSubTest 1000
+                        )
+                        [ TuiTest.advanceTime 1000
+                        , TuiTest.ensureModel
                             (\m ->
                                 Expect.all
                                     [ \_ -> m.primaryCount |> Expect.equal 1
@@ -1022,16 +1117,18 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
                                     ]
                                     ()
                             )
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.expectRunning
+                        ]
             , test "conditional subscription that returns Sub.none does not fire" <|
                 \() ->
-                    conditionalTickerTest
-                        |> TuiTest.advanceTime 500
-                        |> TuiTest.ensureModel
+                    TuiTest.expect
+                        (conditionalTickerTest
+                        )
+                        [ TuiTest.advanceTime 500
+                        , TuiTest.ensureModel
                             (\m -> m.ticks |> Expect.equal [])
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.expectRunning
+                        ]
             , test "non-positive everyMillis intervals are not scheduled" <|
                 \() ->
                     Tui.Sub.batch
@@ -1062,24 +1159,24 @@ tuiTests : TuiTest.Test
 tuiTests =
     TuiTest.describe "Tui"
         [ TuiTest.test "counter increments and exits"
-            (counterTest
-                |> TuiTest.pressKey 'j'
-                |> TuiTest.ensureViewHas "Count: 1"
-                |> TuiTest.pressKey 'q'
-                |> TuiTest.expectExit
-            )
+            counterTest
+            [ TuiTest.pressKey 'j'
+            , TuiTest.ensureViewHas "Count: 1"
+            , TuiTest.pressKey 'q'
+            , TuiTest.expectExit
+            ]
         , TuiTest.test "stars flow resolves effect"
-            (starsTest
-                |> TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
-                |> TuiTest.ensureViewHas "Loading..."
-                |> TuiTest.resolveEffectWith
-                    (BackendTaskTest.simulateHttpGet
-                        "https://api.github.com/repos/dillonkearns/elm-pages"
-                        (Encode.object [ ( "stargazers_count", Encode.int 7500 ) ])
-                    )
-                |> TuiTest.ensureViewHas "Stars: 7500"
-                |> TuiTest.expectRunning
-            )
+            starsTest
+            [ TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
+            , TuiTest.ensureViewHas "Loading..."
+            , TuiTest.resolveEffectWith
+                (BackendTaskTest.simulateHttpGet
+                    "https://api.github.com/repos/dillonkearns/elm-pages"
+                    (Encode.object [ ( "stargazers_count", Encode.int 7500 ) ])
+                )
+            , TuiTest.ensureViewHas "Stars: 7500"
+            , TuiTest.expectRunning
+            ]
         ]
 
 
@@ -1105,20 +1202,16 @@ plainStyle =
 
 {-| Apply a function N times.
 -}
-repeatN : Int -> (a -> a) -> a -> a
-repeatN n f val =
-    if n <= 0 then
-        val
-
-    else
-        repeatN (n - 1) f (f val)
+repeatN : Int -> a -> List a
+repeatN =
+    List.repeat
 
 
 {-| Type a string character by character.
 -}
-typeString : String -> TuiTest.TuiTest model msg -> TuiTest.TuiTest model msg
-typeString str tuiTest =
-    String.foldl (\c acc -> TuiTest.pressKey c acc) tuiTest str
+typeString : String -> List (TuiTest.Step model msg)
+typeString str =
+    String.toList str |> List.map TuiTest.pressKey
 
 
 {-| Helper: assert that an Expectation is a failure containing a substring.

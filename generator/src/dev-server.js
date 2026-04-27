@@ -369,6 +369,13 @@ export async function start(options) {
   }
 
   async function compileTestViewer() {
+    // Public-API contract: the generated TestViewer.elm below MUST only
+    // import modules listed in elm.json `exposed-modules` (currently
+    // Test.PagesProgram and Test.PagesProgram.Viewer) plus the user's own
+    // test modules. Reaching into Test.PagesProgram.Internal from generated
+    // code is not allowed - the migration to opaque `Step` was specifically
+    // designed so that snapshot consumption goes through the public
+    // `toNamedSnapshots` / `Viewer.app` surface.
     const { discoverProgramTestModules } = await import("./commands/shared.js");
     const { writeFileIfChanged, ensureDirSync } = await import(
       "./file-helpers.js"
@@ -377,10 +384,6 @@ export async function start(options) {
     const allTests = (await discoverProgramTestModules()).map(
       ({ moduleName, values }) => ({ moduleName, values })
     );
-
-    if (allTests.length === 0) {
-      return;
-    }
 
     // Generate TestViewer.elm
     const imports = allTests.map((t) => `import ${t.moduleName}`).join("\n");
@@ -392,6 +395,13 @@ export async function start(options) {
         )
       )
       .join("\n            , ");
+    const snapshotsExpr =
+      namedSnapshotExprs === ""
+        ? "[]"
+        : `(List.concat
+            [ ${namedSnapshotExprs}
+            ]
+        )`;
 
     const viewerElm = `module TestViewer exposing (main)
 
@@ -404,10 +414,7 @@ import Test.PagesProgram.Viewer as Viewer
 main : Program Viewer.Flags Viewer.Model Viewer.Msg
 main =
     Viewer.app
-        (List.concat
-            [ ${namedSnapshotExprs}
-            ]
-        )
+        ${snapshotsExpr}
 `;
 
     const testViewerDir = path.join(

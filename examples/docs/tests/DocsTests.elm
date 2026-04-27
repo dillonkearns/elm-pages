@@ -1,4 +1,4 @@
-module DocsTests exposing (suite, landingPageTest)
+module DocsTests exposing (suite, landingPageSnapshots)
 
 {-| End-to-end tests for the elm-pages docs site.
 
@@ -26,23 +26,158 @@ suite : PagesProgram.Test
 suite =
     PagesProgram.describe "elm-pages docs site"
         [ PagesProgram.describe "Landing page"
-            [ PagesProgram.test "renders the marquee headline" landingPageTest
-            , PagesProgram.test "links to the docs" landingPageHasNavToDocsTest
-            , PagesProgram.test "navigates from landing to docs" navigateLandingToDocsTest
+            [ PagesProgram.test "renders the marquee headline"
+                landingPageStart
+                landingPageSteps
+            , PagesProgram.test "links to the docs"
+                (TestApp.start "/" baseSetup)
+                [ PagesProgram.ensureViewHas
+                    [ Selector.tag "a"
+                    , Selector.containing [ Selector.text "Check out the Docs" ]
+                    ]
+                ]
+            , PagesProgram.test "navigates from landing to docs"
+                (TestApp.start "/" baseSetup)
+                [ PagesProgram.ensureViewHas
+                    [ Selector.text "Pull in typed Elm data to your pages" ]
+                , PagesProgram.clickLink "Check out the Docs"
+                , PagesProgram.ensureBrowserUrl
+                    (\url ->
+                        if String.contains "/docs" url then
+                            Expect.pass
+
+                        else
+                            Expect.fail ("Expected to be on a /docs URL, got: " ++ url)
+                    )
+                , PagesProgram.ensureViewHas [ Selector.text "What is elm-pages?" ]
+                ]
             ]
         , PagesProgram.describe "Blog"
-            [ PagesProgram.test "lists published posts" blogIndexListsPostsTest
-            , PagesProgram.test "renders a post page" blogPostRendersTest
-            , PagesProgram.test "hides drafts from the index" draftPostsHiddenFromIndexTest
+            [ PagesProgram.test "lists published posts"
+                (TestApp.start "/blog"
+                    (baseSetup
+                        |> withBlogPost
+                            { slug = "first-post"
+                            , title = "Hello, World"
+                            , description = "First post"
+                            , published = "2020-01-01"
+                            , body = """# Hello, World
+
+First body.
+"""
+                            }
+                        |> withBlogPost
+                            { slug = "second-post"
+                            , title = "Goodbye, World"
+                            , description = "Second post"
+                            , published = "2020-02-01"
+                            , body = """# Goodbye, World
+
+Second body.
+"""
+                            }
+                    )
+                )
+                [ PagesProgram.ensureViewHas [ Selector.text "Hello, World" ]
+                , PagesProgram.ensureViewHas [ Selector.text "Goodbye, World" ]
+                ]
+            , PagesProgram.test "renders a post page"
+                (TestApp.start "/blog/hello-world"
+                    (baseSetup
+                        |> withBlogPost
+                            { slug = "hello-world"
+                            , title = "Hello, World"
+                            , description = "First post"
+                            , published = "2020-01-01"
+                            , body = """# Hello, World
+
+This is the body of the post.
+"""
+                            }
+                    )
+                )
+                [ PagesProgram.ensureViewHas
+                    [ Selector.tag "h1", Selector.containing [ Selector.text "Hello, World" ] ]
+                , PagesProgram.ensureViewHas
+                    [ Selector.text "This is the body of the post." ]
+                ]
+            , PagesProgram.test "hides drafts from the index"
+                (TestApp.start "/blog"
+                    (baseSetup
+                        |> withBlogPost
+                            { slug = "published"
+                            , title = "Published Post"
+                            , description = "..."
+                            , published = "2020-01-01"
+                            , body = """# Published Post
+
+Body.
+"""
+                            }
+                        |> withDraftBlogPost
+                            { slug = "draft", title = "Draft Post", published = "2020-02-01" }
+                    )
+                )
+                [ PagesProgram.ensureViewHas [ Selector.text "Published Post" ]
+                , PagesProgram.ensureViewHasNot [ Selector.text "Draft Post" ]
+                ]
             ]
         , PagesProgram.describe "Docs"
-            [ PagesProgram.test "default section renders at /docs" docsLandingTest
-            , PagesProgram.test "navigates to a specific section" docsSectionNavigationTest
+            [ PagesProgram.test "default section renders at /docs"
+                (TestApp.start "/docs" baseSetup)
+                [ PagesProgram.ensureViewHas [ Selector.text "What is elm-pages?" ] ]
+            , PagesProgram.test "navigates to a specific section"
+                (TestApp.start "/docs/getting-started"
+                    (baseSetup
+                        |> withDocsSection 2
+                            "getting-started"
+                            """# Getting Started
+
+How to start.
+"""
+                    )
+                )
+                [ PagesProgram.ensureViewHas [ Selector.text "Getting Started" ] ]
             ]
         , PagesProgram.describe "Showcase"
-            [ PagesProgram.test "loads records from Airtable" showcaseLoadsFromAirtableTest
+            [ PagesProgram.test "loads records from Airtable"
+                (TestApp.start "/showcase"
+                    (baseSetup
+                        |> BackendTaskTest.withEnv "AIRTABLE_TOKEN" "test-token"
+                    )
+                )
+                [ PagesProgram.simulateHttpGet
+                    "https://api.airtable.com/v0/appDykQzbkQJAidjt/elm-pages%20showcase?maxRecords=100&view=Grid%202"
+                    airtableResponse
+                , PagesProgram.ensureViewHas [ Selector.text "My Cool Site" ]
+                , PagesProgram.ensureViewHas [ Selector.text "Jane Author" ]
+                ]
             ]
         ]
+
+
+
+-- MODEL INSPECTOR HOOK
+
+
+landingPageStart : TestApp.ProgramTest
+landingPageStart =
+    TestApp.start "/" baseSetup
+
+
+landingPageSteps =
+    [ PagesProgram.ensureViewHas
+        [ Selector.text "Pull in typed Elm data to your pages" ]
+    ]
+
+
+{-| Snapshot stream for the landing page test, used by
+[`DocsModelInspectorTest`](DocsModelInspectorTest) to assert that the
+visual runner's model inspector doesn't leak harness internals.
+-}
+landingPageSnapshots : List PagesProgram.Snapshot
+landingPageSnapshots =
+    PagesProgram.snapshots landingPageStart landingPageSteps
 
 
 
@@ -155,170 +290,3 @@ airtableResponse =
                 ]
           )
         ]
-
-
-
--- TEST PIPELINES
-
-
-{-| Trivial: visit the landing page and verify a marquee headline renders.
--}
-landingPageTest : TestApp.ProgramTest
-landingPageTest =
-    TestApp.start "/" baseSetup
-        |> PagesProgram.ensureViewHas
-            [ Selector.text "Pull in typed Elm data to your pages" ]
-
-
-{-| The landing page links to the docs. Verifies one of the CTAs is wired up.
--}
-landingPageHasNavToDocsTest : TestApp.ProgramTest
-landingPageHasNavToDocsTest =
-    TestApp.start "/" baseSetup
-        |> PagesProgram.ensureViewHas
-            [ Selector.tag "a"
-            , Selector.containing [ Selector.text "Check out the Docs" ]
-            ]
-
-
-{-| The blog index globs content/blog/\*.md, decodes each frontmatter,
-and renders cards. Seed two posts and verify both titles render.
--}
-blogIndexListsPostsTest : TestApp.ProgramTest
-blogIndexListsPostsTest =
-    TestApp.start "/blog"
-        (baseSetup
-            |> withBlogPost
-                { slug = "first-post"
-                , title = "Hello, World"
-                , description = "First post"
-                , published = "2020-01-01"
-                , body = """# Hello, World
-
-First body.
-"""
-                }
-            |> withBlogPost
-                { slug = "second-post"
-                , title = "Goodbye, World"
-                , description = "Second post"
-                , published = "2020-02-01"
-                , body = """# Goodbye, World
-
-Second body.
-"""
-                }
-        )
-        |> PagesProgram.ensureViewHas [ Selector.text "Hello, World" ]
-        |> PagesProgram.ensureViewHas [ Selector.text "Goodbye, World" ]
-
-
-{-| Drafts are filtered out of the index. The pre-rendered slug routes
-still resolve, but they shouldn't appear in the listing.
--}
-draftPostsHiddenFromIndexTest : TestApp.ProgramTest
-draftPostsHiddenFromIndexTest =
-    TestApp.start "/blog"
-        (baseSetup
-            |> withBlogPost
-                { slug = "published"
-                , title = "Published Post"
-                , description = "..."
-                , published = "2020-01-01"
-                , body = """# Published Post
-
-Body.
-"""
-                }
-            |> withDraftBlogPost
-                { slug = "draft", title = "Draft Post", published = "2020-02-01" }
-        )
-        |> PagesProgram.ensureViewHas [ Selector.text "Published Post" ]
-        |> PagesProgram.ensureViewHasNot [ Selector.text "Draft Post" ]
-
-
-{-| Pre-rendered route Blog.Slug\_ reads its file from the virtual FS,
-parses frontmatter + markdown body, and renders the post. We seed one
-post and visit it directly.
--}
-blogPostRendersTest : TestApp.ProgramTest
-blogPostRendersTest =
-    TestApp.start "/blog/hello-world"
-        (baseSetup
-            |> withBlogPost
-                { slug = "hello-world"
-                , title = "Hello, World"
-                , description = "First post"
-                , published = "2020-01-01"
-                , body = """# Hello, World
-
-This is the body of the post.
-"""
-                }
-        )
-        |> PagesProgram.ensureViewHas
-            [ Selector.tag "h1", Selector.containing [ Selector.text "Hello, World" ] ]
-        |> PagesProgram.ensureViewHas
-            [ Selector.text "This is the body of the post." ]
-
-
-{-| /docs (no section) renders the default "what-is-elm-pages" section.
-Exercises Section\_\_'s default-slug fallback.
--}
-docsLandingTest : TestApp.ProgramTest
-docsLandingTest =
-    TestApp.start "/docs" baseSetup
-        |> PagesProgram.ensureViewHas
-            [ Selector.text "What is elm-pages?" ]
-
-
-{-| Navigate to a specific docs section by slug.
--}
-docsSectionNavigationTest : TestApp.ProgramTest
-docsSectionNavigationTest =
-    TestApp.start "/docs/getting-started"
-        (baseSetup
-            |> withDocsSection 2
-                "getting-started"
-                """# Getting Started
-
-How to start.
-"""
-        )
-        |> PagesProgram.ensureViewHas
-            [ Selector.text "Getting Started" ]
-
-
-{-| Showcase pulls from Airtable. Provide the env var, simulate the GET,
-and verify a record renders.
--}
-showcaseLoadsFromAirtableTest : TestApp.ProgramTest
-showcaseLoadsFromAirtableTest =
-    TestApp.start "/showcase"
-        (baseSetup
-            |> BackendTaskTest.withEnv "AIRTABLE_TOKEN" "test-token"
-        )
-        |> PagesProgram.simulateHttpGet
-            "https://api.airtable.com/v0/appDykQzbkQJAidjt/elm-pages%20showcase?maxRecords=100&view=Grid%202"
-            airtableResponse
-        |> PagesProgram.ensureViewHas [ Selector.text "My Cool Site" ]
-        |> PagesProgram.ensureViewHas [ Selector.text "Jane Author" ]
-
-
-{-| End-to-end navigation: land on /, click through to docs, verify content.
--}
-navigateLandingToDocsTest : TestApp.ProgramTest
-navigateLandingToDocsTest =
-    TestApp.start "/" baseSetup
-        |> PagesProgram.ensureViewHas
-            [ Selector.text "Pull in typed Elm data to your pages" ]
-        |> PagesProgram.clickLink "Check out the Docs"
-        |> PagesProgram.ensureBrowserUrl
-            (\url ->
-                if String.contains "/docs" url then
-                    Expect.pass
-
-                else
-                    Expect.fail ("Expected to be on a /docs URL, got: " ++ url)
-            )
-        |> PagesProgram.ensureViewHas [ Selector.text "What is elm-pages?" ]

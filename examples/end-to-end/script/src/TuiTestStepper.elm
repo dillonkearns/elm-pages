@@ -9,7 +9,7 @@ import Test.BackendTask as BackendTaskTest
 import Test.Tui as TuiTest
 import Tui
 import Tui.Effect as Effect
-import Tui.Screen exposing (plain)
+import Tui.Screen
 import Tui.Sub
 
 
@@ -25,20 +25,21 @@ tuiTests =
                 , view = miniGitView
                 , subscriptions = miniGitSubscriptions
                 }
-                |> TuiTest.withModelToString Debug.toString
-                |> TuiTest.pressKey 'j'
-                |> TuiTest.pressKey 'j'
-                |> TuiTest.pressKey 'j'
-                |> TuiTest.pressKey 'j'
-                |> TuiTest.pressKey 'j'
-                |> TuiTest.pressKey 'j'
-                |> TuiTest.pressKey 'j'
-                |> TuiTest.pressKey 'k'
-                |> TuiTest.pressKey 'k'
-                |> TuiTest.pressKey 'k'
-                |> TuiTest.click { row = 3, col = 5 }
-                |> TuiTest.expectRunning
             )
+            [ TuiTest.withModelToString Debug.toString
+            , TuiTest.pressKey 'j'
+            , TuiTest.pressKey 'j'
+            , TuiTest.pressKey 'j'
+            , TuiTest.pressKey 'j'
+            , TuiTest.pressKey 'j'
+            , TuiTest.pressKey 'j'
+            , TuiTest.pressKey 'j'
+            , TuiTest.pressKey 'k'
+            , TuiTest.pressKey 'k'
+            , TuiTest.pressKey 'k'
+            , TuiTest.click { row = 3, col = 5 }
+            , TuiTest.expectRunning
+            ]
         ]
 
 

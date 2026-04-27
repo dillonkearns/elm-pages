@@ -35,358 +35,386 @@ all =
         [ describe "Step 1: static page rendering"
             [ test "renders a page with auto-resolved data" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed "Hello, World!"
-                        , init = \greeting -> ( { greeting = greeting }, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ model -> { title = "Home", body = [ Html.text model.greeting ] }
-                        }
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Hello, World!" ]
-                        |> PagesProgram.done
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed "Hello, World!"
+                            , init = \greeting -> ( { greeting = greeting }, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ model -> { title = "Home", body = [ Html.text model.greeting ] }
+                            }
+                        )
+                        [ PagesProgram.ensureViewHas [ PSelector.text "Hello, World!" ]
+                        ]
             , test "renders a page with unit data" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ _ -> { title = "Home", body = [ Html.text "Static content" ] }
-                        }
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Static content" ]
-                        |> PagesProgram.done
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ _ -> { title = "Home", body = [ Html.text "Static content" ] }
+                            }
+                        )
+                        [ PagesProgram.ensureViewHas [ PSelector.text "Static content" ]
+                        ]
             , test "can assert on HTML structure" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "Home"
-                                , body =
-                                    [ Html.div [ Attr.id "main" ]
-                                        [ Html.h1 [] [ Html.text "Welcome" ]
-                                        , Html.p [ Attr.class "intro" ] [ Html.text "This is elm-pages" ]
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view =
+                                \_ _ ->
+                                    { title = "Home"
+                                    , body =
+                                        [ Html.div [ Attr.id "main" ]
+                                            [ Html.h1 [] [ Html.text "Welcome" ]
+                                            , Html.p [ Attr.class "intro" ] [ Html.text "This is elm-pages" ]
+                                            ]
                                         ]
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.ensureViewHas [ PSelector.id "main" ]
-                        |> PagesProgram.ensureViewHas [ PSelector.tag "h1", PSelector.text "Welcome" ]
-                        |> PagesProgram.ensureViewHas [ PSelector.class "intro" ]
-                        |> PagesProgram.ensureViewHasNot [ PSelector.text "Error" ]
-                        |> PagesProgram.done
+                                    }
+                            }
+                        )
+                        [ PagesProgram.ensureViewHas [ PSelector.id "main" ]
+                        , PagesProgram.ensureViewHas [ PSelector.tag "h1", PSelector.text "Welcome" ]
+                        , PagesProgram.ensureViewHas [ PSelector.class "intro" ]
+                        , PagesProgram.ensureViewHasNot [ PSelector.text "Error" ]
+                        ]
             , test "data value flows through init into model and view" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed { name = "Alice", role = "Admin" }
-                        , init = \user -> ( user, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view =
-                            \_ model ->
-                                { title = model.name
-                                , body =
-                                    [ Html.text (model.name ++ " (" ++ model.role ++ ")")
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Alice (Admin)" ]
-                        |> PagesProgram.done
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed { name = "Alice", role = "Admin" }
+                            , init = \user -> ( user, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view =
+                                \_ model ->
+                                    { title = model.name
+                                    , body =
+                                        [ Html.text (model.name ++ " (" ++ model.role ++ ")")
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.ensureViewHas [ PSelector.text "Alice (Admin)" ]
+                        ]
             ]
         , describe "Step 2: data BackendTask with HTTP simulation"
             [ test "resolves data with simulated HTTP GET" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data =
-                            BackendTask.Http.getJson
-                                "https://api.example.com/user"
-                                (Decode.field "name" Decode.string)
-                                |> BackendTask.allowFatal
-                        , init = \name -> ( { name = name }, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
-                        }
-                        |> PagesProgram.simulateHttpGet
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data =
+                                BackendTask.Http.getJson
+                                    "https://api.example.com/user"
+                                    (Decode.field "name" Decode.string)
+                                    |> BackendTask.allowFatal
+                            , init = \name -> ( { name = name }, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
+                            }
+                        )
+                        [ PagesProgram.simulateHttpGet
                             "https://api.example.com/user"
                             (Encode.object [ ( "name", Encode.string "Alice" ) ])
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Alice" ]
-                        |> PagesProgram.done
+                        , PagesProgram.ensureViewHas [ PSelector.text "Alice" ]
+                        ]
             , test "resolves multiple sequential HTTP POST requests with different bodies to the same URL" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data =
-                            BackendTask.map2 (\a b -> a ++ " & " ++ b)
-                                (BackendTask.Http.request
-                                    { url = "https://api.example.com/graphql"
-                                    , method = "POST"
-                                    , headers = []
-                                    , body = BackendTask.Http.jsonBody (Encode.object [ ( "query", Encode.string "{ users { name } }" ) ])
-                                    , retries = Nothing
-                                    , timeoutInMs = Nothing
-                                    }
-                                    (BackendTask.Http.expectJson (Decode.at [ "data", "users" ] (Decode.index 0 (Decode.field "name" Decode.string))))
-                                    |> BackendTask.allowFatal
-                                )
-                                (BackendTask.Http.request
-                                    { url = "https://api.example.com/graphql"
-                                    , method = "POST"
-                                    , headers = []
-                                    , body = BackendTask.Http.jsonBody (Encode.object [ ( "query", Encode.string "{ items { title } }" ) ])
-                                    , retries = Nothing
-                                    , timeoutInMs = Nothing
-                                    }
-                                    (BackendTask.Http.expectJson (Decode.at [ "data", "items" ] (Decode.index 0 (Decode.field "title" Decode.string))))
-                                    |> BackendTask.allowFatal
-                                )
-                        , init = \combined -> ( { text = combined }, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ model -> { title = "Test", body = [ Html.text model.text ] }
-                        }
-                        |> PagesProgram.simulateHttpPost
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data =
+                                BackendTask.map2 (\a b -> a ++ " & " ++ b)
+                                    (BackendTask.Http.request
+                                        { url = "https://api.example.com/graphql"
+                                        , method = "POST"
+                                        , headers = []
+                                        , body = BackendTask.Http.jsonBody (Encode.object [ ( "query", Encode.string "{ users { name } }" ) ])
+                                        , retries = Nothing
+                                        , timeoutInMs = Nothing
+                                        }
+                                        (BackendTask.Http.expectJson (Decode.at [ "data", "users" ] (Decode.index 0 (Decode.field "name" Decode.string))))
+                                        |> BackendTask.allowFatal
+                                    )
+                                    (BackendTask.Http.request
+                                        { url = "https://api.example.com/graphql"
+                                        , method = "POST"
+                                        , headers = []
+                                        , body = BackendTask.Http.jsonBody (Encode.object [ ( "query", Encode.string "{ items { title } }" ) ])
+                                        , retries = Nothing
+                                        , timeoutInMs = Nothing
+                                        }
+                                        (BackendTask.Http.expectJson (Decode.at [ "data", "items" ] (Decode.index 0 (Decode.field "title" Decode.string))))
+                                        |> BackendTask.allowFatal
+                                    )
+                            , init = \combined -> ( { text = combined }, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ model -> { title = "Test", body = [ Html.text model.text ] }
+                            }
+                        )
+                        [ PagesProgram.simulateHttpPost
                             "https://api.example.com/graphql"
                             (Encode.object [ ( "data", Encode.object [ ( "users", Encode.list identity [ Encode.object [ ( "name", Encode.string "Alice" ) ] ] ) ] ) ])
-                        |> PagesProgram.simulateHttpPost
+                        , PagesProgram.simulateHttpPost
                             "https://api.example.com/graphql"
                             (Encode.object [ ( "data", Encode.object [ ( "items", Encode.list identity [ Encode.object [ ( "title", Encode.string "Widget" ) ] ] ) ] ) ])
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Alice & Widget" ]
-                        |> PagesProgram.done
+                        , PagesProgram.ensureViewHas [ PSelector.text "Alice & Widget" ]
+                        ]
             , test "done fails when data BackendTask is unresolved" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data =
-                            BackendTask.Http.getJson
-                                "https://api.example.com/user"
-                                Decode.string
-                                |> BackendTask.allowFatal
-                        , init = \name -> ( { name = name }, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
-                        }
-                        |> PagesProgram.done
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data =
+                                BackendTask.Http.getJson
+                                    "https://api.example.com/user"
+                                    Decode.string
+                                    |> BackendTask.allowFatal
+                            , init = \name -> ( { name = name }, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
+                            }
+                        )
+                        []
                         |> expectFailContaining "still resolving"
             , test "ensureViewHas fails with helpful message when data not resolved" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data =
-                            BackendTask.Http.getJson
-                                "https://api.example.com/user"
-                                Decode.string
-                                |> BackendTask.allowFatal
-                        , init = \name -> ( { name = name }, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
-                        }
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Alice" ]
-                        |> PagesProgram.done
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data =
+                                BackendTask.Http.getJson
+                                    "https://api.example.com/user"
+                                    Decode.string
+                                    |> BackendTask.allowFatal
+                            , init = \name -> ( { name = name }, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
+                            }
+                        )
+                        [ PagesProgram.ensureViewHas [ PSelector.text "Alice" ]
+                        ]
                         |> expectFailContaining "Cannot check view"
             , test "expectView error during resolving lists the pending URL" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data =
-                            BackendTask.Http.getJson
-                                "https://api.example.com/user"
-                                Decode.string
-                                |> BackendTask.allowFatal
-                        , init = \name -> ( { name = name }, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
-                        }
-                        |> PagesProgram.expectView (\_ -> Expect.pass)
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data =
+                                BackendTask.Http.getJson
+                                    "https://api.example.com/user"
+                                    Decode.string
+                                    |> BackendTask.allowFatal
+                            , init = \name -> ( { name = name }, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
+                            }
+                        )
+                        [ PagesProgram.ensureView (\_ -> Expect.pass)
+                        ]
                         |> expectFailContaining "https://api.example.com/user"
             ]
         , describe "Step 3: user interaction"
             [ test "clicking a button updates the view" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { count = 0 }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    Increment ->
-                                        ( { model | count = model.count + 1 }, [] )
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { count = 0 }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        Increment ->
+                                            ( { model | count = model.count + 1 }, [] )
 
-                                    Decrement ->
-                                        ( { model | count = model.count - 1 }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Counter"
-                                , body =
-                                    [ Html.text (String.fromInt model.count)
-                                    , Html.button [ Html.Events.onClick Increment ] [ Html.text "+1" ]
-                                    , Html.button [ Html.Events.onClick Decrement ] [ Html.text "-1" ]
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.ensureViewHas [ PSelector.text "0" ]
-                        |> PagesProgram.clickButton "+1"
-                        |> PagesProgram.ensureViewHas [ PSelector.text "1" ]
-                        |> PagesProgram.clickButton "+1"
-                        |> PagesProgram.clickButton "+1"
-                        |> PagesProgram.ensureViewHas [ PSelector.text "3" ]
-                        |> PagesProgram.clickButton "-1"
-                        |> PagesProgram.ensureViewHas [ PSelector.text "2" ]
-                        |> PagesProgram.done
+                                        Decrement ->
+                                            ( { model | count = model.count - 1 }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Counter"
+                                    , body =
+                                        [ Html.text (String.fromInt model.count)
+                                        , Html.button [ Html.Events.onClick Increment ] [ Html.text "+1" ]
+                                        , Html.button [ Html.Events.onClick Decrement ] [ Html.text "-1" ]
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.ensureViewHas [ PSelector.text "0" ]
+                        , PagesProgram.clickButton "+1"
+                        , PagesProgram.ensureViewHas [ PSelector.text "1" ]
+                        , PagesProgram.clickButton "+1"
+                        , PagesProgram.clickButton "+1"
+                        , PagesProgram.ensureViewHas [ PSelector.text "3" ]
+                        , PagesProgram.clickButton "-1"
+                        , PagesProgram.ensureViewHas [ PSelector.text "2" ]
+                        ]
             , test "clickButton fails with helpful message for missing button" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "Home"
-                                , body = [ Html.text "No buttons here" ]
-                                }
-                        }
-                        |> PagesProgram.clickButton "Submit"
-                        |> PagesProgram.done
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view =
+                                \_ _ ->
+                                    { title = "Home"
+                                    , body = [ Html.text "No buttons here" ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.clickButton "Submit"
+                        ]
                         |> expectFailContaining "clickButton \"Submit\""
             ]
         , describe "fillIn"
             [ test "typing into an input updates the view" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { query = "" }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    UpdateQuery q ->
-                                        ( { model | query = q }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Search"
-                                , body =
-                                    [ Html.input
-                                        [ Attr.id "search"
-                                        , Attr.value model.query
-                                        , Html.Events.onInput UpdateQuery
-                                        ]
-                                        []
-                                    , if String.isEmpty model.query then
-                                        Html.text "Type to search..."
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { query = "" }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        UpdateQuery q ->
+                                            ( { model | query = q }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Search"
+                                    , body =
+                                        [ Html.input
+                                            [ Attr.id "search"
+                                            , Attr.value model.query
+                                            , Html.Events.onInput UpdateQuery
+                                            ]
+                                            []
+                                        , if String.isEmpty model.query then
+                                            Html.text "Type to search..."
 
-                                      else
-                                        Html.text ("Searching for: " ++ model.query)
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Type to search..." ]
-                        |> PagesProgram.fillIn "search" "search" "elm-pages"
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Searching for: elm-pages" ]
-                        |> PagesProgram.done
+                                          else
+                                            Html.text ("Searching for: " ++ model.query)
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.ensureViewHas [ PSelector.text "Type to search..." ]
+                        , PagesProgram.fillIn "search" "search" "elm-pages"
+                        , PagesProgram.ensureViewHas [ PSelector.text "Searching for: elm-pages" ]
+                        ]
             ]
         , describe "pressEnter"
             [ test "submits a form with no submit button when Enter is pressed in its input" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { todos = [], draft = "" }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    AddTodoFromInput ->
-                                        ( { model
-                                            | todos = model.todos ++ [ model.draft ]
-                                            , draft = ""
-                                          }
-                                        , []
-                                        )
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { todos = [], draft = "" }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        AddTodoFromInput ->
+                                            ( { model
+                                                | todos = model.todos ++ [ model.draft ]
+                                                , draft = ""
+                                              }
+                                            , []
+                                            )
 
-                                    UpdateDraft d ->
-                                        ( { model | draft = d }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Todos"
-                                , body =
-                                    [ Html.form
-                                        [ Attr.class "create"
-                                        , Html.Events.onSubmit AddTodoFromInput
-                                        ]
-                                        [ Html.input
-                                            [ Attr.id "new-todo"
-                                            , Attr.value model.draft
-                                            , Html.Events.onInput UpdateDraft
+                                        UpdateDraft d ->
+                                            ( { model | draft = d }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Todos"
+                                    , body =
+                                        [ Html.form
+                                            [ Attr.class "create"
+                                            , Html.Events.onSubmit AddTodoFromInput
                                             ]
-                                            []
+                                            [ Html.input
+                                                [ Attr.id "new-todo"
+                                                , Attr.value model.draft
+                                                , Html.Events.onInput UpdateDraft
+                                                ]
+                                                []
+                                            ]
+                                        , Html.ul []
+                                            (model.todos |> List.map (\t -> Html.li [] [ Html.text t ]))
                                         ]
-                                    , Html.ul []
-                                        (model.todos |> List.map (\t -> Html.li [] [ Html.text t ]))
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.fillIn "new-todo" "new-todo" "Buy milk"
-                        |> PagesProgram.pressEnter [ PSelector.id "new-todo" ]
-                        |> PagesProgram.ensureViewHas [ PSelector.tag "li", PSelector.text "Buy milk" ]
-                        |> PagesProgram.done
+                                    }
+                            }
+                        )
+                        [ PagesProgram.fillIn "new-todo" "new-todo" "Buy milk"
+                        , PagesProgram.pressEnter [ PSelector.id "new-todo" ]
+                        , PagesProgram.ensureViewHas [ PSelector.tag "li", PSelector.text "Buy milk" ]
+                        ]
             , test "fires keydown handler on the input even when there is no enclosing form" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { lastKey = "" }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    KeyPressed k ->
-                                        ( { model | lastKey = k }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Keys"
-                                , body =
-                                    [ Html.input
-                                        [ Attr.id "free-input"
-                                        , Html.Events.on "keydown"
-                                            (Decode.field "key" Decode.string
-                                                |> Decode.map KeyPressed
-                                            )
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { lastKey = "" }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        KeyPressed k ->
+                                            ( { model | lastKey = k }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Keys"
+                                    , body =
+                                        [ Html.input
+                                            [ Attr.id "free-input"
+                                            , Html.Events.on "keydown"
+                                                (Decode.field "key" Decode.string
+                                                    |> Decode.map KeyPressed
+                                                )
+                                            ]
+                                            []
+                                        , Html.text ("last: " ++ model.lastKey)
                                         ]
-                                        []
-                                    , Html.text ("last: " ++ model.lastKey)
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.pressEnter [ PSelector.id "free-input" ]
-                        |> PagesProgram.ensureViewHas [ PSelector.text "last: Enter" ]
-                        |> PagesProgram.done
+                                    }
+                            }
+                        )
+                        [ PagesProgram.pressEnter [ PSelector.id "free-input" ]
+                        , PagesProgram.ensureViewHas [ PSelector.text "last: Enter" ]
+                        ]
             , test "fails loudly when the selector matches no element" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "Empty"
-                                , body = [ Html.input [ Attr.id "real-input" ] [] ]
-                                }
-                        }
-                        |> PagesProgram.pressEnter [ PSelector.id "missing" ]
-                        |> PagesProgram.done
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view =
+                                \_ _ ->
+                                    { title = "Empty"
+                                    , body = [ Html.input [ Attr.id "real-input" ] [] ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.pressEnter [ PSelector.id "missing" ]
+                        ]
                         |> expectFailContaining "pressEnter"
             , test "fails loudly when the selector matches multiple elements" <|
                 \() ->
-                    let
-                        result : Expectation
-                        result =
-                            PagesProgramInternal.initialProgramTest
-                                { data = BackendTask.succeed ()
-                                , init = \() -> ( {}, [] )
-                                , update = \_ model -> ( model, [] )
-                                , view =
-                                    \_ _ ->
-                                        { title = "Multi"
-                                        , body =
-                                            [ Html.form []
-                                                [ Html.input [ Attr.class "edit-input" ] [] ]
-                                            , Html.form []
-                                                [ Html.input [ Attr.class "edit-input" ] [] ]
-                                            ]
-                                        }
-                                }
-                                |> PagesProgram.pressEnter [ PSelector.class "edit-input" ]
-                                |> PagesProgram.done
-                    in
-                    result
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view =
+                                \_ _ ->
+                                    { title = "Multi"
+                                    , body =
+                                        [ Html.form []
+                                            [ Html.input [ Attr.class "edit-input" ] [] ]
+                                        , Html.form []
+                                            [ Html.input [ Attr.class "edit-input" ] [] ]
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.pressEnter [ PSelector.class "edit-input" ]
+                        ]
                         |> Expect.all
                             [ expectFailContaining "pressEnter"
                             , expectFailContaining "multiple"
@@ -395,96 +423,99 @@ all =
         , describe "pressKey"
             [ test "fires a keydown with the given key on the matched element" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { lastKey = "" }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    KeyPressed k ->
-                                        ( { model | lastKey = k }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Keys"
-                                , body =
-                                    [ Html.input
-                                        [ Attr.id "kb"
-                                        , Html.Events.on "keydown"
-                                            (Decode.field "key" Decode.string
-                                                |> Decode.map KeyPressed
-                                            )
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { lastKey = "" }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        KeyPressed k ->
+                                            ( { model | lastKey = k }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Keys"
+                                    , body =
+                                        [ Html.input
+                                            [ Attr.id "kb"
+                                            , Html.Events.on "keydown"
+                                                (Decode.field "key" Decode.string
+                                                    |> Decode.map KeyPressed
+                                                )
+                                            ]
+                                            []
+                                        , Html.text ("last: " ++ model.lastKey)
                                         ]
-                                        []
-                                    , Html.text ("last: " ++ model.lastKey)
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.pressKey "Escape" [ PSelector.id "kb" ]
-                        |> PagesProgram.ensureViewHas [ PSelector.text "last: Escape" ]
-                        |> PagesProgram.pressKey "ArrowDown" [ PSelector.id "kb" ]
-                        |> PagesProgram.ensureViewHas [ PSelector.text "last: ArrowDown" ]
-                        |> PagesProgram.done
+                                    }
+                            }
+                        )
+                        [ PagesProgram.pressKey "Escape" [ PSelector.id "kb" ]
+                        , PagesProgram.ensureViewHas [ PSelector.text "last: Escape" ]
+                        , PagesProgram.pressKey "ArrowDown" [ PSelector.id "kb" ]
+                        , PagesProgram.ensureViewHas [ PSelector.text "last: ArrowDown" ]
+                        ]
             , test "does not auto-submit a form when pressKey Enter is used" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { submitCount = 0 }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    SubmittedForm ->
-                                        ( { model | submitCount = model.submitCount + 1 }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Form"
-                                , body =
-                                    [ Html.form
-                                        [ Html.Events.onSubmit SubmittedForm ]
-                                        [ Html.input [ Attr.id "f" ] [] ]
-                                    , Html.text ("submits=" ++ String.fromInt model.submitCount)
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.pressKey "Enter" [ PSelector.id "f" ]
-                        |> PagesProgram.ensureViewHas [ PSelector.text "submits=0" ]
-                        |> PagesProgram.done
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { submitCount = 0 }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        SubmittedForm ->
+                                            ( { model | submitCount = model.submitCount + 1 }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Form"
+                                    , body =
+                                        [ Html.form
+                                            [ Html.Events.onSubmit SubmittedForm ]
+                                            [ Html.input [ Attr.id "f" ] [] ]
+                                        , Html.text ("submits=" ++ String.fromInt model.submitCount)
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.pressKey "Enter" [ PSelector.id "f" ]
+                        , PagesProgram.ensureViewHas [ PSelector.text "submits=0" ]
+                        ]
             , test "fails loudly when the selector matches no element" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "Empty"
-                                , body = [ Html.input [ Attr.id "real-input" ] [] ]
-                                }
-                        }
-                        |> PagesProgram.pressKey "Escape" [ PSelector.id "missing" ]
-                        |> PagesProgram.done
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view =
+                                \_ _ ->
+                                    { title = "Empty"
+                                    , body = [ Html.input [ Attr.id "real-input" ] [] ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.pressKey "Escape" [ PSelector.id "missing" ]
+                        ]
                         |> expectFailContaining "pressKey \"Escape\""
             , test "fails loudly when the selector matches multiple elements" <|
                 \() ->
-                    let
-                        result : Expectation
-                        result =
-                            PagesProgramInternal.initialProgramTest
-                                { data = BackendTask.succeed ()
-                                , init = \() -> ( {}, [] )
-                                , update = \_ model -> ( model, [] )
-                                , view =
-                                    \_ _ ->
-                                        { title = "Multi"
-                                        , body =
-                                            [ Html.input [ Attr.class "kb" ] []
-                                            , Html.input [ Attr.class "kb" ] []
-                                            ]
-                                        }
-                                }
-                                |> PagesProgram.pressKey "Escape" [ PSelector.class "kb" ]
-                                |> PagesProgram.done
-                    in
-                    result
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view =
+                                \_ _ ->
+                                    { title = "Multi"
+                                    , body =
+                                        [ Html.input [ Attr.class "kb" ] []
+                                        , Html.input [ Attr.class "kb" ] []
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.pressKey "Escape" [ PSelector.class "kb" ]
+                        ]
                         |> Expect.all
                             [ expectFailContaining "pressKey \"Escape\""
                             , expectFailContaining "multiple"
@@ -493,280 +524,298 @@ all =
         , describe "simulateHttpGet for effects from update"
             [ test "simulateHttpGet resolves BackendTask effect from update" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { stars = Nothing }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    FetchStars ->
-                                        ( model
-                                        , [ BackendTask.Http.getJson
-                                                "https://api.github.com/repos/dillonkearns/elm-pages"
-                                                (Decode.field "stargazers_count" Decode.int)
-                                                |> BackendTask.allowFatal
-                                                |> BackendTask.map GotStars
-                                          ]
-                                        )
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { stars = Nothing }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        FetchStars ->
+                                            ( model
+                                            , [ BackendTask.Http.getJson
+                                                    "https://api.github.com/repos/dillonkearns/elm-pages"
+                                                    (Decode.field "stargazers_count" Decode.int)
+                                                    |> BackendTask.allowFatal
+                                                    |> BackendTask.map GotStars
+                                              ]
+                                            )
 
-                                    GotStars count ->
-                                        ( { model | stars = Just count }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Stars"
-                                , body =
-                                    [ case model.stars of
-                                        Nothing ->
-                                            Html.button [ Html.Events.onClick FetchStars ] [ Html.text "Load Stars" ]
+                                        GotStars count ->
+                                            ( { model | stars = Just count }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Stars"
+                                    , body =
+                                        [ case model.stars of
+                                            Nothing ->
+                                                Html.button [ Html.Events.onClick FetchStars ] [ Html.text "Load Stars" ]
 
-                                        Just count ->
-                                            Html.text ("Stars: " ++ String.fromInt count)
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Load Stars" ]
-                        |> PagesProgram.clickButton "Load Stars"
-                        |> PagesProgram.simulateHttpGet
+                                            Just count ->
+                                                Html.text ("Stars: " ++ String.fromInt count)
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.ensureViewHas [ PSelector.text "Load Stars" ]
+                        , PagesProgram.clickButton "Load Stars"
+                        , PagesProgram.simulateHttpGet
                             "https://api.github.com/repos/dillonkearns/elm-pages"
                             (Encode.object [ ( "stargazers_count", Encode.int 1234 ) ])
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Stars: 1234" ]
-                        |> PagesProgram.done
+                        , PagesProgram.ensureViewHas [ PSelector.text "Stars: 1234" ]
+                        ]
             , test "simulateHttpGet works for BackendTask effects from update (not just data loading)" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { stars = Nothing }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    FetchStars ->
-                                        ( model
-                                        , [ BackendTask.Http.getJson
-                                                "https://api.github.com/repos/dillonkearns/elm-pages"
-                                                (Decode.field "stargazers_count" Decode.int)
-                                                |> BackendTask.allowFatal
-                                                |> BackendTask.map GotStars
-                                          ]
-                                        )
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { stars = Nothing }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        FetchStars ->
+                                            ( model
+                                            , [ BackendTask.Http.getJson
+                                                    "https://api.github.com/repos/dillonkearns/elm-pages"
+                                                    (Decode.field "stargazers_count" Decode.int)
+                                                    |> BackendTask.allowFatal
+                                                    |> BackendTask.map GotStars
+                                              ]
+                                            )
 
-                                    GotStars count ->
-                                        ( { model | stars = Just count }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Stars"
-                                , body =
-                                    [ case model.stars of
-                                        Nothing ->
-                                            Html.button [ Html.Events.onClick FetchStars ] [ Html.text "Load Stars" ]
+                                        GotStars count ->
+                                            ( { model | stars = Just count }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Stars"
+                                    , body =
+                                        [ case model.stars of
+                                            Nothing ->
+                                                Html.button [ Html.Events.onClick FetchStars ] [ Html.text "Load Stars" ]
 
-                                        Just count ->
-                                            Html.text ("Stars: " ++ String.fromInt count)
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.clickButton "Load Stars"
-                        |> PagesProgram.simulateHttpGet
+                                            Just count ->
+                                                Html.text ("Stars: " ++ String.fromInt count)
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.clickButton "Load Stars"
+                        , PagesProgram.simulateHttpGet
                             "https://api.github.com/repos/dillonkearns/elm-pages"
                             (Encode.object [ ( "stargazers_count", Encode.int 5678 ) ])
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Stars: 5678" ]
-                        |> PagesProgram.done
+                        , PagesProgram.ensureViewHas [ PSelector.text "Stars: 5678" ]
+                        ]
             , test "simulateHttpPost can resolve the matching pending effect when a GET to the same URL is queued first" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { getResult = Nothing, postResult = Nothing }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    QueueSameUrlRequests ->
-                                        ( model
-                                        , [ BackendTask.Http.getJson
-                                                "https://api.example.com/items"
-                                                (Decode.field "value" Decode.string)
-                                                |> BackendTask.allowFatal
-                                                |> BackendTask.map GotGetResult
-                                          , BackendTask.Http.request
-                                                { url = "https://api.example.com/items"
-                                                , method = "POST"
-                                                , headers = []
-                                                , body = BackendTask.Http.jsonBody (Encode.object [ ( "name", Encode.string "new item" ) ])
-                                                , retries = Nothing
-                                                , timeoutInMs = Nothing
-                                                }
-                                                (BackendTask.Http.expectJson (Decode.field "value" Decode.string))
-                                                |> BackendTask.allowFatal
-                                                |> BackendTask.map GotPostResult
-                                          ]
-                                        )
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { getResult = Nothing, postResult = Nothing }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        QueueSameUrlRequests ->
+                                            ( model
+                                            , [ BackendTask.Http.getJson
+                                                    "https://api.example.com/items"
+                                                    (Decode.field "value" Decode.string)
+                                                    |> BackendTask.allowFatal
+                                                    |> BackendTask.map GotGetResult
+                                              , BackendTask.Http.request
+                                                    { url = "https://api.example.com/items"
+                                                    , method = "POST"
+                                                    , headers = []
+                                                    , body = BackendTask.Http.jsonBody (Encode.object [ ( "name", Encode.string "new item" ) ])
+                                                    , retries = Nothing
+                                                    , timeoutInMs = Nothing
+                                                    }
+                                                    (BackendTask.Http.expectJson (Decode.field "value" Decode.string))
+                                                    |> BackendTask.allowFatal
+                                                    |> BackendTask.map GotPostResult
+                                              ]
+                                            )
 
-                                    GotGetResult value ->
-                                        ( { model | getResult = Just value }, [] )
+                                        GotGetResult value ->
+                                            ( { model | getResult = Just value }, [] )
 
-                                    GotPostResult value ->
-                                        ( { model | postResult = Just value }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Request matching"
-                                , body =
-                                    [ Html.button [ Html.Events.onClick QueueSameUrlRequests ] [ Html.text "Queue Requests" ]
-                                    , Html.text ("Get: " ++ Maybe.withDefault "pending" model.getResult)
-                                    , Html.text ("Post: " ++ Maybe.withDefault "pending" model.postResult)
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.clickButton "Queue Requests"
-                        |> PagesProgram.simulateHttpPost
+                                        GotPostResult value ->
+                                            ( { model | postResult = Just value }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Request matching"
+                                    , body =
+                                        [ Html.button [ Html.Events.onClick QueueSameUrlRequests ] [ Html.text "Queue Requests" ]
+                                        , Html.text ("Get: " ++ Maybe.withDefault "pending" model.getResult)
+                                        , Html.text ("Post: " ++ Maybe.withDefault "pending" model.postResult)
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.clickButton "Queue Requests"
+                        , PagesProgram.simulateHttpPost
                             "https://api.example.com/items"
                             (Encode.object [ ( "value", Encode.string "created" ) ])
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Post: created" ]
-                        |> PagesProgram.simulateHttpGet
+                        , PagesProgram.ensureViewHas [ PSelector.text "Post: created" ]
+                        , PagesProgram.simulateHttpGet
                             "https://api.example.com/items"
                             (Encode.object [ ( "value", Encode.string "fetched" ) ])
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Get: fetched" ]
-                        |> PagesProgram.done
+                        , PagesProgram.ensureViewHas [ PSelector.text "Get: fetched" ]
+                        ]
             ]
         , describe "check"
             [ test "checking a checkbox updates the view" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { agreed = False }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    ToggleAgreed checked ->
-                                        ( { model | agreed = checked }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Form"
-                                , body =
-                                    [ Html.label [ Attr.for "agree" ] [ Html.text "I agree" ]
-                                    , Html.input
-                                        [ Attr.id "agree"
-                                        , Attr.type_ "checkbox"
-                                        , Attr.checked model.agreed
-                                        , Html.Events.onCheck ToggleAgreed
-                                        ]
-                                        []
-                                    , if model.agreed then
-                                        Html.text "Terms accepted"
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { agreed = False }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        ToggleAgreed checked ->
+                                            ( { model | agreed = checked }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Form"
+                                    , body =
+                                        [ Html.label [ Attr.for "agree" ] [ Html.text "I agree" ]
+                                        , Html.input
+                                            [ Attr.id "agree"
+                                            , Attr.type_ "checkbox"
+                                            , Attr.checked model.agreed
+                                            , Html.Events.onCheck ToggleAgreed
+                                            ]
+                                            []
+                                        , if model.agreed then
+                                            Html.text "Terms accepted"
 
-                                      else
-                                        Html.text "Please accept terms"
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Please accept terms" ]
-                        |> PagesProgram.check "I agree" True
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Terms accepted" ]
-                        |> PagesProgram.done
+                                          else
+                                            Html.text "Please accept terms"
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.ensureViewHas [ PSelector.text "Please accept terms" ]
+                        , PagesProgram.check "I agree" True
+                        , PagesProgram.ensureViewHas [ PSelector.text "Terms accepted" ]
+                        ]
             ]
         , describe "Snapshots"
             [ test "toSnapshots records init snapshot" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
-                        }
-                        |> PagesProgram.toSnapshots
+                    PagesProgram.snapshots
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                            }
+                        )
+                        []
                         |> List.map .label
                         |> Expect.equal [ "start" ]
             , test "toSnapshots records each interaction" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { count = 0 }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    Increment ->
-                                        ( { model | count = model.count + 1 }, [] )
+                    PagesProgram.snapshots
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { count = 0 }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        Increment ->
+                                            ( { model | count = model.count + 1 }, [] )
 
-                                    Decrement ->
-                                        ( { model | count = model.count - 1 }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Counter"
-                                , body =
-                                    [ Html.text (String.fromInt model.count)
-                                    , Html.button [ Html.Events.onClick Increment ] [ Html.text "+1" ]
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.clickButton "+1"
-                        |> PagesProgram.clickButton "+1"
-                        |> PagesProgram.ensureViewHas [ PSelector.text "2" ]
-                        |> PagesProgram.toSnapshots
+                                        Decrement ->
+                                            ( { model | count = model.count - 1 }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Counter"
+                                    , body =
+                                        [ Html.text (String.fromInt model.count)
+                                        , Html.button [ Html.Events.onClick Increment ] [ Html.text "+1" ]
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.clickButton "+1"
+                        , PagesProgram.clickButton "+1"
+                        , PagesProgram.ensureViewHas [ PSelector.text "2" ]
+                        ]
                         |> List.map .label
                         |> Expect.equal [ "start", "clickButton \"+1\"", "clickButton \"+1\"", "ensureViewHas text \"2\"" ]
             , test "snapshots contain rendered HTML" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { count = 0 }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    Increment ->
-                                        ( { model | count = model.count + 1 }, [] )
+                    PagesProgram.snapshots
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { count = 0 }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        Increment ->
+                                            ( { model | count = model.count + 1 }, [] )
 
-                                    Decrement ->
-                                        ( model, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Count: " ++ String.fromInt model.count
-                                , body =
-                                    [ Html.text ("Count: " ++ String.fromInt model.count)
-                                    , Html.button [ Html.Events.onClick Increment ] [ Html.text "+1" ]
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.clickButton "+1"
-                        |> PagesProgram.toSnapshots
+                                        Decrement ->
+                                            ( model, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Count: " ++ String.fromInt model.count
+                                    , body =
+                                        [ Html.text ("Count: " ++ String.fromInt model.count)
+                                        , Html.button [ Html.Events.onClick Increment ] [ Html.text "+1" ]
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.clickButton "+1"
+                        ]
                         |> List.map .title
                         |> Expect.equal [ "Count: 0", "Count: 1" ]
             , test "error snapshots include the error" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
-                        }
-                        |> PagesProgram.clickButton "Missing"
-                        |> PagesProgram.toSnapshots
+                    PagesProgram.snapshots
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                            }
+                        )
+                        [ PagesProgram.clickButton "Missing"
+                        ]
                         |> List.length
                         |> Expect.equal 2
             , test "snapshot labels show selector details for ensureViewHas" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { count = 0 }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    Increment ->
-                                        ( { model | count = model.count + 1 }, [] )
+                    PagesProgram.snapshots
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { count = 0 }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        Increment ->
+                                            ( { model | count = model.count + 1 }, [] )
 
-                                    Decrement ->
-                                        ( { model | count = model.count - 1 }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Counter"
-                                , body =
-                                    [ Html.div [ Attr.id "main", Attr.class "counter" ]
-                                        [ Html.text (String.fromInt model.count) ]
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.ensureViewHas [ PSelector.text "0" ]
-                        |> PagesProgram.ensureViewHas [ PSelector.id "main" ]
-                        |> PagesProgram.ensureViewHas [ PSelector.class "counter" ]
-                        |> PagesProgram.ensureViewHas [ PSelector.tag "div" ]
-                        |> PagesProgram.ensureViewHasNot [ PSelector.text "Error" ]
-                        |> PagesProgram.toSnapshots
+                                        Decrement ->
+                                            ( { model | count = model.count - 1 }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Counter"
+                                    , body =
+                                        [ Html.div [ Attr.id "main", Attr.class "counter" ]
+                                            [ Html.text (String.fromInt model.count) ]
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.ensureViewHas [ PSelector.text "0" ]
+                        , PagesProgram.ensureViewHas [ PSelector.id "main" ]
+                        , PagesProgram.ensureViewHas [ PSelector.class "counter" ]
+                        , PagesProgram.ensureViewHas [ PSelector.tag "div" ]
+                        , PagesProgram.ensureViewHasNot [ PSelector.text "Error" ]
+                        ]
                         |> List.map .label
                         |> Expect.equal
                             [ "start"
@@ -778,19 +827,21 @@ all =
                             ]
             , test "snapshot labels show multiple selectors comma-separated" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "Home"
-                                , body =
-                                    [ Html.h1 [ Attr.class "title" ] [ Html.text "Welcome" ] ]
-                                }
-                        }
-                        |> PagesProgram.ensureViewHas [ PSelector.tag "h1", PSelector.text "Welcome" ]
-                        |> PagesProgram.toSnapshots
+                    PagesProgram.snapshots
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view =
+                                \_ _ ->
+                                    { title = "Home"
+                                    , body =
+                                        [ Html.h1 [ Attr.class "title" ] [ Html.text "Welcome" ] ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.ensureViewHas [ PSelector.tag "h1", PSelector.text "Welcome" ]
+                        ]
                         |> List.map .label
                         |> Expect.equal
                             [ "start"
@@ -798,26 +849,28 @@ all =
                             ]
             , test "clickButtonWith snapshot labels show selector details" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { clicked = False }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    Increment ->
-                                        ( { model | clicked = True }, [] )
+                    PagesProgram.snapshots
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { clicked = False }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        Increment ->
+                                            ( { model | clicked = True }, [] )
 
-                                    Decrement ->
-                                        ( model, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "Home"
-                                , body =
-                                    [ Html.button [ Attr.class "submit-btn", Html.Events.onClick Increment ] [ Html.text "Go" ] ]
-                                }
-                        }
-                        |> PagesProgram.clickButtonWith [ PSelector.class "submit-btn" ]
-                        |> PagesProgram.toSnapshots
+                                        Decrement ->
+                                            ( model, [] )
+                            , view =
+                                \_ _ ->
+                                    { title = "Home"
+                                    , body =
+                                        [ Html.button [ Attr.class "submit-btn", Html.Events.onClick Increment ] [ Html.text "Go" ] ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.clickButtonWith [ PSelector.class "submit-btn" ]
+                        ]
                         |> List.map .label
                         |> Expect.equal
                             [ "start"
@@ -825,32 +878,34 @@ all =
                             ]
             , test "withinFind adds scope label to assertion snapshots" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { count = 0 }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    Increment ->
-                                        ( { model | count = model.count + 1 }, [] )
+                    PagesProgram.snapshots
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { count = 0 }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        Increment ->
+                                            ( { model | count = model.count + 1 }, [] )
 
-                                    Decrement ->
-                                        ( model, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Sections"
-                                , body =
-                                    [ Html.div [ Attr.id "counter" ]
-                                        [ Html.text (String.fromInt model.count)
-                                        , Html.button [ Html.Events.onClick Increment ] [ Html.text "+1" ]
+                                        Decrement ->
+                                            ( model, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Sections"
+                                    , body =
+                                        [ Html.div [ Attr.id "counter" ]
+                                            [ Html.text (String.fromInt model.count)
+                                            , Html.button [ Html.Events.onClick Increment ] [ Html.text "+1" ]
+                                            ]
                                         ]
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.withinFind
+                                    }
+                            }
+                        )
+                        [ PagesProgram.withinFind
                             [ PSelector.id "counter" ]
-                            (PagesProgram.ensureViewHas [ PSelector.text "0" ])
-                        |> PagesProgram.toSnapshots
+                            [ PagesProgram.ensureViewHas [ PSelector.text "0" ] ]
+                        ]
                         |> List.map .label
                         |> Expect.equal
                             [ "start"
@@ -858,28 +913,30 @@ all =
                             ]
             , test "nested withinFind shows chained scope labels" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "Nested"
-                                , body =
-                                    [ Html.div [ Attr.id "outer" ]
-                                        [ Html.div [ Attr.class "inner" ]
-                                            [ Html.text "Hello" ]
+                    PagesProgram.snapshots
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view =
+                                \_ _ ->
+                                    { title = "Nested"
+                                    , body =
+                                        [ Html.div [ Attr.id "outer" ]
+                                            [ Html.div [ Attr.class "inner" ]
+                                                [ Html.text "Hello" ]
+                                            ]
                                         ]
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.withinFind
+                                    }
+                            }
+                        )
+                        [ PagesProgram.withinFind
                             [ PSelector.id "outer" ]
-                            (PagesProgram.withinFind
+                            [ PagesProgram.withinFind
                                 [ PSelector.class "inner" ]
-                                (PagesProgram.ensureViewHas [ PSelector.text "Hello" ])
-                            )
-                        |> PagesProgram.toSnapshots
+                                [ PagesProgram.ensureViewHas [ PSelector.text "Hello" ] ]
+ ]
+                        ]
                         |> List.map .label
                         |> Expect.equal
                             [ "start"
@@ -887,23 +944,25 @@ all =
                             ]
             , test "assertion snapshots carry selector data for highlighting" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "Home"
-                                , body =
-                                    [ Html.div [ Attr.class "greeting", Attr.id "main" ]
-                                        [ Html.text "Hello" ]
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Hello", PSelector.class "greeting" ]
-                        |> PagesProgram.ensureViewHas [ PSelector.id "main" ]
-                        |> PagesProgram.ensureViewHas [ PSelector.tag "div" ]
-                        |> PagesProgram.toSnapshots
+                    PagesProgram.snapshots
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view =
+                                \_ _ ->
+                                    { title = "Home"
+                                    , body =
+                                        [ Html.div [ Attr.class "greeting", Attr.id "main" ]
+                                            [ Html.text "Hello" ]
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.ensureViewHas [ PSelector.text "Hello", PSelector.class "greeting" ]
+                        , PagesProgram.ensureViewHas [ PSelector.id "main" ]
+                        , PagesProgram.ensureViewHas [ PSelector.tag "div" ]
+                        ]
                         |> List.map .assertionSelectors
                         |> Expect.equal
                             [ [] -- start has no assertion selectors
@@ -913,18 +972,20 @@ all =
                             ]
             , test "ensureViewHasNot stores assertion selectors for highlighting" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "Home"
-                                , body = [ Html.text "Hello" ]
-                                }
-                        }
-                        |> PagesProgram.ensureViewHasNot [ PSelector.text "Goodbye" ]
-                        |> PagesProgram.toSnapshots
+                    PagesProgram.snapshots
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view =
+                                \_ _ ->
+                                    { title = "Home"
+                                    , body = [ Html.text "Hello" ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.ensureViewHasNot [ PSelector.text "Goodbye" ]
+                        ]
                         |> List.map .assertionSelectors
                         |> Expect.equal
                             [ []
@@ -932,20 +993,22 @@ all =
                             ]
             , test "value selectors stored in assertion snapshots" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "Home"
-                                , body =
-                                    [ Html.input [ Attr.value "Buy milk" ] []
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
-                        |> PagesProgram.toSnapshots
+                    PagesProgram.snapshots
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view =
+                                \_ _ ->
+                                    { title = "Home"
+                                    , body =
+                                        [ Html.input [ Attr.value "Buy milk" ] []
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
+                        ]
                         |> List.map .assertionSelectors
                         |> Expect.equal
                             [ []
@@ -953,30 +1016,32 @@ all =
                             ]
             , test "withinFind snapshots carry scope selectors for highlighting" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { count = 0 }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    Increment ->
-                                        ( { model | count = model.count + 1 }, [] )
+                    PagesProgram.snapshots
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { count = 0 }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        Increment ->
+                                            ( { model | count = model.count + 1 }, [] )
 
-                                    Decrement ->
-                                        ( model, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Sections"
-                                , body =
-                                    [ Html.div [ Attr.id "counter" ]
-                                        [ Html.text (String.fromInt model.count) ]
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.withinFind
+                                        Decrement ->
+                                            ( model, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Sections"
+                                    , body =
+                                        [ Html.div [ Attr.id "counter" ]
+                                            [ Html.text (String.fromInt model.count) ]
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.withinFind
                             [ PSelector.id "counter" ]
-                            (PagesProgram.ensureViewHas [ PSelector.text "0" ])
-                        |> PagesProgram.toSnapshots
+                            [ PagesProgram.ensureViewHas [ PSelector.text "0" ] ]
+                        ]
                         |> List.map .scopeSelectors
                         |> Expect.equal
                             [ [] -- start
@@ -984,28 +1049,30 @@ all =
                             ]
             , test "nested withinFind carries nested scope selectors" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "Nested"
-                                , body =
-                                    [ Html.div [ Attr.id "outer" ]
-                                        [ Html.div [ Attr.class "inner" ]
-                                            [ Html.text "Hello" ]
+                    PagesProgram.snapshots
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view =
+                                \_ _ ->
+                                    { title = "Nested"
+                                    , body =
+                                        [ Html.div [ Attr.id "outer" ]
+                                            [ Html.div [ Attr.class "inner" ]
+                                                [ Html.text "Hello" ]
+                                            ]
                                         ]
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.withinFind
+                                    }
+                            }
+                        )
+                        [ PagesProgram.withinFind
                             [ PSelector.id "outer" ]
-                            (PagesProgram.withinFind
+                            [ PagesProgram.withinFind
                                 [ PSelector.class "inner" ]
-                                (PagesProgram.ensureViewHas [ PSelector.text "Hello" ])
-                            )
-                        |> PagesProgram.toSnapshots
+                                [ PagesProgram.ensureViewHas [ PSelector.text "Hello" ] ]
+ ]
+                        ]
                         |> List.map .scopeSelectors
                         |> Expect.equal
                             [ [] -- start
@@ -1013,32 +1080,34 @@ all =
                             ]
             , test "clickButtonWith inside withinFind carries scope selectors" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { count = 0 }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    Increment ->
-                                        ( { model | count = model.count + 1 }, [] )
+                    PagesProgram.snapshots
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { count = 0 }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        Increment ->
+                                            ( { model | count = model.count + 1 }, [] )
 
-                                    Decrement ->
-                                        ( model, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "Scoped Click"
-                                , body =
-                                    [ Html.div [ Attr.id "section-a" ]
-                                        [ Html.button [ Attr.class "action-btn", Html.Events.onClick Increment ] [ Html.text "Do it" ] ]
-                                    , Html.div [ Attr.id "section-b" ]
-                                        [ Html.button [ Attr.class "action-btn", Html.Events.onClick Decrement ] [ Html.text "Do it" ] ]
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.withinFind
+                                        Decrement ->
+                                            ( model, [] )
+                            , view =
+                                \_ _ ->
+                                    { title = "Scoped Click"
+                                    , body =
+                                        [ Html.div [ Attr.id "section-a" ]
+                                            [ Html.button [ Attr.class "action-btn", Html.Events.onClick Increment ] [ Html.text "Do it" ] ]
+                                        , Html.div [ Attr.id "section-b" ]
+                                            [ Html.button [ Attr.class "action-btn", Html.Events.onClick Decrement ] [ Html.text "Do it" ] ]
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.withinFind
                             [ PSelector.id "section-a" ]
-                            (PagesProgram.clickButtonWith [ PSelector.class "action-btn" ])
-                        |> PagesProgram.toSnapshots
+                            [ PagesProgram.clickButtonWith [ PSelector.class "action-btn" ] ]
+                        ]
                         |> List.map .scopeSelectors
                         |> Expect.equal
                             [ [] -- start
@@ -1046,18 +1115,20 @@ all =
                             ]
             , test "non-scoped assertions have empty scope selectors" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "Home"
-                                , body = [ Html.text "Hello" ]
-                                }
-                        }
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Hello" ]
-                        |> PagesProgram.toSnapshots
+                    PagesProgram.snapshots
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view =
+                                \_ _ ->
+                                    { title = "Home"
+                                    , body = [ Html.text "Hello" ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.ensureViewHas [ PSelector.text "Hello" ]
+                        ]
                         |> List.map .scopeSelectors
                         |> Expect.equal
                             [ [] -- start
@@ -1067,350 +1138,376 @@ all =
         , describe "disabled button detection"
             [ test "clickButton fails on disabled button" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "Form"
-                                , body =
-                                    [ Html.button
-                                        [ Attr.disabled True ]
-                                        [ Html.text "Submit" ]
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.clickButton "Submit"
-                        |> PagesProgram.done
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view =
+                                \_ _ ->
+                                    { title = "Form"
+                                    , body =
+                                        [ Html.button
+                                            [ Attr.disabled True ]
+                                            [ Html.text "Submit" ]
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.clickButton "Submit"
+                        ]
                         |> expectFailContaining "disabled"
             , test "clickButton succeeds on enabled button" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { clicked = False }, [] )
-                        , update =
-                            \_ model -> ( { model | clicked = True }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Form"
-                                , body =
-                                    [ Html.button
-                                        [ Attr.disabled False
-                                        , Html.Events.onClick ()
-                                        ]
-                                        [ Html.text "Submit" ]
-                                    , if model.clicked then
-                                        Html.text "Clicked!"
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { clicked = False }, [] )
+                            , update =
+                                \_ model -> ( { model | clicked = True }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Form"
+                                    , body =
+                                        [ Html.button
+                                            [ Attr.disabled False
+                                            , Html.Events.onClick ()
+                                            ]
+                                            [ Html.text "Submit" ]
+                                        , if model.clicked then
+                                            Html.text "Clicked!"
 
-                                      else
-                                        Html.text ""
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.clickButton "Submit"
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Clicked!" ]
-                        |> PagesProgram.done
+                                          else
+                                            Html.text ""
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.clickButton "Submit"
+                        , PagesProgram.ensureViewHas [ PSelector.text "Clicked!" ]
+                        ]
             , test "clickButtonWith fails on disabled button" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { clicked = False }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    Increment ->
-                                        ( { model | clicked = True }, [] )
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { clicked = False }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        Increment ->
+                                            ( { model | clicked = True }, [] )
 
-                                    Decrement ->
-                                        ( model, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Form"
-                                , body =
-                                    [ Html.button
-                                        [ Attr.class "submit-btn"
-                                        , Attr.disabled True
-                                        , Html.Events.onClick Increment
+                                        Decrement ->
+                                            ( model, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Form"
+                                    , body =
+                                        [ Html.button
+                                            [ Attr.class "submit-btn"
+                                            , Attr.disabled True
+                                            , Html.Events.onClick Increment
+                                            ]
+                                            [ Html.text "Submit" ]
+                                        , if model.clicked then
+                                            Html.text "Should not appear!"
+
+                                          else
+                                            Html.text ""
                                         ]
-                                        [ Html.text "Submit" ]
-                                    , if model.clicked then
-                                        Html.text "Should not appear!"
-
-                                      else
-                                        Html.text ""
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.clickButtonWith [ PSelector.class "submit-btn" ]
-                        |> PagesProgram.done
+                                    }
+                            }
+                        )
+                        [ PagesProgram.clickButtonWith [ PSelector.class "submit-btn" ]
+                        ]
                         |> expectFailContaining "disabled"
             ]
         , describe "ambiguous button detection"
             [ test "clickButton fails when multiple buttons match" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "List"
-                                , body =
-                                    [ Html.div []
-                                        [ Html.button [ Html.Events.onClick () ] [ Html.text "Delete" ]
-                                        , Html.button [ Html.Events.onClick () ] [ Html.text "Delete" ]
-                                        , Html.button [ Html.Events.onClick () ] [ Html.text "Delete" ]
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view =
+                                \_ _ ->
+                                    { title = "List"
+                                    , body =
+                                        [ Html.div []
+                                            [ Html.button [ Html.Events.onClick () ] [ Html.text "Delete" ]
+                                            , Html.button [ Html.Events.onClick () ] [ Html.text "Delete" ]
+                                            , Html.button [ Html.Events.onClick () ] [ Html.text "Delete" ]
+                                            ]
                                         ]
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.clickButton "Delete"
-                        |> PagesProgram.done
+                                    }
+                            }
+                        )
+                        [ PagesProgram.clickButton "Delete"
+                        ]
                         |> expectFailContaining "Delete"
             , test "clickButtonWith fails when multiple buttons match selectors" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "List"
-                                , body =
-                                    [ Html.button
-                                        [ Attr.class "delete-btn", Html.Events.onClick () ]
-                                        [ Html.text "Remove A" ]
-                                    , Html.button
-                                        [ Attr.class "delete-btn", Html.Events.onClick () ]
-                                        [ Html.text "Remove B" ]
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.clickButtonWith [ PSelector.class "delete-btn" ]
-                        |> PagesProgram.done
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view =
+                                \_ _ ->
+                                    { title = "List"
+                                    , body =
+                                        [ Html.button
+                                            [ Attr.class "delete-btn", Html.Events.onClick () ]
+                                            [ Html.text "Remove A" ]
+                                        , Html.button
+                                            [ Attr.class "delete-btn", Html.Events.onClick () ]
+                                            [ Html.text "Remove B" ]
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.clickButtonWith [ PSelector.class "delete-btn" ]
+                        ]
                         |> expectFailContaining "multiple buttons"
             ]
         , describe "Bug fix: pending effects must not be overwritten"
             [ test "done fails when effects are pending after another interaction" <|
                 \() ->
-                    -- Bug: clicking a button that triggers an effect, then clicking
-                    -- another button before resolving, used to silently drop the effect.
-                    -- After fix: done should fail because there's still a pending effect.
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { result = Nothing, other = False }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    QueueFetch ->
-                                        ( model
-                                        , [ BackendTask.Http.getJson
-                                                "https://api.example.com/data"
-                                                (Decode.field "value" Decode.string)
-                                                |> BackendTask.allowFatal
-                                                |> BackendTask.map GotResult
-                                          ]
-                                        )
+                    PagesProgram.expect
+                        (-- Bug: clicking a button that triggers an effect, then clicking
+                        -- another button before resolving, used to silently drop the effect.
+                        -- After fix: done should fail because there's still a pending effect.
+                        PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { result = Nothing, other = False }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        QueueFetch ->
+                                            ( model
+                                            , [ BackendTask.Http.getJson
+                                                    "https://api.example.com/data"
+                                                    (Decode.field "value" Decode.string)
+                                                    |> BackendTask.allowFatal
+                                                    |> BackendTask.map GotResult
+                                              ]
+                                            )
 
-                                    DoOtherThing ->
-                                        ( { model | other = True }, [] )
+                                        DoOtherThing ->
+                                            ( { model | other = True }, [] )
 
-                                    GotResult value ->
-                                        ( { model | result = Just value }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Queue Test"
-                                , body =
-                                    [ Html.button [ Html.Events.onClick QueueFetch ] [ Html.text "Fetch" ]
-                                    , Html.button [ Html.Events.onClick DoOtherThing ] [ Html.text "Other" ]
-                                    , case model.result of
-                                        Just v ->
-                                            Html.text ("Result: " ++ v)
+                                        GotResult value ->
+                                            ( { model | result = Just value }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Queue Test"
+                                    , body =
+                                        [ Html.button [ Html.Events.onClick QueueFetch ] [ Html.text "Fetch" ]
+                                        , Html.button [ Html.Events.onClick DoOtherThing ] [ Html.text "Other" ]
+                                        , case model.result of
+                                            Just v ->
+                                                Html.text ("Result: " ++ v)
 
-                                        Nothing ->
-                                            Html.text "No result"
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.clickButton "Fetch"
+                                            Nothing ->
+                                                Html.text "No result"
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.clickButton "Fetch"
                         -- Click another button BEFORE resolving the effect
-                        |> PagesProgram.clickButton "Other"
+                        , PagesProgram.clickButton "Other"
                         -- done should fail: the HTTP effect from "Fetch" is still pending
-                        |> PagesProgram.done
+                        ]
                         |> expectFailContaining "pending"
             , test "simulateHttpGet works after another interaction" <|
                 \() ->
-                    -- The effect from the first click should survive a second click
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { result = Nothing, other = False }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    QueueFetch ->
-                                        ( model
-                                        , [ BackendTask.Http.getJson
-                                                "https://api.example.com/data"
-                                                (Decode.field "value" Decode.string)
-                                                |> BackendTask.allowFatal
-                                                |> BackendTask.map GotResult
-                                          ]
-                                        )
+                    PagesProgram.expect
+                        (-- The effect from the first click should survive a second click
+                        PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { result = Nothing, other = False }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        QueueFetch ->
+                                            ( model
+                                            , [ BackendTask.Http.getJson
+                                                    "https://api.example.com/data"
+                                                    (Decode.field "value" Decode.string)
+                                                    |> BackendTask.allowFatal
+                                                    |> BackendTask.map GotResult
+                                              ]
+                                            )
 
-                                    DoOtherThing ->
-                                        ( { model | other = True }, [] )
+                                        DoOtherThing ->
+                                            ( { model | other = True }, [] )
 
-                                    GotResult value ->
-                                        ( { model | result = Just value }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Queue Test"
-                                , body =
-                                    [ Html.button [ Html.Events.onClick QueueFetch ] [ Html.text "Fetch" ]
-                                    , Html.button [ Html.Events.onClick DoOtherThing ] [ Html.text "Other" ]
-                                    , case model.result of
-                                        Just v ->
-                                            Html.text ("Result: " ++ v)
+                                        GotResult value ->
+                                            ( { model | result = Just value }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Queue Test"
+                                    , body =
+                                        [ Html.button [ Html.Events.onClick QueueFetch ] [ Html.text "Fetch" ]
+                                        , Html.button [ Html.Events.onClick DoOtherThing ] [ Html.text "Other" ]
+                                        , case model.result of
+                                            Just v ->
+                                                Html.text ("Result: " ++ v)
 
-                                        Nothing ->
-                                            Html.text "No result"
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.clickButton "Fetch"
-                        |> PagesProgram.clickButton "Other"
+                                            Nothing ->
+                                                Html.text "No result"
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.clickButton "Fetch"
+                        , PagesProgram.clickButton "Other"
                         -- Should still be able to resolve the effect from "Fetch"
-                        |> PagesProgram.simulateHttpGet
+                        , PagesProgram.simulateHttpGet
                             "https://api.example.com/data"
                             (Encode.object [ ( "value", Encode.string "hello" ) ])
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Result: hello" ]
-                        |> PagesProgram.done
+                        , PagesProgram.ensureViewHas [ PSelector.text "Result: hello" ]
+                        ]
             ]
         , describe "Bug fix: FatalError in data produces clean test failure"
             [ test "done fails cleanly when data BackendTask produces FatalError" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data =
-                            BackendTask.fail (FatalError.fromString "Database connection failed")
-                        , init = \name -> ( { name = name }, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
-                        }
-                        |> PagesProgram.done
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data =
+                                BackendTask.fail (FatalError.fromString "Database connection failed")
+                            , init = \name -> ( { name = name }, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
+                            }
+                        )
+                        []
                         |> expectFailContaining "Database connection failed"
             , test "ensureViewHas fails cleanly when data BackendTask produces FatalError" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data =
-                            BackendTask.fail (FatalError.fromString "Service unavailable")
-                        , init = \_ -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
-                        }
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Hello" ]
-                        |> PagesProgram.done
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data =
+                                BackendTask.fail (FatalError.fromString "Service unavailable")
+                            , init = \_ -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                            }
+                        )
+                        [ PagesProgram.ensureViewHas [ PSelector.text "Hello" ]
+                        ]
                         |> expectFailContaining "Service unavailable"
             ]
         , describe "simulateIncomingPort (elm-program-test style)"
             [ test "can simulate an incoming port message" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { messages = [] }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    GotWebSocket message ->
-                                        ( { model | messages = model.messages ++ [ message ] }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Chat"
-                                , body =
-                                    [ Html.text
-                                        (if List.isEmpty model.messages then
-                                            "No messages"
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { messages = [] }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        GotWebSocket message ->
+                                            ( { model | messages = model.messages ++ [ message ] }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Chat"
+                                    , body =
+                                        [ Html.text
+                                            (if List.isEmpty model.messages then
+                                                "No messages"
 
-                                         else
-                                            String.join ", " model.messages
-                                        )
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.withSimulatedSubscriptions
+                                             else
+                                                String.join ", " model.messages
+                                            )
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.withSimulatedSubscriptions
                             (\_ ->
                                 SimulatedSub.port_ "websocketReceived"
                                     (Decode.string |> Decode.map GotWebSocket)
                             )
-                        |> PagesProgram.ensureViewHas [ PSelector.text "No messages" ]
-                        |> PagesProgram.simulateIncomingPort "websocketReceived"
+                        , PagesProgram.ensureViewHas [ PSelector.text "No messages" ]
+                        , PagesProgram.simulateIncomingPort "websocketReceived"
                             (Encode.string "hello")
-                        |> PagesProgram.ensureViewHas [ PSelector.text "hello" ]
-                        |> PagesProgram.simulateIncomingPort "websocketReceived"
+                        , PagesProgram.ensureViewHas [ PSelector.text "hello" ]
+                        , PagesProgram.simulateIncomingPort "websocketReceived"
                             (Encode.string "world")
-                        |> PagesProgram.ensureViewHas [ PSelector.text "hello, world" ]
-                        |> PagesProgram.done
+                        , PagesProgram.ensureViewHas [ PSelector.text "hello, world" ]
+                        ]
             , test "simulateIncomingPort fails when not subscribed to port" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
-                        }
-                        |> PagesProgram.withSimulatedSubscriptions
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                            }
+                        )
+                        [ PagesProgram.withSimulatedSubscriptions
                             (\_ -> SimulatedSub.none)
-                        |> PagesProgram.simulateIncomingPort "somePort"
+                        , PagesProgram.simulateIncomingPort "somePort"
                             (Encode.string "data")
-                        |> PagesProgram.done
+                        ]
                         |> expectFailContaining "not currently subscribed"
             , test "simulateIncomingPort fails without withSimulatedSubscriptions" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
-                        }
-                        |> PagesProgram.simulateIncomingPort "somePort"
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                            }
+                        )
+                        [ PagesProgram.simulateIncomingPort "somePort"
                             (Encode.string "data")
-                        |> PagesProgram.done
+                        ]
                         |> expectFailContaining "withSimulatedSubscriptions"
             , test "subscriptions are model-dependent" <|
                 \() ->
-                    -- The subscription function re-evaluates with the current
-                    -- model. When listening is False, port is not subscribed.
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { listening = False, lastMessage = Nothing }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    StartListening ->
-                                        ( { model | listening = True }, [] )
+                    PagesProgram.expect
+                        (-- The subscription function re-evaluates with the current
+                        -- model. When listening is False, port is not subscribed.
+                        PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { listening = False, lastMessage = Nothing }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        StartListening ->
+                                            ( { model | listening = True }, [] )
 
-                                    ReceivedData value ->
-                                        ( { model | lastMessage = Just value }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Listener"
-                                , body =
-                                    [ if model.listening then
-                                        Html.text "Listening"
+                                        ReceivedData value ->
+                                            ( { model | lastMessage = Just value }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Listener"
+                                    , body =
+                                        [ if model.listening then
+                                            Html.text "Listening"
 
-                                      else
-                                        Html.button [ Html.Events.onClick StartListening ]
-                                            [ Html.text "Start" ]
-                                    , case model.lastMessage of
-                                        Just msg ->
-                                            Html.text ("Got: " ++ msg)
+                                          else
+                                            Html.button [ Html.Events.onClick StartListening ]
+                                                [ Html.text "Start" ]
+                                        , case model.lastMessage of
+                                            Just msg ->
+                                                Html.text ("Got: " ++ msg)
 
-                                        Nothing ->
-                                            Html.text ""
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.withSimulatedSubscriptions
+                                            Nothing ->
+                                                Html.text ""
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.withSimulatedSubscriptions
                             (\model ->
                                 if model.listening then
                                     SimulatedSub.port_ "dataPort"
@@ -1420,152 +1517,170 @@ all =
                                     SimulatedSub.none
                             )
                         -- Not listening yet, so port should not be subscribed
-                        |> PagesProgram.simulateIncomingPort "dataPort"
+                        , PagesProgram.simulateIncomingPort "dataPort"
                             (Encode.string "too early")
-                        |> PagesProgram.done
+                        ]
                         |> expectFailContaining "not currently subscribed"
             ]
         , describe "ensureHttpGet"
             [ test "passes when a GET request to the URL is pending" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data =
-                            BackendTask.Http.getJson
-                                "https://api.example.com/user"
-                                (Decode.field "name" Decode.string)
-                                |> BackendTask.allowFatal
-                        , init = \name -> ( { name = name }, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
-                        }
-                        |> PagesProgram.ensureHttpGet "https://api.example.com/user"
-                        |> PagesProgram.simulateHttpGet
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data =
+                                BackendTask.Http.getJson
+                                    "https://api.example.com/user"
+                                    (Decode.field "name" Decode.string)
+                                    |> BackendTask.allowFatal
+                            , init = \name -> ( { name = name }, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
+                            }
+                        )
+                        [ PagesProgram.ensureHttpGet "https://api.example.com/user"
+                        , PagesProgram.simulateHttpGet
                             "https://api.example.com/user"
                             (Encode.object [ ( "name", Encode.string "Alice" ) ])
-                        |> PagesProgram.done
+                        ]
             , test "fails when no GET request to the URL is pending" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed "static"
-                        , init = \name -> ( { name = name }, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
-                        }
-                        |> PagesProgram.ensureHttpGet "https://api.example.com/user"
-                        |> PagesProgram.done
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed "static"
+                            , init = \name -> ( { name = name }, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
+                            }
+                        )
+                        [ PagesProgram.ensureHttpGet "https://api.example.com/user"
+                        ]
                         |> expectFailContaining "https://api.example.com/user"
             , test "fails when the URL is wrong" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data =
-                            BackendTask.Http.getJson
-                                "https://api.example.com/user"
-                                (Decode.field "name" Decode.string)
-                                |> BackendTask.allowFatal
-                        , init = \name -> ( { name = name }, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
-                        }
-                        |> PagesProgram.ensureHttpGet "https://api.example.com/wrong-url"
-                        |> PagesProgram.done
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data =
+                                BackendTask.Http.getJson
+                                    "https://api.example.com/user"
+                                    (Decode.field "name" Decode.string)
+                                    |> BackendTask.allowFatal
+                            , init = \name -> ( { name = name }, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
+                            }
+                        )
+                        [ PagesProgram.ensureHttpGet "https://api.example.com/wrong-url"
+                        ]
                         |> expectFailContaining "wrong-url"
             ]
         , describe "ensureCustom"
             [ test "passes when a custom BackendTask port is pending" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data =
-                            BackendTask.Custom.run "getTodos"
-                                Encode.null
-                                Decode.string
-                                |> BackendTask.allowFatal
-                        , init = \todos -> ( { todos = todos }, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ model -> { title = "Todos", body = [ Html.text model.todos ] }
-                        }
-                        |> PagesProgram.ensureCustom "getTodos"
-                        |> PagesProgram.simulateCustom "getTodos" (Encode.string "[]")
-                        |> PagesProgram.done
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data =
+                                BackendTask.Custom.run "getTodos"
+                                    Encode.null
+                                    Decode.string
+                                    |> BackendTask.allowFatal
+                            , init = \todos -> ( { todos = todos }, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ model -> { title = "Todos", body = [ Html.text model.todos ] }
+                            }
+                        )
+                        [ PagesProgram.ensureCustom "getTodos"
+                        , PagesProgram.simulateCustom "getTodos" (Encode.string "[]")
+                        ]
             ]
         , describe "simulateHttpError"
             [ test "simulates a network error on data loading" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data =
-                            BackendTask.Http.getJson
-                                "https://api.example.com/data"
-                                Decode.string
-                                |> BackendTask.allowFatal
-                        , init = \value -> ( { value = value }, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ model -> { title = "Data", body = [ Html.text model.value ] }
-                        }
-                        |> PagesProgram.simulateHttpError "GET"
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data =
+                                BackendTask.Http.getJson
+                                    "https://api.example.com/data"
+                                    Decode.string
+                                    |> BackendTask.allowFatal
+                            , init = \value -> ( { value = value }, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ model -> { title = "Data", body = [ Html.text model.value ] }
+                            }
+                        )
+                        [ PagesProgram.simulateHttpError "GET"
                             "https://api.example.com/data"
                             NetworkError
-                        |> PagesProgram.done
+                        ]
                         |> expectFailContaining "NetworkError"
             , test "simulates a timeout on data loading" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data =
-                            BackendTask.Http.getJson
-                                "https://api.example.com/data"
-                                Decode.string
-                                |> BackendTask.allowFatal
-                        , init = \value -> ( { value = value }, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ model -> { title = "Data", body = [ Html.text model.value ] }
-                        }
-                        |> PagesProgram.simulateHttpError "GET"
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data =
+                                BackendTask.Http.getJson
+                                    "https://api.example.com/data"
+                                    Decode.string
+                                    |> BackendTask.allowFatal
+                            , init = \value -> ( { value = value }, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ model -> { title = "Data", body = [ Html.text model.value ] }
+                            }
+                        )
+                        [ PagesProgram.simulateHttpError "GET"
                             "https://api.example.com/data"
                             Timeout
-                        |> PagesProgram.done
+                        ]
                         |> expectFailContaining "Timeout"
             ]
         , describe "HTTP simulation error messages"
             [ test "simulateHttpPost with no pending requests shows the URL you tried" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed "ready"
-                        , init = \msg -> ( { text = msg }, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ model -> { title = "Test", body = [ Html.text model.text ] }
-                        }
-                        |> PagesProgram.simulateHttpPost
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed "ready"
+                            , init = \msg -> ( { text = msg }, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ model -> { title = "Test", body = [ Html.text model.text ] }
+                            }
+                        )
+                        [ PagesProgram.simulateHttpPost
                             "https://api.example.com/data"
                             (Encode.object [])
-                        |> PagesProgram.done
+                        ]
                         |> expectFailContaining "api.example.com/data"
             , test "simulateHttpGet with no pending requests shows the URL you tried" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed "ready"
-                        , init = \msg -> ( { text = msg }, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ model -> { title = "Test", body = [ Html.text model.text ] }
-                        }
-                        |> PagesProgram.simulateHttpGet
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed "ready"
+                            , init = \msg -> ( { text = msg }, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ model -> { title = "Test", body = [ Html.text model.text ] }
+                            }
+                        )
+                        [ PagesProgram.simulateHttpGet
                             "https://api.example.com/users"
                             (Encode.object [])
-                        |> PagesProgram.done
+                        ]
                         |> expectFailContaining "api.example.com/users"
             , test "simulateHttpPost with wrong URL shows both the attempted URL and the pending request" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data =
-                            BackendTask.Http.getJson
-                                "https://api.example.com/actual-endpoint"
-                                Decode.string
-                                |> BackendTask.allowFatal
-                        , init = \name -> ( { name = name }, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
-                        }
-                        |> PagesProgram.simulateHttpPost
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data =
+                                BackendTask.Http.getJson
+                                    "https://api.example.com/actual-endpoint"
+                                    Decode.string
+                                    |> BackendTask.allowFatal
+                            , init = \name -> ( { name = name }, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
+                            }
+                        )
+                        [ PagesProgram.simulateHttpPost
                             "https://api.example.com/wrong-endpoint"
                             (Encode.object [])
-                        |> PagesProgram.done
+                        ]
                         |> Expect.all
                             [ expectFailContaining "wrong-endpoint"
                             , expectFailContaining "actual-endpoint"
@@ -1574,117 +1689,131 @@ all =
         , describe "selectOption"
             [ test "selecting a dropdown option updates the view" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { color = "red" }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    SelectColor c ->
-                                        ( { model | color = c }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Colors"
-                                , body =
-                                    [ Html.label [ Attr.for "color-select" ] [ Html.text "Favorite Color" ]
-                                    , Html.select
-                                        [ Attr.id "color-select"
-                                        , Html.Events.onInput SelectColor
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { color = "red" }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        SelectColor c ->
+                                            ( { model | color = c }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Colors"
+                                    , body =
+                                        [ Html.label [ Attr.for "color-select" ] [ Html.text "Favorite Color" ]
+                                        , Html.select
+                                            [ Attr.id "color-select"
+                                            , Html.Events.onInput SelectColor
+                                            ]
+                                            [ Html.option [ Attr.value "red" ] [ Html.text "Red" ]
+                                            , Html.option [ Attr.value "blue" ] [ Html.text "Blue" ]
+                                            , Html.option [ Attr.value "green" ] [ Html.text "Green" ]
+                                            ]
+                                        , Html.text ("Selected: " ++ model.color)
                                         ]
-                                        [ Html.option [ Attr.value "red" ] [ Html.text "Red" ]
-                                        , Html.option [ Attr.value "blue" ] [ Html.text "Blue" ]
-                                        , Html.option [ Attr.value "green" ] [ Html.text "Green" ]
-                                        ]
-                                    , Html.text ("Selected: " ++ model.color)
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Selected: red" ]
-                        |> PagesProgram.selectOption "Favorite Color" "Blue"
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Selected: blue" ]
-                        |> PagesProgram.done
+                                    }
+                            }
+                        )
+                        [ PagesProgram.ensureViewHas [ PSelector.text "Selected: red" ]
+                        , PagesProgram.selectOption "Favorite Color" "Blue"
+                        , PagesProgram.ensureViewHas [ PSelector.text "Selected: blue" ]
+                        ]
             , test "selectOption fails when no label matches" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ _ -> { title = "Home", body = [ Html.text "No selects" ] }
-                        }
-                        |> PagesProgram.selectOption "Missing" "text"
-                        |> PagesProgram.done
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ _ -> { title = "Home", body = [ Html.text "No selects" ] }
+                            }
+                        )
+                        [ PagesProgram.selectOption "Missing" "text"
+                        ]
                         |> expectFailContaining "selectOption"
             , test "selectOption fails when the option text does not exist" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { color = "red" }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    SelectColor c ->
-                                        ( { model | color = c }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Colors"
-                                , body =
-                                    [ Html.label [ Attr.for "color-select" ] [ Html.text "Favorite Color" ]
-                                    , Html.select
-                                        [ Attr.id "color-select"
-                                        , Html.Events.onInput SelectColor
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { color = "red" }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        SelectColor c ->
+                                            ( { model | color = c }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Colors"
+                                    , body =
+                                        [ Html.label [ Attr.for "color-select" ] [ Html.text "Favorite Color" ]
+                                        , Html.select
+                                            [ Attr.id "color-select"
+                                            , Html.Events.onInput SelectColor
+                                            ]
+                                            [ Html.option [ Attr.value "red" ] [ Html.text "Red" ]
+                                            , Html.option [ Attr.value "blue" ] [ Html.text "Blue" ]
+                                            ]
+                                        , Html.text ("Selected: " ++ model.color)
                                         ]
-                                        [ Html.option [ Attr.value "red" ] [ Html.text "Red" ]
-                                        , Html.option [ Attr.value "blue" ] [ Html.text "Blue" ]
-                                        ]
-                                    , Html.text ("Selected: " ++ model.color)
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.selectOption "Favorite Color" "Not Blue"
-                        |> PagesProgram.done
+                                    }
+                            }
+                        )
+                        [ PagesProgram.selectOption "Favorite Color" "Not Blue"
+                        ]
                         |> expectFailContaining "Not Blue"
             , test "selectOption fails when multiple labels match" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "Form"
-                                , body =
-                                    [ Html.label [ Attr.for "size-1" ] [ Html.text "Size" ]
-                                    , Html.select [ Attr.id "size-1" ]
-                                        [ Html.option [ Attr.value "s" ] [ Html.text "Small" ] ]
-                                    , Html.label [ Attr.for "size-2" ] [ Html.text "Size" ]
-                                    , Html.select [ Attr.id "size-2" ]
-                                        [ Html.option [ Attr.value "m" ] [ Html.text "Medium" ] ]
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.selectOption "Size" "Small"
-                        |> PagesProgram.done
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view =
+                                \_ _ ->
+                                    { title = "Form"
+                                    , body =
+                                        [ Html.label [ Attr.for "size-1" ] [ Html.text "Size" ]
+                                        , Html.select [ Attr.id "size-1" ]
+                                            [ Html.option [ Attr.value "s" ] [ Html.text "Small" ] ]
+                                        , Html.label [ Attr.for "size-2" ] [ Html.text "Size" ]
+                                        , Html.select [ Attr.id "size-2" ]
+                                            [ Html.option [ Attr.value "m" ] [ Html.text "Medium" ] ]
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.selectOption "Size" "Small"
+                        ]
                         |> expectFailContaining "multiple"
             ]
         , describe "expectViewHas (terminal assertion)"
             [ test "passes when view has selector" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
-                        }
-                        |> PagesProgram.expectViewHas [ PSelector.text "Hello" ]
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                            }
+                        )
+                        [ PagesProgram.ensureViewHas [ PSelector.text "Hello" ]
+                        ]
             , test "fails when view does not have selector" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
-                        }
-                        |> PagesProgram.expectViewHas [ PSelector.text "Goodbye" ]
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                            }
+                        )
+                        [ PagesProgram.ensureViewHas [ PSelector.text "Goodbye" ]
+                        ]
                         |> expectFailContaining "Goodbye"
             ]
         , describe "cookie jar"
@@ -1759,173 +1888,181 @@ all =
         , describe "startWithEffects (custom Effect type simulation)"
             [ test "user-defined effects are converted to BackendTasks" <|
                 \() ->
-                    -- Users have a custom Effect type. They provide a function
-                    -- to convert it to BackendTasks the framework can handle.
-                    PagesProgramInternal.initialProgramTestWithEffects
-                        (\effect ->
-                            case effect of
-                                MyEffectNone ->
-                                    []
+                    PagesProgram.expect
+                        (-- Users have a custom Effect type. They provide a function
+                        -- to convert it to BackendTasks the framework can handle.
+                        PagesProgramInternal.initialProgramTestWithEffects
+                            (\effect ->
+                                case effect of
+                                    MyEffectNone ->
+                                        []
 
-                                MyEffectBatch effects ->
-                                    List.concatMap
-                                        (\e ->
-                                            case e of
-                                                MyFetchApi toMsg ->
-                                                    [ BackendTask.Http.getJson
-                                                        "https://api.example.com/data"
-                                                        (Decode.field "name" Decode.string)
-                                                        |> BackendTask.allowFatal
-                                                        |> BackendTask.map toMsg
-                                                    ]
+                                    MyEffectBatch effects ->
+                                        List.concatMap
+                                            (\e ->
+                                                case e of
+                                                    MyFetchApi toMsg ->
+                                                        [ BackendTask.Http.getJson
+                                                            "https://api.example.com/data"
+                                                            (Decode.field "name" Decode.string)
+                                                            |> BackendTask.allowFatal
+                                                            |> BackendTask.map toMsg
+                                                        ]
 
-                                                _ ->
-                                                    []
-                                        )
-                                        effects
+                                                    _ ->
+                                                        []
+                                            )
+                                            effects
 
-                                MyFetchApi toMsg ->
-                                    [ BackendTask.Http.getJson
-                                        "https://api.example.com/data"
-                                        (Decode.field "name" Decode.string)
-                                        |> BackendTask.allowFatal
-                                        |> BackendTask.map toMsg
-                                    ]
+                                    MyFetchApi toMsg ->
+                                        [ BackendTask.Http.getJson
+                                            "https://api.example.com/data"
+                                            (Decode.field "name" Decode.string)
+                                            |> BackendTask.allowFatal
+                                            |> BackendTask.map toMsg
+                                        ]
+                            )
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { name = Nothing }, MyEffectNone )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        LoadName ->
+                                            ( model, MyFetchApi GotName )
+
+                                        GotName n ->
+                                            ( { model | name = Just n }, MyEffectNone )
+                            , view =
+                                \_ model ->
+                                    { title = "Custom Effect"
+                                    , body =
+                                        [ Html.button [ Html.Events.onClick LoadName ] [ Html.text "Load" ]
+                                        , case model.name of
+                                            Just n ->
+                                                Html.text ("Name: " ++ n)
+
+                                            Nothing ->
+                                                Html.text "No name"
+                                        ]
+                                    }
+                            }
                         )
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { name = Nothing }, MyEffectNone )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    LoadName ->
-                                        ( model, MyFetchApi GotName )
-
-                                    GotName n ->
-                                        ( { model | name = Just n }, MyEffectNone )
-                        , view =
-                            \_ model ->
-                                { title = "Custom Effect"
-                                , body =
-                                    [ Html.button [ Html.Events.onClick LoadName ] [ Html.text "Load" ]
-                                    , case model.name of
-                                        Just n ->
-                                            Html.text ("Name: " ++ n)
-
-                                        Nothing ->
-                                            Html.text "No name"
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.ensureViewHas [ PSelector.text "No name" ]
-                        |> PagesProgram.clickButton "Load"
-                        |> PagesProgram.simulateHttpGet
+                        [ PagesProgram.ensureViewHas [ PSelector.text "No name" ]
+                        , PagesProgram.clickButton "Load"
+                        , PagesProgram.simulateHttpGet
                             "https://api.example.com/data"
                             (Encode.object [ ( "name", Encode.string "Alice" ) ])
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Name: Alice" ]
-                        |> PagesProgram.done
+                        , PagesProgram.ensureViewHas [ PSelector.text "Name: Alice" ]
+                        ]
             ]
         , describe "effect tracking"
             [ test "done reports count of unresolved effects" <|
                 \() ->
-                    -- When there are pending effects at the end, done should
-                    -- report how many AND describe what's pending
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { value = Nothing }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    TriggerEffect ->
-                                        ( model
-                                        , [ BackendTask.Http.getJson
-                                                "https://api.example.com/data"
-                                                (Decode.field "v" Decode.string)
-                                                |> BackendTask.allowFatal
-                                                |> BackendTask.map GotEffectResult
-                                          ]
-                                        )
+                    PagesProgram.expect
+                        (-- When there are pending effects at the end, done should
+                        -- report how many AND describe what's pending
+                        PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { value = Nothing }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        TriggerEffect ->
+                                            ( model
+                                            , [ BackendTask.Http.getJson
+                                                    "https://api.example.com/data"
+                                                    (Decode.field "v" Decode.string)
+                                                    |> BackendTask.allowFatal
+                                                    |> BackendTask.map GotEffectResult
+                                              ]
+                                            )
 
-                                    GotEffectResult v ->
-                                        ( { model | value = Just v }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Effect"
-                                , body =
-                                    [ Html.button [ Html.Events.onClick TriggerEffect ] [ Html.text "Go" ]
-                                    , case model.value of
-                                        Just v ->
-                                            Html.text ("Got: " ++ v)
+                                        GotEffectResult v ->
+                                            ( { model | value = Just v }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Effect"
+                                    , body =
+                                        [ Html.button [ Html.Events.onClick TriggerEffect ] [ Html.text "Go" ]
+                                        , case model.value of
+                                            Just v ->
+                                                Html.text ("Got: " ++ v)
 
-                                        Nothing ->
-                                            Html.text "Waiting"
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.clickButton "Go"
-                        |> PagesProgram.done
+                                            Nothing ->
+                                                Html.text "Waiting"
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.clickButton "Go"
+                        ]
                         |> expectFailContaining "1 pending"
             , test "multiple effects from different interactions all tracked" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { value = Nothing }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    TriggerEffect ->
-                                        ( model
-                                        , [ BackendTask.Http.getJson
-                                                "https://api.example.com/data"
-                                                (Decode.field "v" Decode.string)
-                                                |> BackendTask.allowFatal
-                                                |> BackendTask.map GotEffectResult
-                                          ]
-                                        )
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { value = Nothing }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        TriggerEffect ->
+                                            ( model
+                                            , [ BackendTask.Http.getJson
+                                                    "https://api.example.com/data"
+                                                    (Decode.field "v" Decode.string)
+                                                    |> BackendTask.allowFatal
+                                                    |> BackendTask.map GotEffectResult
+                                              ]
+                                            )
 
-                                    GotEffectResult v ->
-                                        ( { model | value = Just v }, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "Effect"
-                                , body =
-                                    [ Html.button [ Html.Events.onClick TriggerEffect ] [ Html.text "Go" ]
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.clickButton "Go"
-                        |> PagesProgram.clickButton "Go"
-                        |> PagesProgram.done
+                                        GotEffectResult v ->
+                                            ( { model | value = Just v }, [] )
+                            , view =
+                                \_ _ ->
+                                    { title = "Effect"
+                                    , body =
+                                        [ Html.button [ Html.Events.onClick TriggerEffect ] [ Html.text "Go" ]
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.clickButton "Go"
+                        , PagesProgram.clickButton "Go"
+                        ]
                         |> expectFailContaining "2 pending"
             , test "done describes what effects are pending" <|
                 \() ->
-                    -- done should include the URLs of pending HTTP requests
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { value = Nothing }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    TriggerEffect ->
-                                        ( model
-                                        , [ BackendTask.Http.getJson
-                                                "https://api.example.com/data"
-                                                (Decode.field "v" Decode.string)
-                                                |> BackendTask.allowFatal
-                                                |> BackendTask.map GotEffectResult
-                                          ]
-                                        )
+                    PagesProgram.expect
+                        (-- done should include the URLs of pending HTTP requests
+                        PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { value = Nothing }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        TriggerEffect ->
+                                            ( model
+                                            , [ BackendTask.Http.getJson
+                                                    "https://api.example.com/data"
+                                                    (Decode.field "v" Decode.string)
+                                                    |> BackendTask.allowFatal
+                                                    |> BackendTask.map GotEffectResult
+                                              ]
+                                            )
 
-                                    GotEffectResult v ->
-                                        ( { model | value = Just v }, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "Effect"
-                                , body =
-                                    [ Html.button [ Html.Events.onClick TriggerEffect ] [ Html.text "Go" ] ]
-                                }
-                        }
-                        |> PagesProgram.clickButton "Go"
-                        |> PagesProgram.done
+                                        GotEffectResult v ->
+                                            ( { model | value = Just v }, [] )
+                            , view =
+                                \_ _ ->
+                                    { title = "Effect"
+                                    , body =
+                                        [ Html.button [ Html.Events.onClick TriggerEffect ] [ Html.text "Go" ] ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.clickButton "Go"
+                        ]
                         |> expectFailContaining "api.example.com"
             ]
         , describe "unsupported Platform effects"
@@ -1976,35 +2113,38 @@ all =
                             }
             ]
         , describe "withModelInspector"
-            [ test "annotates the latest snapshot when enabled mid-test without rewriting history" <|
+            [ test "annotates every snapshot when applied to the starting program" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { count = 0 }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    Increment ->
-                                        ( { model | count = model.count + 1 }, [] )
+                    PagesProgram.snapshots
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { count = 0 }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        Increment ->
+                                            ( { model | count = model.count + 1 }, [] )
 
-                                    Decrement ->
-                                        ( model, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Counter"
-                                , body =
-                                    [ Html.button [ Html.Events.onClick Increment ] [ Html.text "+1" ]
-                                    , Html.text (String.fromInt model.count)
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.clickButton "+1"
-                        |> PagesProgram.withModelInspector (\model -> "count=" ++ String.fromInt model.count)
-                        |> PagesProgram.clickButton "+1"
-                        |> PagesProgram.toSnapshots
+                                        Decrement ->
+                                            ( model, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Counter"
+                                    , body =
+                                        [ Html.button [ Html.Events.onClick Increment ] [ Html.text "+1" ]
+                                        , Html.text (String.fromInt model.count)
+                                        ]
+                                    }
+                            }
+                            |> PagesProgram.withModelInspector
+                                (\model -> "count=" ++ String.fromInt model.count)
+                        )
+                        [ PagesProgram.clickButton "+1"
+                        , PagesProgram.clickButton "+1"
+                        ]
                         |> List.map .modelState
                         |> Expect.equal
-                            [ Nothing
+                            [ Just "count=0"
                             , Just "count=1"
                             , Just "count=2"
                             ]
@@ -2012,264 +2152,284 @@ all =
         , describe "within (DOM scoping)"
             [ test "scopes clickButton to a specific element" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { a = 0, b = 0 }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    IncrA ->
-                                        ( { model | a = model.a + 1 }, [] )
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { a = 0, b = 0 }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        IncrA ->
+                                            ( { model | a = model.a + 1 }, [] )
 
-                                    IncrB ->
-                                        ( { model | b = model.b + 1 }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Scoped"
-                                , body =
-                                    [ Html.div [ Attr.id "section-a" ]
-                                        [ Html.text ("A: " ++ String.fromInt model.a)
-                                        , Html.button [ Html.Events.onClick IncrA ] [ Html.text "+1" ]
+                                        IncrB ->
+                                            ( { model | b = model.b + 1 }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Scoped"
+                                    , body =
+                                        [ Html.div [ Attr.id "section-a" ]
+                                            [ Html.text ("A: " ++ String.fromInt model.a)
+                                            , Html.button [ Html.Events.onClick IncrA ] [ Html.text "+1" ]
+                                            ]
+                                        , Html.div [ Attr.id "section-b" ]
+                                            [ Html.text ("B: " ++ String.fromInt model.b)
+                                            , Html.button [ Html.Events.onClick IncrB ] [ Html.text "+1" ]
+                                            ]
                                         ]
-                                    , Html.div [ Attr.id "section-b" ]
-                                        [ Html.text ("B: " ++ String.fromInt model.b)
-                                        , Html.button [ Html.Events.onClick IncrB ] [ Html.text "+1" ]
-                                        ]
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.withinFind
+                                    }
+                            }
+                        )
+                        [ PagesProgram.withinFind
                             [ Selector.id "section-b" ]
-                            (PagesProgram.clickButton "+1")
-                        |> PagesProgram.ensureViewHas [ PSelector.text "A: 0" ]
-                        |> PagesProgram.ensureViewHas [ PSelector.text "B: 1" ]
-                        |> PagesProgram.done
+                            [ PagesProgram.clickButton "+1" ]
+                        , PagesProgram.ensureViewHas [ PSelector.text "A: 0" ]
+                        , PagesProgram.ensureViewHas [ PSelector.text "B: 1" ]
+                        ]
             , test "within resets scope after block" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { a = 0, b = 0 }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    IncrA ->
-                                        ( { model | a = model.a + 1 }, [] )
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { a = 0, b = 0 }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        IncrA ->
+                                            ( { model | a = model.a + 1 }, [] )
 
-                                    IncrB ->
-                                        ( { model | b = model.b + 1 }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Scoped"
-                                , body =
-                                    [ Html.div [ Attr.id "section-a" ]
-                                        [ Html.text ("A: " ++ String.fromInt model.a)
-                                        , Html.button [ Html.Events.onClick IncrA ] [ Html.text "+1" ]
+                                        IncrB ->
+                                            ( { model | b = model.b + 1 }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Scoped"
+                                    , body =
+                                        [ Html.div [ Attr.id "section-a" ]
+                                            [ Html.text ("A: " ++ String.fromInt model.a)
+                                            , Html.button [ Html.Events.onClick IncrA ] [ Html.text "+1" ]
+                                            ]
+                                        , Html.div [ Attr.id "section-b" ]
+                                            [ Html.text ("B: " ++ String.fromInt model.b)
+                                            , Html.button [ Html.Events.onClick IncrB ] [ Html.text "+1" ]
+                                            ]
                                         ]
-                                    , Html.div [ Attr.id "section-b" ]
-                                        [ Html.text ("B: " ++ String.fromInt model.b)
-                                        , Html.button [ Html.Events.onClick IncrB ] [ Html.text "+1" ]
-                                        ]
-                                    ]
-                                }
-                        }
-                        -- Click in section-b
-                        |> PagesProgram.withinFind
+                                    }
+                            }
+                            -- Click in section-b
+                        )
+                        [ PagesProgram.withinFind
                             [ Selector.id "section-b" ]
-                            (PagesProgram.clickButton "+1")
+                            [ PagesProgram.clickButton "+1" ]
                         -- After within, scope resets to full view.
                         -- Use within again to target section-a specifically.
-                        |> PagesProgram.withinFind
+                        , PagesProgram.withinFind
                             [ Selector.id "section-a" ]
-                            (PagesProgram.clickButton "+1")
-                        |> PagesProgram.ensureViewHas [ PSelector.text "A: 1" ]
-                        |> PagesProgram.ensureViewHas [ PSelector.text "B: 1" ]
-                        |> PagesProgram.done
+                            [ PagesProgram.clickButton "+1" ]
+                        , PagesProgram.ensureViewHas [ PSelector.text "A: 1" ]
+                        , PagesProgram.ensureViewHas [ PSelector.text "B: 1" ]
+                        ]
             ]
         , describe "fillInTextarea"
             [ test "fills in a textarea by finding the first one" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { content = "" }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    UpdateContent c ->
-                                        ( { model | content = c }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Editor"
-                                , body =
-                                    [ Html.textarea
-                                        [ Attr.value model.content
-                                        , Html.Events.onInput UpdateContent
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { content = "" }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        UpdateContent c ->
+                                            ( { model | content = c }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Editor"
+                                    , body =
+                                        [ Html.textarea
+                                            [ Attr.value model.content
+                                            , Html.Events.onInput UpdateContent
+                                            ]
+                                            []
+                                        , Html.text ("Content: " ++ model.content)
                                         ]
-                                        []
-                                    , Html.text ("Content: " ++ model.content)
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.fillInTextarea "Hello from textarea!"
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Content: Hello from textarea!" ]
-                        |> PagesProgram.done
+                                    }
+                            }
+                        )
+                        [ PagesProgram.fillInTextarea "Hello from textarea!"
+                        , PagesProgram.ensureViewHas [ PSelector.text "Content: Hello from textarea!" ]
+                        ]
             ]
         , describe "expectView (terminal)"
             [ test "passes with custom query assertion" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "Home"
-                                , body =
-                                    [ Html.div [ Attr.id "main" ]
-                                        [ Html.h1 [] [ Html.text "Welcome" ] ]
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.expectView
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view =
+                                \_ _ ->
+                                    { title = "Home"
+                                    , body =
+                                        [ Html.div [ Attr.id "main" ]
+                                            [ Html.h1 [] [ Html.text "Welcome" ] ]
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.ensureView
                             (Query.find [ Selector.id "main" ]
                                 >> Query.has [ Selector.tag "h1" ]
                             )
+                        ]
             , test "fails with useful message" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
-                        }
-                        |> PagesProgram.expectView
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                            }
+                        )
+                        [ PagesProgram.ensureView
                             (Query.has [ Selector.id "nonexistent" ])
+                        ]
                         |> expectFailContaining "id"
             ]
         , describe "simulateDomEvent"
             [ test "simulates a custom event on a targeted element" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { focused = False }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    GotFocus ->
-                                        ( { model | focused = True }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Focus"
-                                , body =
-                                    [ Html.input
-                                        [ Attr.id "my-input"
-                                        , Html.Events.onFocus GotFocus
-                                        ]
-                                        []
-                                    , if model.focused then
-                                        Html.text "Focused!"
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { focused = False }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        GotFocus ->
+                                            ( { model | focused = True }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Focus"
+                                    , body =
+                                        [ Html.input
+                                            [ Attr.id "my-input"
+                                            , Html.Events.onFocus GotFocus
+                                            ]
+                                            []
+                                        , if model.focused then
+                                            Html.text "Focused!"
 
-                                      else
-                                        Html.text "Not focused"
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Not focused" ]
-                        |> PagesProgram.simulateDomEvent
+                                          else
+                                            Html.text "Not focused"
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.ensureViewHas [ PSelector.text "Not focused" ]
+                        , PagesProgram.simulateDomEvent
                             (Query.find [ Selector.id "my-input" ])
                             Event.focus
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Focused!" ]
-                        |> PagesProgram.done
+                        , PagesProgram.ensureViewHas [ PSelector.text "Focused!" ]
+                        ]
             ]
         , describe "clickLink"
             [ test "clickLink extracts href from DOM and navigates" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { page = "home" }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    Navigate url ->
-                                        ( { model | page = url }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Nav"
-                                , body =
-                                    [ Html.a
-                                        [ Attr.href "/about"
-                                        , Html.Events.onClick (Navigate "/about")
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { page = "home" }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        Navigate url ->
+                                            ( { model | page = url }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Nav"
+                                    , body =
+                                        [ Html.a
+                                            [ Attr.href "/about"
+                                            , Html.Events.onClick (Navigate "/about")
+                                            ]
+                                            [ Html.text "About" ]
+                                        , Html.text ("Page: " ++ model.page)
                                         ]
-                                        [ Html.text "About" ]
-                                    , Html.text ("Page: " ++ model.page)
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.clickLink "About"
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Page: /about" ]
-                        |> PagesProgram.done
+                                    }
+                            }
+                        )
+                        [ PagesProgram.clickLink "About"
+                        , PagesProgram.ensureViewHas [ PSelector.text "Page: /about" ]
+                        ]
             , test "clickLink fails when link text not found" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "Page"
-                                , body = [ Html.text "No links here" ]
-                                }
-                        }
-                        |> PagesProgram.clickLink "Go somewhere"
-                        |> PagesProgram.done
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view =
+                                \_ _ ->
+                                    { title = "Page"
+                                    , body = [ Html.text "No links here" ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.clickLink "Go somewhere"
+                        ]
                         |> expectFailContaining "clickLink"
             , test "clickLink navigates using href from the DOM, not user-supplied" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { page = "home" }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    Navigate url ->
-                                        ( { model | page = url }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Nav"
-                                , body =
-                                    [ Html.a
-                                        [ Attr.href "/the-real-href"
-                                        , Html.Events.onClick (Navigate "/the-real-href")
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { page = "home" }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        Navigate url ->
+                                            ( { model | page = url }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Nav"
+                                    , body =
+                                        [ Html.a
+                                            [ Attr.href "/the-real-href"
+                                            , Html.Events.onClick (Navigate "/the-real-href")
+                                            ]
+                                            [ Html.text "Click me" ]
+                                        , Html.text ("Page: " ++ model.page)
                                         ]
-                                        [ Html.text "Click me" ]
-                                    , Html.text ("Page: " ++ model.page)
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.clickLink "Click me"
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Page: /the-real-href" ]
-                        |> PagesProgram.done
+                                    }
+                            }
+                        )
+                        [ PagesProgram.clickLink "Click me"
+                        , PagesProgram.ensureViewHas [ PSelector.text "Page: /the-real-href" ]
+                        ]
             , test "clickLink fails with helpful message when multiple links match" <|
                 \() ->
-                    let
-                        result : Expectation
-                        result =
-                            PagesProgramInternal.initialProgramTest
-                                { data = BackendTask.succeed ()
-                                , init = \() -> ( {}, [] )
-                                , update = \_ model -> ( model, [] )
-                                , view =
-                                    \_ _ ->
-                                        { title = "Nav"
-                                        , body =
-                                            [ Html.a [ Attr.href "/about" ] [ Html.text "Click me" ]
-                                            , Html.a [ Attr.href "/contact" ] [ Html.text "Click me" ]
-                                            ]
-                                        }
-                                }
-                                |> PagesProgram.clickLink "Click me"
-                                |> PagesProgram.done
-                    in
-                    case Test.Runner.getFailureReason result of
+                    case
+                        Test.Runner.getFailureReason
+                            (PagesProgram.expect
+                                (PagesProgramInternal.initialProgramTest
+                                    { data = BackendTask.succeed ()
+                                    , init = \() -> ( {}, [] )
+                                    , update = \_ model -> ( model, [] )
+                                    , view =
+                                        \_ _ ->
+                                            { title = "Nav"
+                                            , body =
+                                                [ Html.a [ Attr.href "/about" ] [ Html.text "Click me" ]
+                                                , Html.a [ Attr.href "/contact" ] [ Html.text "Click me" ]
+                                                ]
+                                            }
+                                    }
+                                )
+                                [ PagesProgram.clickLink "Click me" ]
+                            )
+                    of
                         Nothing ->
                             Expect.fail "Expected test to fail, but it passed"
 
@@ -2295,120 +2455,136 @@ all =
                                     ]
             , test "clickLink fails when no <a> element has the given text" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "Nav"
-                                , body =
-                                    [ Html.a [ Attr.href "/about" ] [ Html.text "About" ]
-                                    , Html.span [] [ Html.text "Not a link" ]
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.clickLink "Not a link"
-                        |> PagesProgram.done
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view =
+                                \_ _ ->
+                                    { title = "Nav"
+                                    , body =
+                                        [ Html.a [ Attr.href "/about" ] [ Html.text "About" ]
+                                        , Html.span [] [ Html.text "Not a link" ]
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.clickLink "Not a link"
+                        ]
                         |> expectFailContaining "clickLink"
             , test "clickLink gives helpful error when <a> has no href" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "Nav"
-                                , body =
-                                    [ Html.a [] [ Html.text "Broken link" ] ]
-                                }
-                        }
-                        |> PagesProgram.clickLink "Broken link"
-                        |> PagesProgram.done
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view =
+                                \_ _ ->
+                                    { title = "Nav"
+                                    , body =
+                                        [ Html.a [] [ Html.text "Broken link" ] ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.clickLink "Broken link"
+                        ]
                         |> expectFailContaining "href"
             ]
         , describe "navigateTo"
             [ test "navigateTo fails without startPlatform" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
-                        }
-                        |> PagesProgram.navigateTo "/about"
-                        |> PagesProgram.done
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                            }
+                        )
+                        [ PagesProgram.navigateTo "/about"
+                        ]
                         |> expectFailContaining "Navigation is only supported"
             , test "navigateTo fails while data is resolving" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data =
-                            BackendTask.Http.getJson
-                                "https://api.example.com/data"
-                                Decode.string
-                                |> BackendTask.allowFatal
-                        , init = \_ -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
-                        }
-                        |> PagesProgram.navigateTo "/about"
-                        |> PagesProgram.done
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data =
+                                BackendTask.Http.getJson
+                                    "https://api.example.com/data"
+                                    Decode.string
+                                    |> BackendTask.allowFatal
+                            , init = \_ -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                            }
+                        )
+                        [ PagesProgram.navigateTo "/about"
+                        ]
                         |> expectFailContaining "resolving"
             ]
         , describe "ensureBrowserUrl"
             [ test "ensureBrowserUrl fails without startPlatform" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
-                        }
-                        |> PagesProgram.ensureBrowserUrl
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                            }
+                        )
+                        [ PagesProgram.ensureBrowserUrl
                             (\url -> url |> Expect.equal "anything")
-                        |> PagesProgram.done
+                        ]
                         |> expectFailContaining "URL tracking is only supported"
             ]
         , describe "fillInTextarea errors"
             [ test "fillInTextarea fails when no textarea found" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ _ -> { title = "Home", body = [ Html.text "No textarea" ] }
-                        }
-                        |> PagesProgram.fillInTextarea "some text"
-                        |> PagesProgram.done
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ _ -> { title = "Home", body = [ Html.text "No textarea" ] }
+                            }
+                        )
+                        [ PagesProgram.fillInTextarea "some text"
+                        ]
                         |> expectFailContaining "fillInTextarea"
             ]
         , describe "simulateDomEvent errors"
             [ test "simulateDomEvent fails when element not found" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
-                        }
-                        |> PagesProgram.simulateDomEvent
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                            }
+                        )
+                        [ PagesProgram.simulateDomEvent
                             (Query.find [ Selector.id "missing" ])
                             Event.focus
-                        |> PagesProgram.done
+                        ]
                         |> expectFailContaining "simulateDomEvent"
             ]
         , describe "selectOption errors"
             [ test "selectOption fails when select not found" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ _ -> { title = "Home", body = [ Html.text "No select" ] }
-                        }
-                        |> PagesProgram.selectOption "Label" "text"
-                        |> PagesProgram.done
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ _ -> { title = "Home", body = [ Html.text "No select" ] }
+                            }
+                        )
+                        [ PagesProgram.selectOption "Label" "text"
+                        ]
                         |> expectFailContaining "selectOption"
             ]
         , describe "CookieJar edge cases"
@@ -2424,99 +2600,105 @@ all =
         , describe "within error handling"
             [ test "within gives clear error when scope element doesn't exist" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
-                        }
-                        |> PagesProgram.withinFind
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                            }
+                        )
+                        [ PagesProgram.withinFind
                             [ Selector.id "nonexistent" ]
-                            (PagesProgram.ensureViewHas [ PSelector.text "anything" ])
-                        |> PagesProgram.done
+                            [ PagesProgram.ensureViewHas [ PSelector.text "anything" ] ]
+                        ]
                         |> expectFailContaining "nonexistent"
             ]
         , describe "textarea support (legacy)"
             [ test "fillIn works with textarea" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { content = "" }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    UpdateContent c ->
-                                        ( { model | content = c }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Editor"
-                                , body =
-                                    [ Html.textarea
-                                        [ Attr.id "editor"
-                                        , Attr.value model.content
-                                        , Html.Events.onInput UpdateContent
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { content = "" }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        UpdateContent c ->
+                                            ( { model | content = c }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Editor"
+                                    , body =
+                                        [ Html.textarea
+                                            [ Attr.id "editor"
+                                            , Attr.value model.content
+                                            , Html.Events.onInput UpdateContent
+                                            ]
+                                            []
+                                        , Html.text ("Content: " ++ model.content)
                                         ]
-                                        []
-                                    , Html.text ("Content: " ++ model.content)
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.fillIn "editor" "editor" "Hello textarea!"
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Content: Hello textarea!" ]
-                        |> PagesProgram.done
+                                    }
+                            }
+                        )
+                        [ PagesProgram.fillIn "editor" "editor" "Hello textarea!"
+                        , PagesProgram.ensureViewHas [ PSelector.text "Content: Hello textarea!" ]
+                        ]
             ]
         , describe "SimulatedEffect (Effect.testPerform integration)"
             [ test "startWithEffects with SimulatedEffect-style decomposition" <|
                 \() ->
-                    -- The startWithEffects path converts custom effects to BackendTasks.
-                    -- When an effect is pure (no HTTP needed), use BackendTask.succeed
-                    -- Pure effects (BackendTask.succeed msg) auto-resolve immediately.
-                    PagesProgramInternal.initialProgramTestWithEffects
-                        (\effect ->
-                            case effect of
-                                SimEffectNone ->
-                                    []
+                    PagesProgram.expect
+                        (-- The startWithEffects path converts custom effects to BackendTasks.
+                        -- When an effect is pure (no HTTP needed), use BackendTask.succeed
+                        -- Pure effects (BackendTask.succeed msg) auto-resolve immediately.
+                        PagesProgramInternal.initialProgramTestWithEffects
+                            (\effect ->
+                                case effect of
+                                    SimEffectNone ->
+                                        []
 
-                                SimEffectSendMsg msg ->
-                                    [ BackendTask.succeed msg
-                                        |> BackendTask.allowFatal
-                                    ]
+                                    SimEffectSendMsg msg ->
+                                        [ BackendTask.succeed msg
+                                            |> BackendTask.allowFatal
+                                        ]
 
-                                SimEffectBatch effects ->
-                                    List.concatMap
-                                        (\e ->
-                                            case e of
-                                                SimEffectSendMsg msg ->
-                                                    [ BackendTask.succeed msg |> BackendTask.allowFatal ]
+                                    SimEffectBatch effects ->
+                                        List.concatMap
+                                            (\e ->
+                                                case e of
+                                                    SimEffectSendMsg msg ->
+                                                        [ BackendTask.succeed msg |> BackendTask.allowFatal ]
 
-                                                _ ->
-                                                    []
-                                        )
-                                        effects
+                                                    _ ->
+                                                        []
+                                            )
+                                            effects
+                            )
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { message = "initial" }, SimEffectNone )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        SimSetMessage s ->
+                                            ( { model | message = s }, SimEffectNone )
+
+                                        SimTriggerChain ->
+                                            ( model, SimEffectSendMsg (SimSetMessage "chained!") )
+                            , view =
+                                \_ model ->
+                                    { title = "Effect Chain"
+                                    , body =
+                                        [ Html.text ("Message: " ++ model.message)
+                                        , Html.button [ Html.Events.onClick SimTriggerChain ] [ Html.text "Chain" ]
+                                        ]
+                                    }
+                            }
                         )
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { message = "initial" }, SimEffectNone )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    SimSetMessage s ->
-                                        ( { model | message = s }, SimEffectNone )
-
-                                    SimTriggerChain ->
-                                        ( model, SimEffectSendMsg (SimSetMessage "chained!") )
-                        , view =
-                            \_ model ->
-                                { title = "Effect Chain"
-                                , body =
-                                    [ Html.text ("Message: " ++ model.message)
-                                    , Html.button [ Html.Events.onClick SimTriggerChain ] [ Html.text "Chain" ]
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Message: initial" ]
-                        |> PagesProgram.clickButton "Chain"
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Message: chained!" ]
-                        |> PagesProgram.done
+                        [ PagesProgram.ensureViewHas [ PSelector.text "Message: initial" ]
+                        , PagesProgram.clickButton "Chain"
+                        , PagesProgram.ensureViewHas [ PSelector.text "Message: chained!" ]
+                        ]
             , test "SimulatedEffect.map preserves message transformation" <|
                 \() ->
                     -- Verify that SimulatedEffect.map correctly transforms messages
@@ -2577,156 +2759,172 @@ all =
         , describe "expectBrowserUrl (terminal)"
             [ test "expectBrowserUrl fails without startPlatform" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
-                        }
-                        |> PagesProgram.expectBrowserUrl
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                            }
+                        )
+                        [ PagesProgram.ensureBrowserUrl
                             (\url -> url |> Expect.equal "anything")
+                        ]
                         |> expectFailContaining "URL tracking is only supported"
             ]
         , describe "ensureBrowserHistory / expectBrowserHistory"
             [ test "ensureBrowserHistory fails without startPlatform" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
-                        }
-                        |> PagesProgram.ensureBrowserHistory
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                            }
+                        )
+                        [ PagesProgram.ensureBrowserHistory
                             (\history -> Expect.equal [] history)
-                        |> PagesProgram.done
-                        |> expectFailContaining "only supported with startPlatform"
+                        ]
+                        |> expectFailContaining "only supported with generated TestApp.start"
             , test "expectBrowserHistory fails without startPlatform" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
-                        }
-                        |> PagesProgram.expectBrowserHistory
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ _ -> { title = "Home", body = [ Html.text "Hello" ] }
+                            }
+                        )
+                        [ PagesProgram.ensureBrowserHistory
                             (\history -> Expect.equal [] history)
-                        |> expectFailContaining "only supported with startPlatform"
+                        ]
+                        |> expectFailContaining "only supported with generated TestApp.start"
             ]
         , describe "check with label"
             [ test "check verifies label is associated with the checkbox" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { agreed = False }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    ToggleAgreed checked ->
-                                        ( { model | agreed = checked }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Form"
-                                , body =
-                                    [ Html.label [ Attr.for "agree" ] [ Html.text "I agree to the terms" ]
-                                    , Html.input
-                                        [ Attr.id "agree"
-                                        , Attr.type_ "checkbox"
-                                        , Attr.checked model.agreed
-                                        , Html.Events.onCheck ToggleAgreed
-                                        ]
-                                        []
-                                    , if model.agreed then
-                                        Html.text "Terms accepted"
-
-                                      else
-                                        Html.text "Please accept terms"
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.check "I agree to the terms" True
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Terms accepted" ]
-                        |> PagesProgram.done
-            , test "check fails when label doesn't match" <|
-                \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { agreed = False }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    ToggleAgreed checked ->
-                                        ( { model | agreed = checked }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Form"
-                                , body =
-                                    [ Html.label [ Attr.for "agree" ] [ Html.text "I agree" ]
-                                    , Html.input
-                                        [ Attr.id "agree"
-                                        , Attr.type_ "checkbox"
-                                        , Attr.checked model.agreed
-                                        , Html.Events.onCheck ToggleAgreed
-                                        ]
-                                        []
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.check "Wrong label text" True
-                        |> PagesProgram.done
-                        |> expectFailContaining "Could not find"
-            , test "check works with label wrapping the input" <|
-                \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( { agreed = False }, [] )
-                        , update =
-                            \msg model ->
-                                case msg of
-                                    ToggleAgreed checked ->
-                                        ( { model | agreed = checked }, [] )
-                        , view =
-                            \_ model ->
-                                { title = "Form"
-                                , body =
-                                    [ Html.label []
-                                        [ Html.input
-                                            [ Attr.type_ "checkbox"
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { agreed = False }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        ToggleAgreed checked ->
+                                            ( { model | agreed = checked }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Form"
+                                    , body =
+                                        [ Html.label [ Attr.for "agree" ] [ Html.text "I agree to the terms" ]
+                                        , Html.input
+                                            [ Attr.id "agree"
+                                            , Attr.type_ "checkbox"
                                             , Attr.checked model.agreed
                                             , Html.Events.onCheck ToggleAgreed
                                             ]
                                             []
-                                        , Html.text "Accept terms"
-                                        ]
-                                    , if model.agreed then
-                                        Html.text "Terms accepted"
+                                        , if model.agreed then
+                                            Html.text "Terms accepted"
 
-                                      else
-                                        Html.text "Please accept terms"
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.check "Accept terms" True
-                        |> PagesProgram.ensureViewHas [ PSelector.text "Terms accepted" ]
-                        |> PagesProgram.done
+                                          else
+                                            Html.text "Please accept terms"
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.check "I agree to the terms" True
+                        , PagesProgram.ensureViewHas [ PSelector.text "Terms accepted" ]
+                        ]
+            , test "check fails when label doesn't match" <|
+                \() ->
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { agreed = False }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        ToggleAgreed checked ->
+                                            ( { model | agreed = checked }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Form"
+                                    , body =
+                                        [ Html.label [ Attr.for "agree" ] [ Html.text "I agree" ]
+                                        , Html.input
+                                            [ Attr.id "agree"
+                                            , Attr.type_ "checkbox"
+                                            , Attr.checked model.agreed
+                                            , Html.Events.onCheck ToggleAgreed
+                                            ]
+                                            []
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.check "Wrong label text" True
+                        ]
+                        |> expectFailContaining "Could not find"
+            , test "check works with label wrapping the input" <|
+                \() ->
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { agreed = False }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        ToggleAgreed checked ->
+                                            ( { model | agreed = checked }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Form"
+                                    , body =
+                                        [ Html.label []
+                                            [ Html.input
+                                                [ Attr.type_ "checkbox"
+                                                , Attr.checked model.agreed
+                                                , Html.Events.onCheck ToggleAgreed
+                                                ]
+                                                []
+                                            , Html.text "Accept terms"
+                                            ]
+                                        , if model.agreed then
+                                            Html.text "Terms accepted"
+
+                                          else
+                                            Html.text "Please accept terms"
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.check "Accept terms" True
+                        , PagesProgram.ensureViewHas [ PSelector.text "Terms accepted" ]
+                        ]
             , test "check fails when multiple checkboxes match the label" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data = BackendTask.succeed ()
-                        , init = \() -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view =
-                            \_ _ ->
-                                { title = "Form"
-                                , body =
-                                    [ Html.label [ Attr.for "opt-a" ] [ Html.text "Enable" ]
-                                    , Html.input [ Attr.id "opt-a", Attr.type_ "checkbox" ] []
-                                    , Html.label [ Attr.for "opt-b" ] [ Html.text "Enable" ]
-                                    , Html.input [ Attr.id "opt-b", Attr.type_ "checkbox" ] []
-                                    ]
-                                }
-                        }
-                        |> PagesProgram.check "Enable" True
-                        |> PagesProgram.done
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view =
+                                \_ _ ->
+                                    { title = "Form"
+                                    , body =
+                                        [ Html.label [ Attr.for "opt-a" ] [ Html.text "Enable" ]
+                                        , Html.input [ Attr.id "opt-a", Attr.type_ "checkbox" ] []
+                                        , Html.label [ Attr.for "opt-b" ] [ Html.text "Enable" ]
+                                        , Html.input [ Attr.id "opt-b", Attr.type_ "checkbox" ] []
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.check "Enable" True
+                        ]
                         |> expectFailContaining "multiple"
             ]
         , describe "SimulatedEffect.OpaqueCmd removed"
@@ -2744,20 +2942,22 @@ all =
         , describe "Network entry enrichment"
             [ test "GET request has no requestBody" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data =
-                            BackendTask.Http.getJson
-                                "https://api.example.com/user"
-                                (Decode.field "name" Decode.string)
-                                |> BackendTask.allowFatal
-                        , init = \name -> ( { name = name }, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
-                        }
-                        |> PagesProgram.simulateHttpGet
+                    PagesProgram.snapshots
+                        (PagesProgramInternal.initialProgramTest
+                            { data =
+                                BackendTask.Http.getJson
+                                    "https://api.example.com/user"
+                                    (Decode.field "name" Decode.string)
+                                    |> BackendTask.allowFatal
+                            , init = \name -> ( { name = name }, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
+                            }
+                        )
+                        [ PagesProgram.simulateHttpGet
                             "https://api.example.com/user"
                             (Encode.object [ ( "name", Encode.string "Alice" ) ])
-                        |> PagesProgram.toSnapshots
+                        ]
                         |> List.concatMap .networkLog
                         |> List.filter (\e -> e.url == "https://api.example.com/user")
                         |> List.head
@@ -2765,26 +2965,28 @@ all =
                         |> Expect.equal (Just Nothing)
             , test "POST request captures requestBody as pretty-printed JSON" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data =
-                            BackendTask.Http.request
-                                { url = "https://api.example.com/graphql"
-                                , method = "POST"
-                                , headers = []
-                                , body = BackendTask.Http.jsonBody (Encode.object [ ( "query", Encode.string "{ users }" ) ])
-                                , retries = Nothing
-                                , timeoutInMs = Nothing
-                                }
-                                (BackendTask.Http.expectJson (Decode.field "data" Decode.string))
-                                |> BackendTask.allowFatal
-                        , init = \result -> ( { text = result }, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ model -> { title = "Test", body = [ Html.text model.text ] }
-                        }
-                        |> PagesProgram.simulateHttpPost
+                    PagesProgram.snapshots
+                        (PagesProgramInternal.initialProgramTest
+                            { data =
+                                BackendTask.Http.request
+                                    { url = "https://api.example.com/graphql"
+                                    , method = "POST"
+                                    , headers = []
+                                    , body = BackendTask.Http.jsonBody (Encode.object [ ( "query", Encode.string "{ users }" ) ])
+                                    , retries = Nothing
+                                    , timeoutInMs = Nothing
+                                    }
+                                    (BackendTask.Http.expectJson (Decode.field "data" Decode.string))
+                                    |> BackendTask.allowFatal
+                            , init = \result -> ( { text = result }, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ model -> { title = "Test", body = [ Html.text model.text ] }
+                            }
+                        )
+                        [ PagesProgram.simulateHttpPost
                             "https://api.example.com/graphql"
                             (Encode.object [ ( "data", Encode.string "ok" ) ])
-                        |> PagesProgram.toSnapshots
+                        ]
                         |> List.concatMap .networkLog
                         |> List.filter (\e -> e.url == "https://api.example.com/graphql")
                         |> List.head
@@ -2792,26 +2994,28 @@ all =
                         |> Expect.equal (Just (Just "{\n  \"query\": \"{ users }\"\n}"))
             , test "POST request captures requestHeaders" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data =
-                            BackendTask.Http.request
-                                { url = "https://api.example.com/data"
-                                , method = "POST"
-                                , headers = [ ( "Authorization", "Bearer token123" ), ( "X-Custom", "value" ) ]
-                                , body = BackendTask.Http.jsonBody (Encode.object [ ( "key", Encode.string "val" ) ])
-                                , retries = Nothing
-                                , timeoutInMs = Nothing
-                                }
-                                (BackendTask.Http.expectJson (Decode.field "ok" Decode.bool))
-                                |> BackendTask.allowFatal
-                        , init = \_ -> ( {}, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ _ -> { title = "Test", body = [ Html.text "ok" ] }
-                        }
-                        |> PagesProgram.simulateHttpPost
+                    PagesProgram.snapshots
+                        (PagesProgramInternal.initialProgramTest
+                            { data =
+                                BackendTask.Http.request
+                                    { url = "https://api.example.com/data"
+                                    , method = "POST"
+                                    , headers = [ ( "Authorization", "Bearer token123" ), ( "X-Custom", "value" ) ]
+                                    , body = BackendTask.Http.jsonBody (Encode.object [ ( "key", Encode.string "val" ) ])
+                                    , retries = Nothing
+                                    , timeoutInMs = Nothing
+                                    }
+                                    (BackendTask.Http.expectJson (Decode.field "ok" Decode.bool))
+                                    |> BackendTask.allowFatal
+                            , init = \_ -> ( {}, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ _ -> { title = "Test", body = [ Html.text "ok" ] }
+                            }
+                        )
+                        [ PagesProgram.simulateHttpPost
                             "https://api.example.com/data"
                             (Encode.object [ ( "ok", Encode.bool True ) ])
-                        |> PagesProgram.toSnapshots
+                        ]
                         |> List.concatMap .networkLog
                         |> List.filter (\e -> e.url == "https://api.example.com/data")
                         |> List.head
@@ -2819,20 +3023,22 @@ all =
                         |> Expect.equal (Just [ ( "Authorization", "Bearer token123" ), ( "X-Custom", "value" ) ])
             , test "response preview is captured" <|
                 \() ->
-                    PagesProgramInternal.initialProgramTest
-                        { data =
-                            BackendTask.Http.getJson
-                                "https://api.example.com/user"
-                                (Decode.field "name" Decode.string)
-                                |> BackendTask.allowFatal
-                        , init = \name -> ( { name = name }, [] )
-                        , update = \_ model -> ( model, [] )
-                        , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
-                        }
-                        |> PagesProgram.simulateHttpGet
+                    PagesProgram.snapshots
+                        (PagesProgramInternal.initialProgramTest
+                            { data =
+                                BackendTask.Http.getJson
+                                    "https://api.example.com/user"
+                                    (Decode.field "name" Decode.string)
+                                    |> BackendTask.allowFatal
+                            , init = \name -> ( { name = name }, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ model -> { title = "User", body = [ Html.text model.name ] }
+                            }
+                        )
+                        [ PagesProgram.simulateHttpGet
                             "https://api.example.com/user"
                             (Encode.object [ ( "name", Encode.string "Alice" ) ])
-                        |> PagesProgram.toSnapshots
+                        ]
                         |> List.concatMap .networkLog
                         |> List.filter (\e -> e.url == "https://api.example.com/user" && e.status == Stubbed)
                         |> List.head

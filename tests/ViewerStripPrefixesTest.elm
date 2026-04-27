@@ -2,13 +2,13 @@ module ViewerStripPrefixesTest exposing (suite)
 
 {-| The codegen `stripWrapperPrefixes` pipeline (emitted into
 `elm-stuff/elm-pages/test-viewer/TestApp.elm`) strips the generated
-constructor wrappers (`ModelLogin `, `DataLogin `, `ActionDataLogin `,
+constructor wrappers (`ModelLogin`, `DataLogin`, `ActionDataLogin`,
 …) from `Debug.toString` output so the Model tab reads inner
 records directly.
 
 If the strip list is ordered shortest-first, `String.replace
-"DataLogin "` greedily eats the `DataLogin ` substring inside
-`ActionDataLogin `, leaving an orphan `Action` glued to the record
+"DataLogin "` greedily eats the `DataLogin` substring inside
+`ActionDataLogin`, leaving an orphan `Action` glued to the record
 that follows it (`Action{...}` with no space). That output then
 fails to parse in `DebugParser.parse`.
 
@@ -41,8 +41,8 @@ stripWrapperPrefixes s =
         |> String.replace "Data404NotFoundPage____" "(404)"
 
 
-{-| The buggy ordering: `DataLogin ` shows up before `ActionDataLogin `,
-so the inner `DataLogin ` substring of `ActionDataLogin ` gets eaten
+{-| The buggy ordering: `DataLogin` shows up before `ActionDataLogin`,
+so the inner `DataLogin` substring of `ActionDataLogin` gets eaten
 first.
 -}
 stripWrapperPrefixesBuggy : String -> String
@@ -60,14 +60,15 @@ suite : Test
 suite =
     describe "stripWrapperPrefixes"
         [ test "leaves a space between the unwrapped value and what follows" <|
-            \_ ->
+            \() ->
                 stripWrapperPrefixes
                     "Just (ActionDataLogin { maybeError = Nothing, sentLink = True })"
                     |> Expect.equal
                         "Just ({ maybeError = Nothing, sentLink = True })"
         , test "buggy shortest-first ordering produces unparseable output" <|
-            \_ ->
+            \() ->
                 let
+                    output : String
                     output =
                         stripWrapperPrefixesBuggy
                             "Just (ActionDataLogin { maybeError = Nothing, sentLink = True })"
@@ -76,8 +77,9 @@ suite =
                     |> Expect.equal
                         "Just (Action{ maybeError = Nothing, sentLink = True })"
         , test "DebugParser fails on the buggy output" <|
-            \_ ->
+            \() ->
                 let
+                    output : String
                     output =
                         stripWrapperPrefixesBuggy
                             "Just (ActionDataLogin { maybeError = Nothing, sentLink = True })"
@@ -92,8 +94,9 @@ suite =
                     Err _ ->
                         Expect.pass
         , test "DebugParser succeeds on the correctly-stripped output" <|
-            \_ ->
+            \() ->
                 let
+                    output : String
                     output =
                         stripWrapperPrefixes
                             "Just (ActionDataLogin { maybeError = Nothing, sentLink = True })"
@@ -105,14 +108,16 @@ suite =
                     Err _ ->
                         Expect.fail ("Expected parse success but got Err on: " ++ output)
         , test "real failing snapshot from the test viewer parses end-to-end" <|
-            \_ ->
+            \() ->
                 let
                     -- The buggy output the user reported (verbatim).
+                    buggyInput : String
                     buggyInput =
                         "{ app = { action = Just (Action{ maybeError = Nothing, sentLink = True }), concurrentSubmissions = Dict.fromList [], data = { username = Nothing }, navigation = Just (0,Loading [\"login\"] Load), pageFormState = Dict.fromList [(\"login\",{ fields = Dict.fromList [(\"email\",{ status = Changed, value = \"user@example.com\" })], submitAttempted = True })], sharedData = () }, model = {}, shared = { showMobileMenu = False } }"
 
                     -- What stripWrapperPrefixes would have emitted with
                     -- the correct longest-first ordering.
+                    correctlyStripped : String
                     correctlyStripped =
                         "{ app = { action = Just ({ maybeError = Nothing, sentLink = True }), concurrentSubmissions = Dict.fromList [], data = { username = Nothing }, navigation = Just (0,Loading [\"login\"] Load), pageFormState = Dict.fromList [(\"login\",{ fields = Dict.fromList [(\"email\",{ status = Changed, value = \"user@example.com\" })], submitAttempted = True })], sharedData = () }, model = {}, shared = { showMobileMenu = False } }"
                 in

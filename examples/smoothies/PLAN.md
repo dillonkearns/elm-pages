@@ -92,21 +92,25 @@ Click "+" on a smoothie, verify the quantity updates IMMEDIATELY (before server 
 The key assertion: after clicking "+", the view should show the new quantity BEFORE `resolveEffect` is called. This proves optimistic UI via `concurrentSubmissions`.
 
 ```elm
+optimisticCartTest : PagesProgram.Test
 optimisticCartTest =
-    TestApp.start "/"
-        (BackendTaskTest.init
-            |> BackendTaskTest.withFile "smoothies.json" smoothieData
-            |> BackendTaskTest.withFile "cart-user1.json" "{}"
-            |> BackendTaskTest.withEnv "SESSION_SECRET" "test"
+    PagesProgram.test "optimistic cart update"
+        (TestApp.start "/"
+            (BackendTaskTest.init
+                |> BackendTaskTest.withFile "smoothies.json" smoothieData
+                |> BackendTaskTest.withFile "cart-user1.json" "{}"
+                |> BackendTaskTest.withEnv "SESSION_SECRET" "test"
+            )
         )
-        |> PagesProgram.ensureViewHas [ text "Berry Blast" ]
-        |> PagesProgram.ensureViewHas [ text "Checkout (0)" ]
-        -- Click "+" on Berry Blast
-        |> PagesProgram.clickButton "+"
-        -- IMMEDIATELY see the optimistic update (before server confirms)
-        |> PagesProgram.ensureViewHas [ text "Checkout (1)" ]
-        -- Cart total shows the price
-        |> PagesProgram.ensureViewHas [ text "$5" ]
+        [ PagesProgram.ensureViewHas [ text "Berry Blast" ]
+        , PagesProgram.ensureViewHas [ text "Checkout (0)" ]
+        , -- Click "+" on Berry Blast
+          PagesProgram.clickButton "+"
+        , -- IMMEDIATELY see the optimistic update (before server confirms)
+          PagesProgram.ensureViewHas [ text "Checkout (1)" ]
+        , -- Cart total shows the price
+          PagesProgram.ensureViewHas [ text "$5" ]
+        ]
 ```
 
 #### 5. `multipleOptimisticUpdatesTest` -- Concurrent submissions
@@ -142,7 +146,7 @@ Other routes (New, Edit, Profile, etc.) can be updated later or removed if not n
 
 ### Phase 6: Tests
 Create `tests/SmoothieTests.elm` with the test suite described above.
-Verify via `elm-pages test-run` and `elm-pages test-view`.
+Verify via `elm-pages test`; use `elm-pages dev` and open `/_tests` for the browser viewer.
 
 ## Reference: Working Patterns
 
@@ -168,8 +172,8 @@ Our test framework (built in this session) provides everything needed:
 - `BackendTaskTest.withEnv` -- env vars for session secrets
 - Cookie jar -- automatically persists session cookies across requests
 - Encrypt/decrypt simulation -- session signing/unsigning via marker pattern
-- `elm-pages test-run` -- headless CI execution
-- `elm-pages test-view` -- visual Cypress-style debugging
+- `elm-pages test` -- headless CI execution
+- `elm-pages dev` + `/_tests` -- visual browser debugging
 
 ## Key Insight for Optimistic UI Test
 
@@ -183,4 +187,4 @@ The optimistic UI test needs to verify that `concurrentSubmissions` is populated
 
 The optimistic UI pattern works because the VIEW reads `app.concurrentSubmissions` which shows the pending form data BEFORE the action completes. In our test framework, actions resolve synchronously (via `resolveWithVirtualFs`), so we may need to verify the pattern differently -- perhaps by checking that the view correctly merges pending data with actual data.
 
-If the test framework resolves actions synchronously, the "optimistic" state may not be visible as a separate step. In that case, the test still proves that the data flow works correctly end-to-end, and the visual test runner (elm-pages test-view) shows the step-by-step snapshots including the concurrent submission state.
+If the test framework resolves actions synchronously, the "optimistic" state may not be visible as a separate step. In that case, the test still proves that the data flow works correctly end-to-end, and the visual test runner (`elm-pages dev` + `/_tests`) shows the step-by-step snapshots including the concurrent submission state.
