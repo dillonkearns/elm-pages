@@ -1,6 +1,6 @@
 module View.Coffee exposing
     ( shell
-    , brand, smallBrand, bagIcon, hero, infoStrip
+    , brand, bagIcon, hero, infoStrip
     , sectionHead, productCard, stepperShell
     , cartPanel, cartLine, cartTotals, emptyCart
     , loginPage, loginAside, signupAside
@@ -40,14 +40,14 @@ brand =
         ]
 
 
-smallBrand : Html msg
-smallBrand =
-    Html.div [ Attr.class "bh-brand" ]
-        [ logo
-        , Html.div []
-            [ Html.div [ Attr.class "bh-brand-name bh-serif" ] [ Html.text "Blendhaus" ]
-            ]
+brandHomeLink : Html msg
+brandHomeLink =
+    Html.a
+        [ Attr.href "/"
+        , Attr.class "bh-brand-link"
+        , Attr.attribute "aria-label" "Blendhaus — go to menu"
         ]
+        [ brand ]
 
 
 logo : Html msg
@@ -124,26 +124,24 @@ shell :
     { greeting : Maybe String
     , signoutForm : Maybe (Html msg)
     , cartCount : Int
-    , active : String
     }
     -> Html msg
-shell { greeting, signoutForm, cartCount, active } =
+shell { greeting, signoutForm, cartCount } =
     Html.header [ Attr.class "bh-header" ]
         [ Html.div [ Attr.class "bh-header-inner" ]
-            [ brand
-            , Html.nav [ Attr.class "bh-nav bh-mono" ]
-                [ Html.a [ Attr.href "/", Attr.attribute "data-active" (boolAttr (active == "shop")) ] [ Html.text "Menu" ]
-                , Html.a [ Attr.href "/checkout", Attr.attribute "data-active" (boolAttr (active == "checkout")) ] [ Html.text "Bag" ]
-                ]
+            [ brandHomeLink
             , Html.div [ Attr.class "bh-header-right" ]
                 [ greeting
                     |> Maybe.map (\name -> Html.span [ Attr.class "bh-account-meta bh-mono" ] [ Html.text ("hi, " ++ name) ])
                     |> Maybe.withDefault (Html.text "")
                 , signoutForm |> Maybe.withDefault (Html.text "")
                 , Html.a
-                    [ Attr.href "/checkout", Attr.class "bh-cart-btn bh-mono" ]
+                    [ Attr.href "/checkout"
+                    , Attr.class "bh-cart-btn bh-mono"
+                    , Attr.attribute "aria-label" ("Bag, " ++ String.fromInt cartCount ++ " items")
+                    ]
                     [ bagIcon
-                    , Html.span [] [ Html.text (" Bag · " ++ String.fromInt cartCount) ]
+                    , Html.span [ Attr.class "bh-cart-count" ] [ Html.text (String.fromInt cartCount) ]
                     ]
                 ]
             ]
@@ -164,8 +162,7 @@ hero =
             , Html.em [] [ Html.text "by hand." ]
             ]
         , Html.div [ Attr.class "bh-hero-meta" ]
-            [ Html.div [ Attr.class "bh-eyebrow" ] [ Html.text "Spring menu · No. 14" ]
-            , Html.p [] [ Html.text "Single-origin beans, ceremonial matcha, oat milk steamed to order. Sip at the bar, or take a bag to go." ]
+            [ Html.p [] [ Html.text "Single-origin beans, ceremonial matcha, oat milk steamed to order. Sip at the bar, or take a bag to go." ]
             , Html.div [ Attr.class "bh-hero-stats" ]
                 [ heroStat "06:30" "Doors open"
                 , heroStat "22s" "Shot pull"
@@ -187,19 +184,10 @@ heroStat value label =
 -- MENU
 
 
-sectionHead : { name : String, ix : Int, count : Int } -> Html msg
-sectionHead { name, ix, count } =
+sectionHead : { name : String } -> Html msg
+sectionHead { name } =
     Html.div [ Attr.class "bh-section-head" ]
-        [ Html.h2 [] [ Html.text name ]
-        , Html.div [ Attr.class "num" ]
-            [ Html.text
-                (String.padLeft 2 '0' (String.fromInt ix)
-                    ++ " · "
-                    ++ String.fromInt count
-                    ++ " drinks"
-                )
-            ]
-        ]
+        [ Html.h2 [] [ Html.text name ] ]
 
 
 {-| One product tile: vignette, name, tagline, price, +/- stepper.
@@ -254,13 +242,7 @@ stepperShell { qty, isPending, decrement, increment } =
         ]
         [ Html.div [ Attr.class "bh-stepper-btn-wrap" ] [ decrement ]
         , Html.div [ Attr.class "bh-stepper-qty bh-mono" ]
-            [ Html.span [] [ Html.text (String.fromInt qty) ]
-            , if isPending then
-                Html.span [ Attr.class "bh-pending-dot", Attr.attribute "aria-hidden" "true", Attr.style "margin-left" "6px" ] []
-
-              else
-                Html.text ""
-            ]
+            [ Html.text (String.fromInt qty) ]
         , Html.div [ Attr.class "bh-stepper-btn-wrap" ] [ increment ]
         ]
 
@@ -301,17 +283,6 @@ cartPanel { lines, subtotal, tax, total, anyPending, checkout } =
                     )
                 ]
             ]
-        , if anyPending then
-            Html.div
-                [ Attr.class "bh-cart-status"
-                , Attr.attribute "data-pending" "true"
-                ]
-                [ Html.span [ Attr.class "dot" ] []
-                , Html.text "syncing"
-                ]
-
-          else
-            Html.text ""
         , if List.isEmpty lines then
             emptyCart
 
@@ -338,16 +309,7 @@ cartLine { coffee, qty, isPending } =
         , Html.div [ Attr.class "meta" ]
             [ Html.div [ Attr.class "n" ] [ Html.text coffee.name ]
             , Html.div [ Attr.class "q" ]
-                [ Html.span [] [ Html.text ("×" ++ String.fromInt qty) ]
-                , if isPending then
-                    Html.span []
-                        [ Html.span [ Attr.class "bh-pending-dot" ] []
-                        , Html.span [ Attr.style "color" "var(--bh-accent)", Attr.style "margin-left" "6px" ] [ Html.text "syncing" ]
-                        ]
-
-                  else
-                    Html.text ""
-                ]
+                [ Html.text ("×" ++ String.fromInt qty) ]
             ]
         , Html.div [ Attr.class "price" ] [ Html.text ("$" ++ String.fromInt (coffee.price * qty) ++ ".00") ]
         ]
@@ -479,7 +441,6 @@ checkoutPage opts =
         { greeting = opts.greeting
         , signoutForm = opts.signoutForm
         , cartCount = opts.cartCount
-        , active = "checkout"
         }
     , Html.div [ Attr.class "bh-checkout-wrap" ]
         [ Html.div []
@@ -566,10 +527,10 @@ receiptLine : ReceiptLine -> Html msg
 receiptLine { coffee, qty } =
     Html.div [ Attr.class "bh-co-line" ]
         [ Html.div
-            [ Attr.class "swatch"
-            , Attr.attribute "style" ("--swatch: " ++ swatchFor coffee.variant)
+            [ Attr.class "thumb"
+            , Attr.attribute "style" ("--vignette-tint: " ++ vignetteFor coffee.variant)
             ]
-            []
+            [ View.Drink.glyph coffee.variant 32 ]
         , Html.div []
             [ Html.div [ Attr.class "n" ] [ Html.text coffee.name ]
             , Html.div [ Attr.class "q" ] [ Html.text ("×" ++ String.fromInt qty ++ " · " ++ coffee.tagline) ]

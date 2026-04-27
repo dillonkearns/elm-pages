@@ -287,7 +287,6 @@ view app _ _ =
             { greeting = Just app.data.user.name
             , signoutForm = Just (renderSignout app)
             , cartCount = totals.totalItems
-            , active = "shop"
             }
         , View.Coffee.hero
         , Html.main_ [ Attr.class "bh-shop" ]
@@ -326,11 +325,10 @@ menuSections : App Data ActionData RouteParams -> Cart -> Dict String Int -> Lis
 menuSections app cart pendingItems =
     app.data.coffees
         |> groupBySection
-        |> List.indexedMap
-            (\sectionIndex ( section, coffees ) ->
+        |> List.map
+            (\( section, coffees ) ->
                 Html.section []
-                    [ View.Coffee.sectionHead
-                        { name = section, ix = sectionIndex + 1, count = List.length coffees }
+                    [ View.Coffee.sectionHead { name = section }
                     , Html.ul [ Attr.class "bh-grid" ]
                         (List.map (renderCard app cart pendingItems) coffees)
                     ]

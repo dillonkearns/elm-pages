@@ -1,5 +1,6 @@
-/* Blendhaus design system */
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap');
+/* Blendhaus design system. Fonts (Instrument Serif + Geist + Geist Mono) load
+   via <link> tags injected by elm-pages.config.mjs's headTagsTemplate so they
+   are discovered and preconnected during HTML parse, not at CSS-parse time. */
 
 :root {
   /* paper / ink */
@@ -172,16 +173,20 @@ a { color: inherit; }
 .bh-link:hover { color: var(--bh-ink); }
 
 .bh-cart-btn {
-  display: inline-flex; align-items: center; gap: 8px;
+  display: inline-flex; align-items: center; gap: 6px;
   background: var(--bh-ink); color: var(--bh-paper);
-  border: 0; padding: 10px 16px;
+  border: 0; padding: 8px 12px 8px 10px;
   border-radius: 999px; font-size: 12px;
   cursor: pointer;
   font-feature-settings: "tnum";
   white-space: nowrap;
   flex-shrink: 0;
+  text-decoration: none;
 }
 .bh-cart-btn svg { color: var(--bh-paper); }
+.bh-cart-count { min-width: 1ch; text-align: center; }
+.bh-brand-link { display: inline-block; text-decoration: none; color: inherit; }
+.bh-brand-link:hover .bh-brand-name { color: var(--bh-accent); }
 .bh-btn-ghost {
   background: transparent; border: 1px solid var(--bh-line);
   padding: 8px 14px; border-radius: 999px;
@@ -356,6 +361,24 @@ a { color: inherit; }
   font-size: 13px;
   color: var(--bh-ink);
   display: inline-flex; align-items: center; justify-content: center;
+  position: relative;
+}
+/* Pending pulse: absolute dot so the qty number never shifts when a fetcher
+   transitions in or out of the pending state. */
+.bh-stepper-qty::after {
+  content: "";
+  position: absolute;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--bh-accent);
+  top: 4px;
+  right: -8px;
+  opacity: 0;
+  transition: opacity 0.15s linear;
+}
+.bh-stepper[data-pending="true"] .bh-stepper-qty::after {
+  opacity: 1;
+  animation: bh-pulse 1.1s ease-in-out infinite;
 }
 .bh-stepper[data-size="lg"] .bh-stepper-btn { width: 34px; height: 34px; }
 .bh-stepper[data-size="lg"] .bh-stepper-qty { min-width: 32px; font-size: 14px; }
@@ -699,7 +722,15 @@ a { color: inherit; }
   align-items: center;
   font-size: 13px;
 }
-.bh-co-line .swatch { width: 32px; height: 32px; border-radius: 8px; background: var(--swatch); border: 1px solid var(--bh-line-soft); }
+.bh-co-line .thumb {
+  width: 32px; height: 32px;
+  border-radius: 10px;
+  background: radial-gradient(circle at 50% 35%, var(--vignette-tint, var(--bh-paper-2)) 0%, var(--bh-paper) 80%);
+  border: 1px solid var(--bh-line-soft);
+  display: grid; place-items: center;
+  overflow: hidden;
+}
+.bh-co-line .thumb svg { display: block; }
 .bh-co-line .n { font-family: var(--serif); font-size: 15px; }
 .bh-co-line .q { font-family: var(--mono); font-size: 10px; color: var(--bh-ink-3); }
 .bh-co-line .p { font-family: var(--mono); font-size: 13px; }

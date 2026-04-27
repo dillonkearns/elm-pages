@@ -20,7 +20,6 @@ import CoffeeFixtures
 import CoffeeSteps
 import Expect
 import Json.Encode
-import Test.BackendTask exposing (HttpError(..))
 import Test.Html.Selector as Selector
 import Test.PagesProgram as PagesProgram
 import TestApp
@@ -74,42 +73,42 @@ suite =
                 (CoffeeSteps.login
                     ++ CoffeeSteps.simulateLogin
                     ++ CoffeeSteps.simulateIndexData
-                    ++ [ PagesProgram.ensureViewHas [ Selector.text "Bag · 0" ] ]
+                    ++ [ PagesProgram.ensureViewHas (cartButtonShowing 0) ]
                     ++ CoffeeSteps.addToCart "Café Latte"
                     ++ CoffeeSteps.simulateIndexDataWithCart CoffeeFixtures.aliceWithLatte
-                    ++ [ PagesProgram.ensureViewHas [ Selector.text "Bag · 1" ] ]
+                    ++ [ PagesProgram.ensureViewHas (cartButtonShowing 1) ]
                 )
             , PagesProgram.test "shows optimistic Bag count on each click"
                 (TestApp.start "/login" CoffeeFixtures.baseSetup)
                 (CoffeeSteps.login
                     ++ CoffeeSteps.simulateLogin
                     ++ CoffeeSteps.simulateIndexData
-                    ++ [ PagesProgram.ensureViewHas [ Selector.text "Bag · 0" ] ]
+                    ++ [ PagesProgram.ensureViewHas (cartButtonShowing 0) ]
                     ++ CoffeeSteps.addToCart "Café Latte"
                     ++ CoffeeSteps.simulateIndexDataWithCart CoffeeFixtures.aliceWithLatte
-                    ++ [ PagesProgram.ensureViewHas [ Selector.text "Bag · 1" ] ]
+                    ++ [ PagesProgram.ensureViewHas (cartButtonShowing 1) ]
                     ++ CoffeeSteps.addToCart "Café Latte"
                     ++ CoffeeSteps.simulateIndexDataWithCart CoffeeFixtures.aliceWithTwoLattes
-                    ++ [ PagesProgram.ensureViewHas [ Selector.text "Bag · 2" ] ]
+                    ++ [ PagesProgram.ensureViewHas (cartButtonShowing 2) ]
                 )
             , PagesProgram.test "renders Bag · 2 immediately on two rapid clicks"
                 (TestApp.start "/login" CoffeeFixtures.baseSetup)
                 (CoffeeSteps.login
                     ++ CoffeeSteps.simulateLogin
                     ++ CoffeeSteps.simulateIndexData
-                    ++ [ PagesProgram.ensureViewHas [ Selector.text "Bag · 0" ]
+                    ++ [ PagesProgram.ensureViewHas (cartButtonShowing 0)
                        , PagesProgram.withinFind
                             [ Selector.tag "li", Selector.containing [ Selector.text "Café Latte" ] ]
                             [ PagesProgram.clickButton "+" ]
                        , PagesProgram.withinFind
                             [ Selector.tag "li", Selector.containing [ Selector.text "Café Latte" ] ]
                             [ PagesProgram.clickButton "+" ]
-                       , PagesProgram.ensureViewHas [ Selector.text "Bag · 2" ]
+                       , PagesProgram.ensureViewHas (cartButtonShowing 2)
                        , PagesProgram.simulateHttpPost CoffeeFixtures.hasuraUrl CoffeeFixtures.addToCartMutationResponse
                        , PagesProgram.simulateHttpPost CoffeeFixtures.hasuraUrl CoffeeFixtures.addToCartMutationResponse
                        ]
                     ++ CoffeeSteps.simulateIndexDataWithCart CoffeeFixtures.aliceWithTwoLattes
-                    ++ [ PagesProgram.ensureViewHas [ Selector.text "Bag · 2" ] ]
+                    ++ [ PagesProgram.ensureViewHas (cartButtonShowing 2) ]
                 )
             ]
         , PagesProgram.describe "Error pages"
@@ -124,3 +123,14 @@ suite =
                 )
             ]
         ]
+
+
+{-| Selector for the top-right Bag button showing a specific item count.
+The icon-only button has no "Bag · N" text any more, so we anchor on
+the `bh-cart-btn` class and look for the count inside it.
+-}
+cartButtonShowing : Int -> List Selector.Selector
+cartButtonShowing n =
+    [ Selector.class "bh-cart-btn"
+    , Selector.containing [ Selector.text (String.fromInt n) ]
+    ]
