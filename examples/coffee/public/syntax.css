@@ -1,0 +1,64 @@
+pre.elmsh {
+  padding: 10px;
+  margin: 0;
+  text-align: left;
+  overflow: auto;
+  padding: 20px !important;
+}
+
+code.elmsh {
+  padding: 0;
+}
+
+code {
+  font-family: "Roboto Mono" !important;
+  font-size: 20px !important;
+  line-height: 28px;
+}
+
+.elmsh-line:before {
+  /* content: attr(data-elmsh-lc); */
+  display: inline-block;
+  text-align: right;
+  width: 40px;
+  padding: 0 20px 0 0;
+  opacity: 0.3;
+}
+
+.elmsh {
+  color: #f8f8f2;
+  background: #000;
+}
+.elmsh-hl {
+  background: #343434;
+}
+.elmsh-add {
+  background: #003800;
+}
+.elmsh-del {
+  background: #380000;
+}
+.elmsh-comm {
+  color: #75715e;
+}
+.elmsh1 {
+  color: #ae81ff;
+}
+.elmsh2 {
+  color: #e6db74;
+}
+.elmsh3 {
+  color: #66d9ef;
+}
+.elmsh4 {
+  color: #f92672;
+}
+.elmsh5 {
+  color: #a6e22e;
+}
+.elmsh6 {
+  color: #ae81ff;
+}
+.elmsh7 {
+  color: #fd971f;
+}
