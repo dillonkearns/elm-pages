@@ -511,8 +511,8 @@ stripWrapperPrefixes s =
     s
 ${wrapperStrips}
         |> String.replace "ModelErrorPage____ " ""
-        |> String.replace "NotFound" "(not-found)"
         |> String.replace "Data404NotFoundPage____" "(404)"
+        |> String.replace "NotFound" "(not-found)"
         |> String.replace "DataErrorPage____ " ""
 `;
 }

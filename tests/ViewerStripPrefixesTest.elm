@@ -37,8 +37,8 @@ stripWrapperPrefixes s =
         |> String.replace "DataErrorPage____ " ""
         |> String.replace "ModelLogin " ""
         |> String.replace "DataLogin " ""
-        |> String.replace "NotFound" "(not-found)"
         |> String.replace "Data404NotFoundPage____" "(404)"
+        |> String.replace "NotFound" "(not-found)"
 
 
 {-| The buggy ordering: `DataLogin` shows up before `ActionDataLogin`,
@@ -138,4 +138,30 @@ suite =
                                 Expect.fail ("Correctly-stripped snapshot should parse but did not: " ++ correctlyStripped)
                     ]
                     ()
+        , test "Data404NotFoundPage____ snapshot survives the strip pipeline" <|
+            \() ->
+                -- Raw Debug.toString output for a 404 page snapshot. The
+                -- `Data404NotFoundPage____` constructor name contains
+                -- `NotFound` as a substring, so a shortest-first
+                -- `String.replace "NotFound" "(not-found)"` mangles it
+                -- into `Data404(not-found)Page____` and the parser
+                -- chokes. Pin the longest-first invariant here.
+                let
+                    rawDebugToString : String
+                    rawDebugToString =
+                        "{ app = { action = Nothing, concurrentSubmissions = Dict.fromList [], data = Data404NotFoundPage____, navigation = Nothing, pageFormState = Dict.fromList [], sharedData = () }, model = {}, shared = {} }"
+
+                    stripped : String
+                    stripped =
+                        stripWrapperPrefixes rawDebugToString
+                in
+                case DP.parse stripped of
+                    Ok _ ->
+                        Expect.pass
+
+                    Err _ ->
+                        Expect.fail
+                            ("Stripped 404 snapshot should parse but did not. Got: "
+                                ++ stripped
+                            )
         ]
