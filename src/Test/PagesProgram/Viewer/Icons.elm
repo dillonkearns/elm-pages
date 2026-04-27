@@ -9,6 +9,8 @@ module Test.PagesProgram.Viewer.Icons exposing
     , eventCookie
     , eventCookieSized
     , eventCross
+    , eventData
+    , eventDataSized
     , eventDown
     , eventEffect
     , eventEffectSized
@@ -437,6 +439,23 @@ eventCookieSized size color =
         , circle [ attr "cx" "4.5", attr "cy" "6", attr "r" "0.5", attr "fill" color ]
         , circle [ attr "cx" "6.5", attr "cy" "8", attr "r" "0.5", attr "fill" color ]
         , circle [ attr "cx" "8", attr "cy" "6.5", attr "r" "0.4", attr "fill" color ]
+        ]
+
+
+eventData : String -> Html msg
+eventData color =
+    eventDataSized 12 color
+
+
+eventDataSized : Int -> String -> Html msg
+eventDataSized size color =
+    let
+        s =
+            String.fromInt size
+    in
+    strokeSvg s s "0 0 12 12" color "1.4"
+        [ path [ attr "d" "M4 1.5Q2.5 1.5 2.5 3.5L2.5 5Q2.5 6 1.5 6Q2.5 6 2.5 7L2.5 8.5Q2.5 10.5 4 10.5" ]
+        , path [ attr "d" "M8 1.5Q9.5 1.5 9.5 3.5L9.5 5Q9.5 6 10.5 6Q9.5 6 9.5 7L9.5 8.5Q9.5 10.5 8 10.5" ]
         ]
 
 

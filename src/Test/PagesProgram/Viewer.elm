@@ -776,7 +776,7 @@ update msg model =
                     else
                         ( model, Cmd.none )
 
-                "m" ->
+                "d" ->
                     update ToggleModel model
 
                 "e" ->
@@ -1260,14 +1260,12 @@ viewHeader model =
                                 , label = "Effects"
                                 , icon = Icons.eventEffectSized
                                 }
-                            , Html.button
-                                [ Attr.classList
-                                    [ ( "toggle-button", True )
-                                    , ( "toggle-active", model.showModel )
-                                    ]
-                                , Html.Events.onClick ToggleModel
-                                ]
-                                [ Html.text "Model" ]
+                            , viewChannelToggle
+                                { on = model.showModel
+                                , msg = ToggleModel
+                                , label = "Data"
+                                , icon = Icons.eventDataSized
+                                }
                             ]
                         ]
                )
@@ -3100,7 +3098,7 @@ line.
 viewModelInspector : Set String -> Int -> Maybe Snapshot -> Snapshot -> Html Msg
 viewModelInspector expandedNodes stepIndex previousSnapshot snapshot =
     Html.div [ Attr.class "model-inspector" ]
-        [ Html.div [ Attr.class "inspector-header" ] [ Html.text "Model" ]
+        [ Html.div [ Attr.class "inspector-header" ] [ Html.text "Data" ]
         , Keyed.node "div"
             [ Attr.class "inspector-body" ]
             [ ( "model-step-" ++ String.fromInt stepIndex
