@@ -1642,51 +1642,68 @@ selectOptionImpl labelText optionText (ProgramTest state) =
                                                     }
 
                                             Nothing ->
-                                                -- Step 4: Find the <option> by text
-                                                let
-                                                    optionSelectors =
-                                                        [ Selector.tag "option"
-                                                        , Selector.containing [ Selector.text optionText ]
-                                                        ]
+                                                if elementIsDisabled selectQuery then
+                                                    ProgramTest
+                                                        { state
+                                                            | error =
+                                                                Just (stepLabel ++ " failed: the select is disabled.")
+                                                        }
 
-                                                    optionExists =
-                                                        selectQuery
-                                                            |> Query.find optionSelectors
-                                                            |> Query.has []
-                                                in
-                                                case getFailureMessage optionExists of
-                                                    Just failMsg ->
-                                                        ProgramTest
-                                                            { state
-                                                                | error =
-                                                                    Just
-                                                                        (stepLabel
-                                                                            ++ " failed: Could not find an <option> with text \""
-                                                                            ++ optionText
-                                                                            ++ "\".\n\n"
-                                                                            ++ failMsg
-                                                                        )
-                                                            }
+                                                else
+                                                    -- Step 4: Find the <option> by text
+                                                    let
+                                                        optionSelectors =
+                                                            [ Selector.tag "option"
+                                                            , Selector.containing [ Selector.text optionText ]
+                                                            ]
 
-                                                    Nothing ->
-                                                        -- Step 5: Extract the value from the option.
-                                                        -- Use forced failure on the specific option element.
-                                                        let
-                                                            optionQuery =
-                                                                selectQuery
-                                                                    |> Query.find optionSelectors
+                                                        optionExists =
+                                                            selectQuery
+                                                                |> Query.find optionSelectors
+                                                                |> Query.has []
+                                                    in
+                                                    case getFailureMessage optionExists of
+                                                        Just failMsg ->
+                                                            ProgramTest
+                                                                { state
+                                                                    | error =
+                                                                        Just
+                                                                            (stepLabel
+                                                                                ++ " failed: Could not find an <option> with text \""
+                                                                                ++ optionText
+                                                                                ++ "\".\n\n"
+                                                                                ++ failMsg
+                                                                            )
+                                                                }
 
-                                                            optionValueResult =
-                                                                extractAttributeFromElement "value" optionQuery
-                                                        in
-                                                        case optionValueResult of
-                                                            Err _ ->
-                                                                -- No value attribute -- use the option text as value
-                                                                -- (matches browser behavior: <option>Foo</option> has value "Foo")
-                                                                selectOptionWithValue stepLabel fieldId optionText selectQuery state
+                                                        Nothing ->
+                                                            -- Step 5: Extract the value from the option.
+                                                            -- Use forced failure on the specific option element.
+                                                            let
+                                                                optionQuery =
+                                                                    selectQuery
+                                                                        |> Query.find optionSelectors
+                                                            in
+                                                            if elementIsDisabled optionQuery then
+                                                                ProgramTest
+                                                                    { state
+                                                                        | error =
+                                                                            Just (stepLabel ++ " failed: the option is disabled.")
+                                                                    }
 
-                                                            Ok optionValue ->
-                                                                selectOptionWithValue stepLabel fieldId optionValue selectQuery state
+                                                            else
+                                                                let
+                                                                    optionValueResult =
+                                                                        extractAttributeFromElement "value" optionQuery
+                                                                in
+                                                                case optionValueResult of
+                                                                    Err _ ->
+                                                                        -- No value attribute -- use the option text as value
+                                                                        -- (matches browser behavior: <option>Foo</option> has value "Foo")
+                                                                        selectOptionWithValue stepLabel fieldId optionText selectQuery state
+
+                                                                    Ok optionValue ->
+                                                                        selectOptionWithValue stepLabel fieldId optionValue selectQuery state
 
 
 selectOptionWithValue : String -> String -> String -> Query.Single msg -> State model msg -> ProgramTest model msg
@@ -2711,6 +2728,11 @@ fillInImpl fieldId fieldName value (ProgramTest state) =
                         stepLabel =
                             "fillIn \"" ++ fieldName ++ "\""
 
+                        disabledFieldExists =
+                            disabledFormFieldExists query fieldId fieldName
+                                || disabledLabelWrappedFieldExists query fieldName
+                                || disabledIdFieldExists query fieldId
+
                         -- Strategy 1: elm-pages form with event delegation.
                         -- Find <form id="fieldId">, simulate input event on it
                         -- with target.name=fieldName and currentTarget.id=fieldId.
@@ -2790,39 +2812,47 @@ fillInImpl fieldId fieldName value (ProgramTest state) =
                                     |> Event.simulate (Event.input value)
                                     |> Event.toResult
                     in
-                    case formDelegationResult of
-                        Ok msg ->
-                            applyMsgWithLabel stepLabel Interaction (Just (ByFormField fieldId fieldName)) msg (ProgramTest state)
+                    if disabledFieldExists then
+                        ProgramTest
+                            { state
+                                | error =
+                                    Just (stepLabel ++ " failed: the form field is disabled.")
+                            }
 
-                        Err _ ->
-                            case labelWrappedResult of
-                                Ok msg ->
-                                    applyMsgWithLabel stepLabel Interaction (Just (ByLabelText fieldName)) msg (ProgramTest state)
+                    else
+                        case formDelegationResult of
+                            Ok msg ->
+                                applyMsgWithLabel stepLabel Interaction (Just (ByFormField fieldId fieldName)) msg (ProgramTest state)
 
-                                Err _ ->
-                                    case idResult of
-                                        Ok msg ->
-                                            applyMsgWithLabel stepLabel Interaction (Just (ById fieldId)) msg (ProgramTest state)
+                            Err _ ->
+                                case labelWrappedResult of
+                                    Ok msg ->
+                                        applyMsgWithLabel stepLabel Interaction (Just (ByLabelText fieldName)) msg (ProgramTest state)
 
-                                        Err errMsg ->
-                                            ProgramTest
-                                                { state
-                                                    | error =
-                                                        Just
-                                                            (stepLabel
-                                                                ++ " failed: Could not find input.\n\nTried:\n"
-                                                                ++ "  1. <form id=\""
-                                                                ++ fieldId
-                                                                ++ "\"> with delegated input event\n"
-                                                                ++ "  2. <label> containing \""
-                                                                ++ fieldName
-                                                                ++ "\" wrapping an <input>\n"
-                                                                ++ "  3. <input id=\""
-                                                                ++ fieldId
-                                                                ++ "\">\n\n"
-                                                                ++ errMsg
-                                                            )
-                                                }
+                                    Err _ ->
+                                        case idResult of
+                                            Ok msg ->
+                                                applyMsgWithLabel stepLabel Interaction (Just (ById fieldId)) msg (ProgramTest state)
+
+                                            Err errMsg ->
+                                                ProgramTest
+                                                    { state
+                                                        | error =
+                                                            Just
+                                                                (stepLabel
+                                                                    ++ " failed: Could not find input.\n\nTried:\n"
+                                                                    ++ "  1. <form id=\""
+                                                                    ++ fieldId
+                                                                    ++ "\"> with delegated input event\n"
+                                                                    ++ "  2. <label> containing \""
+                                                                    ++ fieldName
+                                                                    ++ "\" wrapping an <input>\n"
+                                                                    ++ "  3. <input id=\""
+                                                                    ++ fieldId
+                                                                    ++ "\">\n\n"
+                                                                    ++ errMsg
+                                                                )
+                                                    }
 
 
 {-| Fill in a textarea with the given content. Finds the first `<textarea>`
@@ -2860,16 +2890,24 @@ fillInTextareaImpl newContent (ProgramTest state) =
                                 |> Event.simulate (Event.input newContent)
                                 |> Event.toResult
                     in
-                    case eventResult of
-                        Ok msg ->
-                            applyMsgWithLabel "fillInTextarea" Interaction (Just (ByTag "textarea")) msg (ProgramTest state)
+                    if elementIsDisabled textareaQuery then
+                        ProgramTest
+                            { state
+                                | error =
+                                    Just "fillInTextarea failed: the textarea is disabled."
+                            }
 
-                        Err errMsg ->
-                            ProgramTest
-                                { state
-                                    | error =
-                                        Just ("fillInTextarea failed:\n\n" ++ errMsg)
-                                }
+                    else
+                        case eventResult of
+                            Ok msg ->
+                                applyMsgWithLabel "fillInTextarea" Interaction (Just (ByTag "textarea")) msg (ProgramTest state)
+
+                            Err errMsg ->
+                                ProgramTest
+                                    { state
+                                        | error =
+                                            Just ("fillInTextarea failed:\n\n" ++ errMsg)
+                                    }
 
 
 {-| Simulate clicking a link with the given text. The `href` is read
@@ -3338,27 +3376,36 @@ checkImpl labelText isChecked (ProgramTest state) =
                                 let
                                     inputQuery =
                                         query |> Query.find [ Selector.id fieldId ]
-
-                                    eventResult =
-                                        inputQuery
-                                            |> Event.simulate (Event.check isChecked)
-                                            |> Event.toResult
                                 in
-                                case eventResult of
-                                    Ok msg ->
-                                        applyMsgWithLabel
-                                            stepLabel
-                                            Interaction
-                                            (Just (ByLabelText labelText))
-                                            msg
-                                            (ProgramTest state)
+                                if elementIsDisabled inputQuery then
+                                    ProgramTest
+                                        { state
+                                            | error =
+                                                Just (stepLabel ++ " failed: the checkbox is disabled.")
+                                        }
 
-                                    Err errMsg ->
-                                        ProgramTest
-                                            { state
-                                                | error =
-                                                    Just (stepLabel ++ " failed:\n\n" ++ errMsg)
-                                            }
+                                else
+                                    let
+                                        eventResult =
+                                            inputQuery
+                                                |> Event.simulate (Event.check isChecked)
+                                                |> Event.toResult
+                                    in
+                                    case eventResult of
+                                        Ok msg ->
+                                            applyMsgWithLabel
+                                                stepLabel
+                                                Interaction
+                                                (Just (ByLabelText labelText))
+                                                msg
+                                                (ProgramTest state)
+
+                                        Err errMsg ->
+                                            ProgramTest
+                                                { state
+                                                    | error =
+                                                        Just (stepLabel ++ " failed:\n\n" ++ errMsg)
+                                                }
 
                             Err _ ->
                                 -- Strategy 2: <label> wrapping both the input and text
@@ -3392,27 +3439,36 @@ checkImpl labelText isChecked (ProgramTest state) =
                                             inputQuery =
                                                 wrappingLabelQuery
                                                     |> Query.find [ Selector.tag "input" ]
-
-                                            eventResult =
-                                                inputQuery
-                                                    |> Event.simulate (Event.check isChecked)
-                                                    |> Event.toResult
                                         in
-                                        case eventResult of
-                                            Ok msg ->
-                                                applyMsgWithLabel
-                                                    stepLabel
-                                                    Interaction
-                                                    (Just (ByLabelText labelText))
-                                                    msg
-                                                    (ProgramTest state)
+                                        if elementIsDisabled inputQuery then
+                                            ProgramTest
+                                                { state
+                                                    | error =
+                                                        Just (stepLabel ++ " failed: the checkbox is disabled.")
+                                                }
 
-                                            Err errMsg ->
-                                                ProgramTest
-                                                    { state
-                                                        | error =
-                                                            Just (stepLabel ++ " failed:\n\n" ++ errMsg)
-                                                    }
+                                        else
+                                            let
+                                                eventResult =
+                                                    inputQuery
+                                                        |> Event.simulate (Event.check isChecked)
+                                                        |> Event.toResult
+                                            in
+                                            case eventResult of
+                                                Ok msg ->
+                                                    applyMsgWithLabel
+                                                        stepLabel
+                                                        Interaction
+                                                        (Just (ByLabelText labelText))
+                                                        msg
+                                                        (ProgramTest state)
+
+                                                Err errMsg ->
+                                                    ProgramTest
+                                                        { state
+                                                            | error =
+                                                                Just (stepLabel ++ " failed:\n\n" ++ errMsg)
+                                                        }
 
 
 
@@ -4946,6 +5002,77 @@ extractHtmlFromElement element =
             findSubstringBetween "\n\n    1)  " "\n\n" lastSection
                 |> Maybe.map String.trim
                 |> Result.fromMaybe "Could not extract element HTML from query failure output"
+
+
+elementIsDisabled : Query.Single msg -> Bool
+elementIsDisabled element =
+    element
+        |> Query.has [ Selector.disabled True ]
+        |> (\expectation -> getFailureMessage expectation == Nothing)
+
+
+disabledIdFieldExists : Query.Single msg -> String -> Bool
+disabledIdFieldExists query fieldId =
+    if fieldId == "" then
+        False
+
+    else
+        query
+            |> Query.find [ Selector.id fieldId ]
+            |> elementIsDisabled
+
+
+disabledLabelWrappedFieldExists : Query.Single msg -> String -> Bool
+disabledLabelWrappedFieldExists query fieldName =
+    let
+        labelQuery =
+            query
+                |> Query.find
+                    [ Selector.tag "label"
+                    , Selector.containing [ Selector.text fieldName ]
+                    ]
+    in
+    queryContainsDisabledNamedField labelQuery fieldName
+        || queryContainsDisabledTag labelQuery "input"
+        || queryContainsDisabledTag labelQuery "textarea"
+
+
+disabledFormFieldExists : Query.Single msg -> String -> String -> Bool
+disabledFormFieldExists query formId fieldName =
+    if formId == "" then
+        False
+
+    else
+        queryContainsDisabledNamedField
+            (query
+                |> Query.find
+                    [ Selector.tag "form"
+                    , Selector.id formId
+                    ]
+            )
+            fieldName
+
+
+queryContainsDisabledNamedField : Query.Single msg -> String -> Bool
+queryContainsDisabledNamedField query fieldName =
+    query
+        |> Query.findAll
+            [ Selector.attribute (Html.Attributes.name fieldName)
+            , Selector.disabled True
+            ]
+        |> Query.count (Expect.atLeast 1)
+        |> (\expectation -> getFailureMessage expectation == Nothing)
+
+
+queryContainsDisabledTag : Query.Single msg -> String -> Bool
+queryContainsDisabledTag query tagName =
+    query
+        |> Query.findAll
+            [ Selector.tag tagName
+            , Selector.disabled True
+            ]
+        |> Query.count (Expect.atLeast 1)
+        |> (\expectation -> getFailureMessage expectation == Nothing)
 
 
 type alias BrowserFormSubmission =

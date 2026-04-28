@@ -300,6 +300,47 @@ all =
                         , PagesProgram.fillIn "search" "search" "elm-pages"
                         , PagesProgram.ensureViewHas [ PSelector.text "Searching for: elm-pages" ]
                         ]
+            , test "fillIn fails on a disabled form field" <|
+                \() ->
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { query = "" }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        UpdateQuery q ->
+                                            ( { model | query = q }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Search"
+                                    , body =
+                                        [ Html.form
+                                            [ Attr.id "search-form"
+                                            , Html.Events.on "input"
+                                                (Decode.at [ "target", "value" ] Decode.string
+                                                    |> Decode.map UpdateQuery
+                                                )
+                                            ]
+                                            [ Html.input
+                                                [ Attr.name "search"
+                                                , Attr.disabled True
+                                                , Attr.value model.query
+                                                ]
+                                                []
+                                            ]
+                                        , if String.isEmpty model.query then
+                                            Html.text "Type to search..."
+
+                                          else
+                                            Html.text ("Searching for: " ++ model.query)
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.fillIn "search-form" "search" "elm-pages"
+                        ]
+                        |> expectFailContaining "disabled"
             ]
         , describe "pressEnter"
             [ test "submits a form with no submit button when Enter is pressed in its input" <|
@@ -1764,6 +1805,69 @@ all =
                         [ PagesProgram.selectOption "Favorite Color" "Not Blue"
                         ]
                         |> expectFailContaining "Not Blue"
+            , test "selectOption fails on a disabled select" <|
+                \() ->
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { color = "red" }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        SelectColor c ->
+                                            ( { model | color = c }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Colors"
+                                    , body =
+                                        [ Html.label [ Attr.for "color-select" ] [ Html.text "Favorite Color" ]
+                                        , Html.select
+                                            [ Attr.id "color-select"
+                                            , Attr.disabled True
+                                            , Html.Events.onInput SelectColor
+                                            ]
+                                            [ Html.option [ Attr.value "red" ] [ Html.text "Red" ]
+                                            , Html.option [ Attr.value "blue" ] [ Html.text "Blue" ]
+                                            ]
+                                        , Html.text ("Selected: " ++ model.color)
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.selectOption "Favorite Color" "Blue"
+                        ]
+                        |> expectFailContaining "disabled"
+            , test "selectOption fails on a disabled option" <|
+                \() ->
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { color = "red" }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        SelectColor c ->
+                                            ( { model | color = c }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Colors"
+                                    , body =
+                                        [ Html.label [ Attr.for "color-select" ] [ Html.text "Favorite Color" ]
+                                        , Html.select
+                                            [ Attr.id "color-select"
+                                            , Html.Events.onInput SelectColor
+                                            ]
+                                            [ Html.option [ Attr.value "red" ] [ Html.text "Red" ]
+                                            , Html.option [ Attr.value "blue", Attr.disabled True ] [ Html.text "Blue" ]
+                                            ]
+                                        , Html.text ("Selected: " ++ model.color)
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.selectOption "Favorite Color" "Blue"
+                        ]
+                        |> expectFailContaining "disabled"
             , test "selectOption fails when multiple labels match" <|
                 \() ->
                     PagesProgram.expect
@@ -2554,6 +2658,34 @@ all =
                         [ PagesProgram.fillInTextarea "some text"
                         ]
                         |> expectFailContaining "fillInTextarea"
+            , test "fillInTextarea fails on a disabled textarea" <|
+                \() ->
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { content = "" }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        UpdateContent content ->
+                                            ( { model | content = content }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Editor"
+                                    , body =
+                                        [ Html.textarea
+                                            [ Attr.disabled True
+                                            , Html.Events.onInput UpdateContent
+                                            ]
+                                            [ Html.text model.content ]
+                                        , Html.text ("Content: " ++ model.content)
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.fillInTextarea "some text"
+                        ]
+                        |> expectFailContaining "disabled"
             ]
         , describe "simulateDomEvent errors"
             [ test "simulateDomEvent fails when element not found" <|
@@ -2904,6 +3036,42 @@ all =
                         [ PagesProgram.check "Accept terms" True
                         , PagesProgram.ensureViewHas [ PSelector.text "Terms accepted" ]
                         ]
+            , test "check fails on a disabled checkbox" <|
+                \() ->
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { agreed = False }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        ToggleAgreed checked ->
+                                            ( { model | agreed = checked }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Form"
+                                    , body =
+                                        [ Html.label [ Attr.for "agree" ] [ Html.text "I agree to the terms" ]
+                                        , Html.input
+                                            [ Attr.id "agree"
+                                            , Attr.type_ "checkbox"
+                                            , Attr.disabled True
+                                            , Attr.checked model.agreed
+                                            , Html.Events.onCheck ToggleAgreed
+                                            ]
+                                            []
+                                        , if model.agreed then
+                                            Html.text "Terms accepted"
+
+                                          else
+                                            Html.text "Please accept terms"
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.check "I agree to the terms" True
+                        ]
+                        |> expectFailContaining "disabled"
             , test "check fails when multiple checkboxes match the label" <|
                 \() ->
                     PagesProgram.expect
