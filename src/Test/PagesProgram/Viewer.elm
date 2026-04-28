@@ -2578,6 +2578,7 @@ splitAssertionLabel label =
             , ( "ensureBrowserUrl ", ArgUrl )
             , ( "expectViewHas ", ArgEmpty )
             , ( "expectViewHasNot ", ArgEmpty )
+            , ( "expectBrowserUrl ", ArgUrl )
             , ( "clickButtonWith ", ArgClass )
             , ( "clickButton ", ArgText )
             , ( "clickLinkByText ", ArgText )
@@ -2613,12 +2614,34 @@ splitAssertionLabel label =
 
                     ( argKind, argValue ) =
                         inferArgKind defaultKind selectorPart
+
+                    fnName =
+                        String.trimRight prefix
+
+                    -- Browser-URL assertions render path-only on the
+                    -- left (matching the URL bar) plus an `in URL`
+                    -- scope qualifier on the right, mirroring how
+                    -- text/tag assertions read as `"hi, Bob" in tag
+                    -- "header"`. The framework's URL-bar ring still
+                    -- fires off the original snapshot label.
+                    isBrowserUrlCheck =
+                        fnName == "ensureBrowserUrl" || fnName == "expectBrowserUrl"
                 in
                 Just
-                    { fnName = String.trimRight prefix
+                    { fnName = fnName
                     , argKind = argKind
-                    , argValue = argValue
-                    , withinScope = scopePart
+                    , argValue =
+                        if isBrowserUrlCheck then
+                            formatBrowserUrl argValue
+
+                        else
+                            argValue
+                    , withinScope =
+                        if isBrowserUrlCheck then
+                            Just "URL"
+
+                        else
+                            scopePart
                     }
 
             else
