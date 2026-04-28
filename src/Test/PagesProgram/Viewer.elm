@@ -6587,16 +6587,36 @@ body {
     padding: 0;
     font: inherit;
     color: inherit;
-    transition: border-color 0.12s ease, box-shadow 0.12s ease;
+    transform: translateY(0);
+    transition: background 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease;
 }
 
 .suite-card-v2:hover {
-    border-color: #263241;
+    background: #111a25;
+    border-color: rgba(125, 211, 252, 0.42);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(125, 211, 252, 0.12) inset;
+    transform: translateY(-2px);
+}
+
+.suite-card-v2:focus-visible {
+    outline: none;
+    border-color: #7dd3fc;
+    box-shadow: 0 0 0 2px rgba(125, 211, 252, 0.28), 0 10px 24px rgba(0, 0, 0, 0.24);
 }
 
 .suite-card-v2-fail {
     border-color: color-mix(in oklab, #ff7a7a 55%, #1d2632);
     box-shadow: 0 0 0 1px rgba(255, 106, 106, 0.18) inset;
+}
+
+.suite-card-v2-fail:hover {
+    border-color: rgba(255, 122, 122, 0.66);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 122, 122, 0.22) inset;
+}
+
+.suite-card-v2:hover .suite-card-thumb-frame,
+.suite-card-v2:focus-visible .suite-card-thumb-frame {
+    filter: brightness(1.06) saturate(1.08);
 }
 
 .suite-card-thumb {
@@ -6618,6 +6638,10 @@ body {
     position: absolute;
     inset: 0;
     overflow: hidden;
+    /* The iframe is only a preview. Let thumbnail clicks hit the
+       enclosing card button so the whole card navigates. */
+    pointer-events: none;
+    transition: filter 0.14s ease;
 }
 
 .suite-card-thumb-iframe {
