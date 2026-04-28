@@ -7,6 +7,15 @@ will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [12.2.1] - 2026-04-28
+
+### Fixed
+
+- Bumps the compatibility key to 29 to match the `elm-pages` 3.5.0 npm
+  release. The 12.2.0 tag was published from a commit that predated the
+  compatibility-key bump, so 12.2.0 will not run against the 3.5.0 npm
+  package — use 12.2.1 or later.
+
 ## [12.2.0] - 2026-04-28
 
 ### Added
