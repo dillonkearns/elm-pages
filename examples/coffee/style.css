@@ -758,6 +758,68 @@ a { color: inherit; }
   font-size: 13px; letter-spacing: 0.04em; cursor: pointer;
 }
 
+/* ───────── Error pages (404 / 500) ───────── */
+.bh-error {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 96px 28px 120px;
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 56px;
+  align-items: center;
+}
+.bh-error-code {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 220px;
+  line-height: 0.85;
+  letter-spacing: -0.04em;
+  color: var(--bh-ink);
+  margin: 0;
+}
+.bh-error-code em { font-style: italic; color: var(--bh-accent); }
+.bh-error-meta { display: flex; flex-direction: column; gap: 14px; }
+.bh-error-eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--bh-ink-3);
+}
+.bh-error-title {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 44px;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+.bh-error-body { color: var(--bh-ink-2); margin: 0; max-width: 38ch; font-size: 15px; }
+.bh-error-actions { display: flex; gap: 10px; margin-top: 10px; }
+.bh-error-back {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--bh-ink); color: var(--bh-paper);
+  text-decoration: none;
+  padding: 12px 18px;
+  border-radius: 999px;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  transition: opacity 0.2s;
+}
+.bh-error-back:hover { opacity: 0.9; }
+.bh-error-back .arr { font-family: var(--mono); }
+
+@media (max-width: 720px) {
+  .bh-error {
+    grid-template-columns: 1fr;
+    padding: 56px 20px 80px;
+    gap: 28px;
+  }
+  .bh-error-code { font-size: 140px; }
+  .bh-error-title { font-size: 32px; }
+}
+
 /* ───────── Mobile inset rendering (used inside iOS frame) ───────── */
 .bh-mobile {
   background: var(--bh-paper);
