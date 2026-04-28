@@ -5918,7 +5918,7 @@ body {
 
 .breadcrumb-sep {
     flex-shrink: 0;
-    color: #3a4555;
+    color: #5c6a7e;
     font-size: 13px;
     font-weight: 400;
     margin: 0 8px;
@@ -6032,7 +6032,7 @@ body {
     padding: 3px 8px;
     border: 1px solid #0f3460;
     background: transparent;
-    color: #556677;
+    color: #8896a6;
     border-radius: 3px;
     cursor: pointer;
     font-size: 11px;
@@ -6245,7 +6245,7 @@ body {
 }
 
 .step-row-past {
-    opacity: 0.65;
+    opacity: 0.78;
 }
 
 .step-row-error {
@@ -6270,7 +6270,7 @@ body {
 
 .step-row-child .step-number {
     font-size: 12px;
-    color: #445566;
+    color: #7a8597;
 }
 
 .step-row-child .step-label {
@@ -6587,8 +6587,8 @@ body {
 }
 
 .suite-module-tally {
-    color: #5b6573;
-    font-size: 10.5px;
+    color: #8896a6;
+    font-size: 11px;
     font-family: "JetBrains Mono", "SF Mono", monospace;
 }
 
@@ -6770,8 +6770,8 @@ body {
 }
 
 .suite-card-subtitle {
-    color: #5b6573;
-    font-size: 10.5px;
+    color: #8896a6;
+    font-size: 11px;
     font-family: "JetBrains Mono", "SF Mono", monospace;
     white-space: nowrap;
     overflow: hidden;
@@ -6784,8 +6784,8 @@ body {
 }
 
 .suite-card-meta-row {
-    color: #5b6573;
-    font-size: 9.5px;
+    color: #8896a6;
+    font-size: 11px;
     font-family: "JetBrains Mono", "SF Mono", monospace;
     padding-left: 18px;
     margin-top: 1px;
@@ -7355,7 +7355,7 @@ body {
 }
 
 .url-bar-sep {
-    color: #3a4555;
+    color: #5c6a7e;
     font-size: 13px;
     flex-shrink: 0;
     user-select: none;
@@ -8701,8 +8701,8 @@ body {
     position: fixed;
     bottom: 4px;
     right: 12px;
-    font-size: 10px;
-    color: #334455;
+    font-size: 11px;
+    color: #6e7681;
     pointer-events: none;
 }
 
