@@ -634,7 +634,7 @@ async function runHttpJob(requestHash, portsFile, mode, requestToPerform) {
  * @template J
  * @param {R} request
  * @param {J} json
- * @returns {{ request: R; response: { bodyKind: "json"; body: J; }}}
+ * @returns {JsonResponse<R, J>}
  */
 function jsonResponse(request, json) {
   return {
@@ -644,10 +644,10 @@ function jsonResponse(request, json) {
 }
 
 /**
- * @template B
- * @param {InternalJobWith<string, B>} request
+ * @template Req
+ * @param {Req} request
  * @param {Uint8Array | Int32Array} buffer
- * @returns {{ request: InternalJobWith<string, B>; response: { bodyKind: "bytes"; body: null; }; rawBytes: Buffer; }}
+ * @returns {BytesResponse<Req>}
  */
 function bytesResponse(request, buffer) {
   return {
@@ -663,6 +663,7 @@ function bytesResponse(request, buffer) {
 /**
  * Convert a Node.js Buffer to a DataView, which is what Lamdera's port
  * system expects for Bytes values.
+ * @param {{ buffer: any; byteOffset: number | undefined; byteLength: number | undefined; }} buf
  */
 function bufferToDataView(buf) {
   return new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
@@ -678,7 +679,7 @@ function dataViewToBuffer(dv) {
 /**
  * @template U
  * @template A
- * @typedef {{ url: U; body: { args: A }; dir: string[]; quiet: boolean; env: { [key:string]: string; } }} InternalJobWith<U,A>
+ * @typedef {{ url: U; body: { args: A }; dir: string[]; quiet: boolean; env: { [key:string]: string; }; headers: [string, string][]; }} InternalJobWith<U,A>
  */
 
 /**
@@ -699,10 +700,46 @@ function dataViewToBuffer(dv) {
  * @typedef {InternalJobWith<"elm-pages-internal://stream", [{ kind: string; parts: StreamPart[]}]>} InternalStreamJob
  * @typedef {InternalJobWith<"elm-pages-internal://start-spinner", [{ text: string; immediateStart: boolean; spinnerId?: string; spinner?: string; }]>} InternalStartSpinnerJob
  * @typedef {InternalJobWith<"elm-pages-internal://stop-spinner", [{ spinnerId: string; completionFn: string; completionText: string | null; }]>} InternalStopSpinnerJob
+ * @typedef {InternalJobWith<"elm-pages-internal://timezone", [{ tzId: string; sinceMs: number; untilMs: number; }]>} InternalTimezoneJob
+ * @typedef {InternalJobWith<"elm-pages-internal://resolve-path", [string]>} InternalResolvePathJob
+ * @typedef {InternalJobWith<"elm-pages-internal://file-exists", [string]>} InternalFileExistsJob
+ * @typedef {InternalJobWith<"elm-pages-internal://delete-file", [{ path: string; }]>} InternalDeleteFileJob
+ * @typedef {InternalJobWith<"elm-pages-internal://copy-file", [{ from: string; to: string; }]>} InternalCopyFileJob
+ * @typedef {InternalJobWith<"elm-pages-internal://move", [{ from: string; to: string; }]>} InternalMoveJob
+ * @typedef {InternalJobWith<"elm-pages-internal://make-directory", [{ from: string; to: string; }]>} InternalMakeDirectoryJob
+ * @typedef {InternalJobWith<"elm-pages-internal://remove-directory", [{ path: string; recursive: true; }]>} InternalRemoveDirectoryJob
+ * @typedef {InternalJobWith<"elm-pages-internal://make-temp-directory", unknown>} InternalMakeTempDirectoryJob
+ * @typedef {InternalJobWith<"elm-pages-internal://db-read-meta", [{ path?: string; }]>} InternalDbReadMetaJob
+ * @typedef {InternalJobWith<"elm-pages-internal://db-write", [{ hash: unknown; data: unknown; path?: string; }]> & { __rawBytes? : Buffer; }} InternalDbWriteJob
+ * @typedef {InternalJobWith<"elm-pages-internal://db-set-default-path", [{ path: string; }]>} InternalDbSetDefaultPathJob
+ * @typedef {InternalJobWith<"elm-pages-internal://db-lock-acquire", [{ path?: string; }]>} InternalDbLockAcquireJob
+ * @typedef {InternalJobWith<"elm-pages-internal://db-lock-release", [string | { token : string; }]> & { __rawBytes? : Buffer; }} InternalDbLockReleaseJob
+ * @typedef {InternalJobWith<"elm-pages-internal://db-migrate-read", unknown> & { __rawBytes? : Buffer; }} InternalDbMigrateReadJob
+ * @typedef {InternalJobWith<"elm-pages-internal://db-migrate-write", [{ data: string; }]> & { __rawBytes? : Buffer; }} InternalDbMigrateWriteJob
+ * @typedef {InternalJobWith<"elm-pages-internal://tui-is-interactive", unknown>} InternalTuiIsInteractiveJob
+ * @typedef {InternalJobWith<"elm-pages-internal://tui-init", unknown>} InternalTuiInitJob
+ * @typedef {InternalJobWith<"elm-pages-internal://tui-render", unknown>} InternalTuiRenderJob
+ * @typedef {InternalJobWith<"elm-pages-internal://tui-wait-event", unknown>} InternalTuiWaitEventJob
+ * @typedef {InternalJobWith<"elm-pages-internal://tui-render-and-wait", unknown>} InternalTuiRenderAndWaitJob
+ * @typedef {InternalJobWith<"elm-pages-internal://tui-exit", unknown>} InternalTuiExitJob
  *
  *
- * @typedef {InternalLogJob | InternalEnvJob | InternalReadFileJob | InternalReadFileBinaryJob | InternalGlobJob | InternalRandomSeedJob | InternalNowJob | InternalEncryptJob | InternalDecryptJob |InternalWriteFileJob | InternalSleepJob| InternalWhichJob | InternalQuestionJob | InternalReadKeyJob | InternalStreamJob | InternalStartSpinnerJob | InternalStopSpinnerJob} InternalJob
- *
+ * @typedef {InternalLogJob | InternalEnvJob | InternalReadFileJob | InternalReadFileBinaryJob | InternalGlobJob | InternalRandomSeedJob | InternalNowJob | InternalEncryptJob | InternalDecryptJob |InternalWriteFileJob | InternalSleepJob| InternalWhichJob | InternalQuestionJob | InternalReadKeyJob | InternalStreamJob | InternalStartSpinnerJob | InternalStopSpinnerJob | InternalTimezoneJob | InternalResolvePathJob | InternalFileExistsJob | InternalDeleteFileJob | InternalCopyFileJob | InternalMoveJob | InternalMakeDirectoryJob | InternalRemoveDirectoryJob | InternalMakeTempDirectoryJob | InternalDbReadMetaJob | InternalDbWriteJob | InternalDbSetDefaultPathJob | InternalDbLockAcquireJob | InternalDbLockReleaseJob | InternalDbMigrateReadJob | InternalDbMigrateWriteJob | InternalTuiIsInteractiveJob | InternalTuiInitJob | InternalTuiRenderJob | InternalTuiWaitEventJob | InternalTuiRenderAndWaitJob | InternalTuiExitJob} InternalJob
+ */
+
+/**
+ * @template Req
+ * @template Body
+ * @typedef {{ request: Req; response: { bodyKind: "json"; body: Body; }}} JsonResponse<Req,Body>
+ */
+
+/**
+ * @template Req
+ * @typedef {{ request: Req; response: { bodyKind: "bytes"; body: null; }; rawBytes: Buffer; }} BytesResponse<Req>
+ */
+
+/**
+ * @typedef {{ request: InternalJob; response: { statusCode: 500; statusText: "Internal Error"; headers: {}; url: string; bodyKind: "string"; body: string; }}} ErrorResponse
  */
 
 /**
@@ -710,7 +747,7 @@ function dataViewToBuffer(dv) {
  * @param {Set<string>} patternsToWatch
  * @param {PortsFile} portsFile
  * @param {InternalJob} requestToPerform
- * @return {Promise<{ request: unknown; response: unknown; }>}
+ * @return {Promise<JsonResponse<InternalJob, unknown> | BytesResponse<InternalJob> | ErrorResponse>}
  */
 async function runInternalJob(
   requestHash,
@@ -807,7 +844,7 @@ async function runInternalJob(
         )}`;
     }
   } catch (error) {
-    // Format error message from structured {title, message} or plain strings
+    // Format error message from structured {title, gmessage} or plain strings
     const errorMessage =
       error.title && error.message
         ? `-- ${error.title.toUpperCase()} --\n\n${error.message}`
@@ -838,6 +875,10 @@ async function runInternalJob(
 const dbLockTokensByPath = new Map();
 let dbLockCleanupRegistered = false;
 
+/**
+ * @param {string} cwd
+ * @param {{ path?: string; } | string | null} payloadOrHeaders
+ */
 function resolveDbBinPath(cwd, payloadOrHeaders) {
   let customPath;
   if (
@@ -861,12 +902,19 @@ function resolveDbBinPath(cwd, payloadOrHeaders) {
 /**
  * Extract the x-db-path header value from request headers.
  * Headers are stored as an array of [key, value] pairs.
+ *
+ * @param {InternalJob} req
+ * @returns {string | null}
  */
 function getDbPathHeader(req) {
   const entry = req.headers.find(([k]) => k === "x-db-path");
   return entry ? entry[1] : null;
 }
 
+/**
+ * @param {string} dbBinPath
+ * @returns {string}
+ */
 function resolveDbLockPath(dbBinPath) {
   return `${dbBinPath}.lock`;
 }
@@ -874,6 +922,9 @@ function resolveDbLockPath(dbBinPath) {
 /**
  * Remove stale .tmp.{pid} files left behind by previous crashes.
  * Only removes files matching the exact tmp pattern for the given dbBinPath.
+ *
+ * @param {string} dbBinPath
+ * @returns {Promise<void>}
  */
 async function cleanStaleTmpFiles(dbBinPath) {
   const dir = path.dirname(dbBinPath);
@@ -892,6 +943,11 @@ async function cleanStaleTmpFiles(dbBinPath) {
   }
 }
 
+/**
+ * @param {string} name
+ * @param {number} fallback
+ * @returns {number}
+ */
 function readPositiveIntEnv(name, fallback) {
   const raw = process.env[name];
   if (typeof raw !== "string" || raw.trim() === "") {
@@ -902,6 +958,9 @@ function readPositiveIntEnv(name, fallback) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+/**
+ * @param {InternalDbSetDefaultPathJob} req
+ */
 async function runDbSetDefaultPath(req) {
   const payload = req.body.args[0];
 
@@ -921,6 +980,10 @@ async function runDbSetDefaultPath(req) {
   return jsonResponse(req, null);
 }
 
+/**
+ * @param {InternalDbReadMetaJob} req
+ * @returns {Promise<BytesResponse<InternalDbReadMetaJob>>}
+ */
 async function runDbReadMeta(req) {
   const cwd = path.resolve(...req.dir);
   const payload = req.body.args[0];
@@ -946,6 +1009,10 @@ async function runDbReadMeta(req) {
   }
 }
 
+/**
+ * @param {string} cwd
+ * @returns {Promise<{ path: string; source: string; } | null>}
+ */
 async function findCurrentDbElm(cwd) {
   const candidates = [
     path.resolve(cwd, "script/src/Db.elm"),
@@ -975,10 +1042,15 @@ async function findCurrentDbElm(cwd) {
   return null;
 }
 
+/**
+ * @param {InternalDbWriteJob} req
+ * @returns {Promise<JsonResponse<InternalDbWriteJob, null>>}
+ */
 async function runDbWrite(req) {
   const cwd = path.resolve(...req.dir);
 
   // Read raw bytes from port (BytesBody) or fall back to base64 in JSON body
+  /** @type {Buffer | null} */
   let wire3Data;
   let schemaHash;
   let dbBinPath;
@@ -1063,6 +1135,11 @@ async function runDbWrite(req) {
   return jsonResponse(req, null);
 }
 
+/**
+ *
+ * @param {InternalDbLockAcquireJob} req
+ * @returns {Promise<JsonResponse<InternalDbLockAcquireJob, crypto.UUID>>}
+ */
 async function runDbLockAcquire(req) {
   const cwd = path.resolve(...req.dir);
   const payload = req.body.args[0];
@@ -1186,6 +1263,10 @@ async function runDbLockAcquire(req) {
   };
 }
 
+/**
+ * @param {InternalDbLockReleaseJob} req
+ * @returns {Promise<JsonResponse<InternalDbLockReleaseJob, null>>}
+ */
 async function runDbLockRelease(req) {
   const cwd = path.resolve(...req.dir);
   const payload = req.body.args[0];
@@ -1217,6 +1298,10 @@ async function runDbLockRelease(req) {
   return jsonResponse(req, null);
 }
 
+/**
+ * @param {InternalDbMigrateReadJob} req
+ * @returns {Promise<BytesResponse<InternalDbMigrateReadJob>>}
+ */
 async function runDbMigrateRead(req) {
   const cwd = path.resolve(...req.dir);
   const payload = req.body.args[0];
@@ -1240,6 +1325,10 @@ async function runDbMigrateRead(req) {
   }
 }
 
+/**
+ * @param {InternalDbMigrateWriteJob} req
+ * @returns {Promise<JsonResponse<InternalDbMigrateWriteJob, null>>}
+ */
 async function runDbMigrateWrite(req) {
   const cwd = path.resolve(...req.dir);
 
@@ -1337,11 +1426,12 @@ function getContext(requestToPerform) {
 
   return { cwd, quiet, env };
 }
+
 /**
- *
  * @param {InternalReadFileJob} req
  * @param {Set<string>} patternsToWatch
- * @returns
+ * @returns {Promise<JsonResponse<InternalReadFileJob, { parsedFrontmatter: { [key: string]: unknown; }; withoutFrontmatter: string; rawFile: string; }> | JsonResponse<InternalReadFileJob, { errorCode: unknown; }>>}
+}
  */
 async function readFileJobNew(req, patternsToWatch) {
   const cwd = path.resolve(...req.dir);
@@ -1369,6 +1459,7 @@ async function readFileJobNew(req, patternsToWatch) {
 /**
  * @param {InternalReadFileBinaryJob} req
  * @param {Set<string>} patternsToWatch
+ * @returns {Promise<BytesResponse<InternalReadFileBinaryJob>>}
  */
 async function readFileBinaryJobNew(req, patternsToWatch) {
   const filePath = req.body.args[1];
@@ -1396,6 +1487,7 @@ async function readFileBinaryJobNew(req, patternsToWatch) {
 
 /**
  * @param {InternalSleepJob} req
+ * @returns {Promise<JsonResponse<InternalSleepJob, null>>}
  */
 function runSleep(req) {
   const { milliseconds } = req.body.args[0];
@@ -1957,6 +2049,12 @@ export async function readKey() {
   });
 }
 
+/**
+ *
+ * @param {InternalFileExistsJob} req
+ * @param {Set<string>} patternsToWatch
+ * @returns {Promise<JsonResponse<InternalFileExistsJob, boolean>>}
+ */
 async function runFileExists(req, patternsToWatch) {
   const cwd = path.resolve(...req.dir);
   const filePath = path.resolve(cwd, req.body.args[0]);
@@ -1969,6 +2067,10 @@ async function runFileExists(req, patternsToWatch) {
   }
 }
 
+/**
+ * @param {InternalDeleteFileJob} req
+ * @returns {Promise<JsonResponse<InternalDeleteFileJob, null>>}
+ */
 async function runDeleteFile(req) {
   const cwd = path.resolve(...req.dir);
   const data = req.body.args[0];
@@ -1989,6 +2091,10 @@ async function runDeleteFile(req) {
   }
 }
 
+/**
+ * @param {InternalCopyFileJob} req
+ * @returns {Promise<JsonResponse<InternalCopyFileJob, string>>}
+ */
 async function runCopyFile(req) {
   const cwd = path.resolve(...req.dir);
   const data = req.body.args[0];
@@ -2008,6 +2114,10 @@ async function runCopyFile(req) {
   }
 }
 
+/**
+ * @param {InternalMoveJob} req
+ * @returns {Promise<JsonResponse<InternalMoveJob, string>>}
+ */
 async function runMove(req) {
   const cwd = path.resolve(...req.dir);
   const data = req.body.args[0];
@@ -2067,6 +2177,10 @@ async function runMakeDirectory(req) {
   }
 }
 
+/**
+ * @param {InternalRemoveDirectoryJob} req
+ * @returns {Promise<JsonResponse<InternalRemoveDirectoryJob, null>>}
+ */
 async function runRemoveDirectory(req) {
   const cwd = path.resolve(...req.dir);
   const data = req.body.args[0];
@@ -2229,6 +2343,9 @@ async function runLogJob(req) {
   }
 }
 
+/**
+ * @param {InternalResolvePathJob} req
+ */
 function runResolvePath(req) {
   const filePath = req.body.args[0];
   const cwd = path.resolve(...req.dir);
@@ -2334,6 +2451,8 @@ const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
  * Accepts { sinceMs, untilMs } for the date range to scan for DST transitions.
  * Optionally accepts { tzId } for a named timezone; defaults to system timezone.
  * Returns { defaultOffset, eras } for Time.customZone.
+ * @param {InternalTimezoneJob} req
+ * @returns {{ defaultOffset: number; eras: { start: number; offset: number; }[]; }}
  */
 function runTimezone(req) {
   const body = req.body.args[0];
@@ -2425,6 +2544,10 @@ function binarySearchTransition(tzId, loMs, hiMs, offsetBefore) {
 /**
  * Get timezone transition data using the Intl API (scan + binary search).
  * Scans every 2 weeks to catch even rare mid-month transitions.
+ * @param {string} tzId
+ * @param {number} sinceMs
+ * @param {number} untilMs
+ * @returns {{ defaultOffset: number; eras: { start: number; offset: number; }[]; }}
  */
 function getTimezoneDataIntl(tzId, sinceMs, untilMs) {
   const defaultOffset = getOffsetMinutesIntl(tzId, sinceMs);
