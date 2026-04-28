@@ -294,10 +294,11 @@ import Test.PagesProgram as PagesProgram
 import TestApp
 
 
-indexTest : TestApp.ProgramTest
+indexTest : PagesProgram.Test
 indexTest =
-    TestApp.start "/" BackendTaskTest.init
-        |> PagesProgram.ensureViewHas [ Selector.text "elm-pages is up and running!" ]
+    PagesProgram.test "renders"
+        (TestApp.start "/" BackendTaskTest.init)
+        [ PagesProgram.ensureViewHas [ Selector.text "elm-pages is up and running!" ] ]
 ELMEOF
 
 npx elm-pages test tests/IndexTest.elm
@@ -325,10 +326,7 @@ import Test.PagesProgram.Viewer as Viewer
 main : Program Viewer.Flags Viewer.Model Viewer.Msg
 main =
     Viewer.app
-        [ ( "IndexTest.indexTest"
-          , IndexTest.indexTest |> Test.PagesProgram.toSnapshots
-          )
-        ]
+        (Test.PagesProgram.toNamedSnapshots IndexTest.indexTest)
 ELMEOF
 
 # Set up the test-viewer elm.json the same way dev-server.js does:
