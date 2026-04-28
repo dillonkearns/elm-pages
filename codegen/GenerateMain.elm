@@ -81,7 +81,7 @@ otherFile routes phaseString routesWithEphemeral =
         --    , reference : Elm.Expression
         --    , referenceFrom : List String -> Elm.Expression
         --    }
-        config =
+        configFields =
             { init = Elm.apply (Elm.val "init") [ Elm.nothing ]
             , update = update.value
             , subscriptions = subscriptions.value
@@ -190,8 +190,14 @@ otherFile routes phaseString routesWithEphemeral =
             , internalError = Gen.ErrorPage.values_.internalError
             , errorPageToData = Elm.val "DataErrorPage____"
             , notFoundRoute = Elm.nothing
+            , pageModelToString =
+                Elm.fn (Elm.Arg.ignore)
+                    (\_ -> Elm.string "")
             }
                 |> make_
+
+        config =
+            configFields
                 |> Elm.withType Type.unit
 
         --|> Elm.withType
@@ -432,6 +438,14 @@ otherFile routes phaseString routesWithEphemeral =
                                     (\( _, data ) ->
                                         errorPageView data
                                     )
+                                    :: Elm.Case.branch
+                                        (Elm.Arg.tuple
+                                            Elm.Arg.ignore
+                                            (Elm.Arg.customType "Data404NotFoundPage____" ())
+                                        )
+                                        (\_ ->
+                                            errorPageView Gen.ErrorPage.values_.notFound
+                                        )
                                     :: (routes |> List.map routeToBranch)
                                     ++ [ Elm.Case.branch Elm.Arg.ignore (\_ -> defaultCaseView) ]
                                 )
@@ -2184,11 +2198,14 @@ otherFile routes phaseString routesWithEphemeral =
                 )
     in
     Elm.file [ "Main" ]
-        [ modelType.declaration
+        [ modelType.declaration |> Elm.expose
         , pageModelType.declaration
-        , msgType.declaration
-        , pageDataType.declaration
-        , actionDataType.declaration
+        , msgType.declaration |> Elm.expose
+        , pageDataType.declaration |> Elm.expose
+        , actionDataType.declaration |> Elm.expose
+        , configFields
+            |> Elm.declaration "config"
+            |> Elm.expose
         , case phase of
             Browser ->
                 Gen.Pages.Internal.Platform.application config
@@ -2487,6 +2504,7 @@ make_ :
     , internalError : Elm.Expression
     , errorPageToData : Elm.Expression
     , notFoundRoute : Elm.Expression
+    , pageModelToString : Elm.Expression
     }
     -> Elm.Expression
 make_ programConfig_args =
@@ -2553,4 +2571,7 @@ make_ programConfig_args =
         , Tuple.pair
             "notFoundRoute"
             programConfig_args.notFoundRoute
+        , Tuple.pair
+            "pageModelToString"
+            programConfig_args.pageModelToString
         ]

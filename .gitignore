@@ -2,6 +2,7 @@ node_modules/
 elm-stuff/
 dist/
 .cache/
+.scratch/
 generator/src/Main.js
 elm-pages-*.tgz
 coverage
@@ -19,6 +20,12 @@ docs.json
 
 examples/end-to-end/db/schema-history/
 test-scripts/db/schema-history/
+**/tests/viewer.html
+**/tests/viewer-preview.html
+**/tests/viewer.js
+tests/viewer-app/elm-stuff/
+.tmp-tui-widgets-tests*/
 
 # elm-wrap artifacts
+artifacts.dat
 artifacts.x.dat

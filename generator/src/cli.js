@@ -136,6 +136,23 @@ async function main() {
     });
 
   program
+    .command("test [elmModulePath]")
+    .description("auto-discover and run ProgramTest, TuiTest.Test, and vanilla Test values via elm-test (use --visual for the interactive TUI stepper; use `elm-pages dev` + /_tests for browser stepping)")
+    .option("--visual", "Open named TUI tests in the interactive terminal stepper")
+    .option("--coverage", "Instrument sources and generate a coverage report (requires elm-instrument from npm install -g elm-coverage)")
+    .option("--coverage-include <dir>", "Only instrument files in these source directories (repeatable)", collect, [])
+    .option("--coverage-exclude <dir>", "Exclude these source directories from instrumentation (repeatable)", collect, [])
+    .option("--coverage-include-module <pattern>", "Only show these modules in the report, e.g. 'MyApp.*' (repeatable)", collect, [])
+    .option("--coverage-exclude-module <pattern>", "Hide these modules from the report, e.g. 'Gen.*' (repeatable)", collect, [])
+    .allowUnknownOption()
+    .allowExcessArguments()
+    .helpOption(false)
+    .action(async (elmModulePath, options, options2) => {
+      const { run } = await import("./commands/test.js");
+      await run(elmModulePath || "", options, options2);
+    });
+
+  program
     .command("bundle-script <moduleName>")
     .description("bundle an elm-pages script")
     .option(

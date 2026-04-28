@@ -1,7 +1,7 @@
 module Test.BackendTask.Internal exposing
-    ( BackendTaskTest(..), TestSetup(..), Output(..), SimulatedEffect(..), TimeZoneData
+    ( BackendTaskTest(..), TestSetup(..), Session(..), Output(..), SimulatedEffect(..), TimeZoneData
     , fromBackendTask, fromBackendTaskWith, fromScript, fromScriptWith
-    , init, withFile, withBinaryFile, withDb, withDbSetTo, withStdin, withEnv, withTime, withTimeZone, withTimeZoneByName, withRandomSeed, withWhich
+    , init, withFile, withBinaryFile, withDb, withDbSetTo, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRequestCookie, session, withSessionValue, withFlashValue, withSessionCookie, withTimeZone, withTimeZoneByName, withRandomSeed, withWhich
     , simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, simulateCustom, simulateCommand, simulateCustomStream, simulateStreamHttp
     , simulateQuestion, simulateReadKey
     , ensureHttpGet, ensureHttpPost, ensureCustom, ensureCommand, ensureFileWritten
@@ -9,6 +9,9 @@ module Test.BackendTask.Internal exposing
     , ensureFile, ensureFileExists, ensureNoFile
     , withVirtualEffects, writeFileEffect, removeFileEffect
     , expectSuccess, expectSuccessWith, expectDb, expectFailure, expectFailureWith, expectTestError
+    , VirtualFS, emptyVirtualFS, extractVirtualFs, resolveWithVirtualFs, resolveWithVirtualFsPartial, toResult
+    , encodeSession, mockSignValue, mockUnsignValue, sessionFlashPrefix
+    , getPortName
     )
 
 {-| Internal implementation for [`Test.BackendTask`](Test-BackendTask) and its sub-modules.
@@ -20,7 +23,7 @@ only when you need type annotations or pattern matching on internal types.
 
 ## Types
 
-@docs BackendTaskTest, TestSetup, Output, SimulatedEffect, TimeZoneData
+@docs BackendTaskTest, TestSetup, Session, Output, SimulatedEffect, TimeZoneData
 
 
 ## Building
@@ -30,7 +33,7 @@ only when you need type annotations or pattern matching on internal types.
 
 ## Test Setup
 
-@docs init, withFile, withBinaryFile, withDb, withDbSetTo, withStdin, withEnv, withTime, withTimeZone, withTimeZoneByName, withRandomSeed, withWhich
+@docs init, withFile, withBinaryFile, withDb, withDbSetTo, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRequestCookie, session, withSessionValue, withFlashValue, withSessionCookie, withTimeZone, withTimeZoneByName, withRandomSeed, withWhich
 
 
 ## Simulating Effects
@@ -66,6 +69,7 @@ import Bytes.Encode as BE
 import Cli.Program as Program
 import Dict exposing (Dict)
 import Expect exposing (Expectation)
+import FNV1a
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
@@ -186,6 +190,30 @@ type TestSetup
     = TestSetup
         { virtualFS : VirtualFS
         , virtualDB : VirtualDB
+        , requestTime : Maybe Time.Posix
+        , requestHeaders : Dict String String
+        , requestCookies : Dict String String
+        }
+
+
+{-| Seed data for [`withSessionCookie`](#withSessionCookie).
+
+Use [`session`](#session) to create one, then add persistent values with
+[`withSessionValue`](#withSessionValue) and flash values with
+[`withFlashValue`](#withFlashValue).
+
+    import Test.BackendTask as BackendTaskTest
+
+    seededSession =
+        BackendTaskTest.session
+            |> BackendTaskTest.withSessionValue "sessionId" "abc123"
+            |> BackendTaskTest.withFlashValue "message" "Welcome back!"
+
+-}
+type Session
+    = Session
+        { persistentValues : Dict String String
+        , flashValues : Dict String String
         }
 
 
@@ -196,6 +224,9 @@ init =
     TestSetup
         { virtualFS = emptyVirtualFS
         , virtualDB = emptyVirtualDB
+        , requestTime = Nothing
+        , requestHeaders = Dict.empty
+        , requestCookies = Dict.empty
         }
 
 
@@ -220,7 +251,7 @@ init =
 -}
 withFile : String -> String -> TestSetup -> TestSetup
 withFile path content (TestSetup setup) =
-    TestSetup { setup | virtualFS = insertFile path content setup.virtualFS }
+    TestSetup { setup | virtualFS = insertFile (normalizePath path) content setup.virtualFS }
 
 
 {-| Seed a binary file into the virtual filesystem before the test starts running.
@@ -256,7 +287,7 @@ withBinaryFile path content (TestSetup setup) =
         vfs =
             setup.virtualFS
     in
-    TestSetup { setup | virtualFS = { vfs | binaryFiles = Dict.insert path content vfs.binaryFiles } }
+    TestSetup { setup | virtualFS = { vfs | binaryFiles = Dict.insert (normalizePath path) content vfs.binaryFiles } }
 
 
 {-| Seed the virtual DB with the default seed value from the generated `testConfig`.
@@ -413,6 +444,233 @@ withTime time (TestSetup setup) =
             setup.virtualFS
     in
     TestSetup { setup | virtualFS = { vfs | time = Just time } }
+
+
+{-| Set a fixed request time for server-rendered route requests in
+[`Test.PagesProgram.start`](Test-PagesProgram#start).
+
+    import Time
+    import Test.BackendTask as BackendTaskTest
+
+    BackendTaskTest.init
+        |> BackendTaskTest.withRequestTime (Time.millisToPosix 1709827200000)
+
+-}
+withRequestTime : Time.Posix -> TestSetup -> TestSetup
+withRequestTime time (TestSetup setup) =
+    TestSetup { setup | requestTime = Just time }
+
+
+{-| Seed a request header for server-rendered route requests in
+[`Test.PagesProgram.start`](Test-PagesProgram#start).
+
+Header names are normalized to lowercase.
+
+    import Test.BackendTask as BackendTaskTest
+
+    BackendTaskTest.init
+        |> BackendTaskTest.withRequestHeader "accept-language" "en-US"
+
+-}
+withRequestHeader : String -> String -> TestSetup -> TestSetup
+withRequestHeader name value (TestSetup setup) =
+    TestSetup
+        { setup
+            | requestHeaders =
+                Dict.insert (String.toLower name) value setup.requestHeaders
+        }
+
+
+{-| Seed a cookie on the initial server-rendered request in
+[`Test.PagesProgram.start`](Test-PagesProgram#start).
+
+    import Test.BackendTask as BackendTaskTest
+
+    BackendTaskTest.init
+        |> BackendTaskTest.withRequestCookie "mysession" "signed-cookie"
+
+-}
+withRequestCookie : String -> String -> TestSetup -> TestSetup
+withRequestCookie name value (TestSetup setup) =
+    TestSetup
+        { setup
+            | requestCookies =
+                Dict.insert name value setup.requestCookies
+        }
+
+
+{-| Start building a seeded session for [`withSessionCookie`](#withSessionCookie).
+
+    import Test.BackendTask as BackendTaskTest
+
+    signedInSession =
+        BackendTaskTest.session
+            |> BackendTaskTest.withSessionValue "sessionId" "abc123"
+
+-}
+session : Session
+session =
+    Session
+        { persistentValues = Dict.empty
+        , flashValues = Dict.empty
+        }
+
+
+{-| Seed a persistent session value.
+
+    import Test.BackendTask as BackendTaskTest
+
+    signedInSession =
+        BackendTaskTest.session
+            |> BackendTaskTest.withSessionValue "sessionId" "abc123"
+
+-}
+withSessionValue : String -> String -> Session -> Session
+withSessionValue key value (Session seed) =
+    Session
+        { seed
+            | persistentValues =
+                Dict.insert key value seed.persistentValues
+        }
+
+
+{-| Seed a flash session value that is available on the next request only.
+
+    import Test.BackendTask as BackendTaskTest
+
+    sessionWithFlash =
+        BackendTaskTest.session
+            |> BackendTaskTest.withFlashValue "message" "Welcome back!"
+
+-}
+withFlashValue : String -> String -> Session -> Session
+withFlashValue key value (Session seed) =
+    Session
+        { seed
+            | flashValues =
+                Dict.insert key value seed.flashValues
+        }
+
+
+{-| Seed a signed session cookie for the initial request.
+
+This mirrors the [`Server.Session`](Server-Session) test behavior, including
+flash values that are consumed after the first request.
+
+    import Test.BackendTask as BackendTaskTest
+
+    BackendTaskTest.init
+        |> BackendTaskTest.withSessionCookie
+            { name = "mysession"
+            , secret = "test-secret"
+            , session =
+                BackendTaskTest.session
+                    |> BackendTaskTest.withSessionValue "sessionId" "abc123"
+                    |> BackendTaskTest.withFlashValue "message" "Welcome back!"
+            }
+
+The `secret` is recorded alongside the signed cookie so tests can exercise
+rotating-secret flows. The test mock doesn't use real HMAC, so `secret` may
+be any non-empty string **without `.` characters**.
+
+-}
+withSessionCookie : { name : String, secret : String, session : Session } -> TestSetup -> TestSetup
+withSessionCookie config =
+    withRequestCookie config.name (mockSignValue config.secret (encodeSession config.session))
+
+
+encodeSession : Session -> Encode.Value
+encodeSession (Session seed) =
+    let
+        persistentEntries : List ( String, String )
+        persistentEntries =
+            seed.persistentValues
+                |> Dict.toList
+
+        flashEntries : List ( String, String )
+        flashEntries =
+            seed.flashValues
+                |> Dict.toList
+                |> List.map (\( key, value ) -> ( sessionFlashPrefix ++ key, value ))
+    in
+    persistentEntries
+        ++ flashEntries
+        |> List.map (Tuple.mapSecond Encode.string)
+        |> Encode.object
+
+
+sessionFlashPrefix : String
+sessionFlashPrefix =
+    "__flash__"
+
+
+{-| Mirrors the `cookie-signature` npm package's `<value>.<signature>` wire
+format (see `generator/src/render.js`), but with an FNV1a-based checksum
+instead of HMAC-SHA256. The secret is embedded in a second dotted segment so
+the test visual runner can surface which secret produced each signed cookie.
+
+Layout: `<JSON>.<secret>.<fnv1a-checksum>`.
+
+Test secrets must not contain `.` — the envelope splits on the last two dots.
+-}
+mockSignValue : String -> Encode.Value -> String
+mockSignValue secret values =
+    let
+        json : String
+        json =
+            Encode.encode 0 values
+
+        checksum : Int
+        checksum =
+            FNV1a.hashWithSeed json (FNV1a.hash secret)
+    in
+    json ++ "." ++ secret ++ "." ++ String.fromInt checksum
+
+
+{-| Inverse of [`mockSignValue`](#mockSignValue). Returns `Nothing` if the
+string isn't a signed envelope (plain cookies fall through) or if the
+checksum fails to verify against `FNV1a(secret ++ json)` — catches tampering
+with either the JSON payload or the embedded secret.
+
+This performs the format + checksum check only. The caller (the `decrypt`
+intercept, or the visual runner) decides whether the embedded `secret` is
+acceptable for the current context.
+
+-}
+mockUnsignValue : String -> Maybe { secret : String, values : Encode.Value }
+mockUnsignValue input =
+    splitLastDot input
+        |> Maybe.andThen
+            (\( prefix, checksumPart ) ->
+                if String.isEmpty checksumPart || not (String.all Char.isDigit checksumPart) then
+                    Nothing
+
+                else
+                    splitLastDot prefix
+                        |> Maybe.andThen
+                            (\( jsonPart, secretPart ) ->
+                                if String.isEmpty secretPart then
+                                    Nothing
+
+                                else if String.fromInt (FNV1a.hashWithSeed jsonPart (FNV1a.hash secretPart)) /= checksumPart then
+                                    Nothing
+
+                                else
+                                    Decode.decodeString Decode.value jsonPart
+                                        |> Result.toMaybe
+                                        |> Maybe.map (\values -> { secret = secretPart, values = values })
+                            )
+            )
+
+
+splitLastDot : String -> Maybe ( String, String )
+splitLastDot input =
+    case String.indexes "." input |> List.reverse |> List.head of
+        Just idx ->
+            Just ( String.left idx input, String.dropLeft (idx + 1) input )
+
+        Nothing ->
+            Nothing
 
 
 {-| Internal representation of a time zone. Use [`Test.BackendTask.Time.TimeZone`](Test-BackendTask-Time#TimeZone)
@@ -1217,6 +1475,45 @@ autoResponseBody vfs req =
 
                 Nothing ->
                     Ok Encode.null
+
+        "elm-pages-internal://encrypt" ->
+            case
+                decodeJsonBody
+                    (Decode.map2 Tuple.pair
+                        (Decode.field "secret" Decode.string)
+                        (Decode.field "values" Decode.value)
+                    )
+                    req
+            of
+                Just ( secret, values ) ->
+                    Ok (Encode.string (mockSignValue secret values))
+
+                Nothing ->
+                    Err "encrypt: missing 'secret' or 'values' field in request body"
+
+        "elm-pages-internal://decrypt" ->
+            case
+                decodeJsonBody
+                    (Decode.map2 Tuple.pair
+                        (Decode.field "input" Decode.string)
+                        (Decode.field "secrets" (Decode.list Decode.string))
+                    )
+                    req
+            of
+                Just ( input, secrets ) ->
+                    case mockUnsignValue input of
+                        Just { secret, values } ->
+                            if List.member secret secrets then
+                                Ok values
+
+                            else
+                                Ok Encode.null
+
+                        Nothing ->
+                            Ok Encode.null
+
+                Nothing ->
+                    Err "decrypt: missing 'input' or 'secrets' field in request body"
 
         _ ->
             Err
@@ -3616,6 +3913,116 @@ expectSuccessWith assertion scriptTest =
 
         TestError msg ->
             Expect.fail msg
+
+
+{-| Extract the result from a completed `BackendTaskTest`. Returns `Err` if the
+BackendTask has pending requests, encountered a test error, or failed. Used
+internally by `Test.Tui` to resolve effects.
+-}
+toResult : BackendTaskTest a -> Result String a
+toResult scriptTest =
+    case scriptTest of
+        Done { result } ->
+            case result of
+                Ok value ->
+                    Ok value
+
+                Err err ->
+                    Err ("BackendTask failed: " ++ fatalErrorToString err)
+
+        Running state ->
+            Err (stillRunningError state.pendingRequests)
+
+        TestError msg ->
+            Err msg
+
+
+{-| Resolve a BackendTask with a VirtualFS and return both the updated VirtualFS
+and the result. Used by `Test.PagesProgram.start` to resolve data and
+action BackendTasks with stateful file tracking.
+-}
+resolveWithVirtualFs : VirtualFS -> BackendTask FatalError a -> ( VirtualFS, Result String a )
+resolveWithVirtualFs vfs task =
+    let
+        bt =
+            advanceWithAutoResolve
+                { continuation = task
+                , responseEntries = []
+                , responseBytesEntries = Dict.empty
+                , pendingRequests = []
+                , trackedEffects = []
+                , drainedOutputCount = 0
+                , virtualFS = vfs
+                , virtualDB = emptyVirtualDB
+                , simulatedEffects = Nothing
+                }
+    in
+    case bt of
+        Done doneState ->
+            ( doneState.virtualFS
+            , case doneState.result of
+                Ok value ->
+                    Ok value
+
+                Err err ->
+                    Err ("BackendTask failed: " ++ fatalErrorToString err)
+            )
+
+        Running state ->
+            ( state.virtualFS
+            , Err (stillRunningError state.pendingRequests)
+            )
+
+        TestError msg ->
+            ( vfs, Err msg )
+
+
+{-| Like resolveWithVirtualFs, but returns the BackendTaskTest directly instead
+of flattening to Result. This preserves the Running state when the BackendTask
+has pending HTTP requests, allowing the caller to construct a Resolver for
+pause-and-resume testing.
+-}
+resolveWithVirtualFsPartial : VirtualFS -> BackendTask FatalError a -> ( VirtualFS, BackendTaskTest a )
+resolveWithVirtualFsPartial vfs task =
+    let
+        bt =
+            advanceWithAutoResolve
+                { continuation = task
+                , responseEntries = []
+                , responseBytesEntries = Dict.empty
+                , pendingRequests = []
+                , trackedEffects = []
+                , drainedOutputCount = 0
+                , virtualFS = vfs
+                , virtualDB = emptyVirtualDB
+                , simulatedEffects = Nothing
+                }
+    in
+    case bt of
+        Done doneState ->
+            ( doneState.virtualFS, bt )
+
+        Running state ->
+            ( state.virtualFS, bt )
+
+        TestError _ ->
+            ( vfs, bt )
+
+
+{-| Extract the current virtual filesystem state from a BackendTaskTest.
+Used by the platform test framework to thread VFS state through pause-and-resume.
+-}
+extractVirtualFs : BackendTaskTest a -> VirtualFS
+extractVirtualFs bt =
+    case bt of
+        Done doneState ->
+            doneState.virtualFS
+
+        Running state ->
+            state.virtualFS
+
+        TestError _ ->
+            emptyVirtualFS
 
 
 {-| Assert on the virtual DB state. This is a terminal assertion that also checks

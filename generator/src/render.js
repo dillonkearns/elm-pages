@@ -13,6 +13,10 @@ import { compatibilityKey } from "./compatibility-key.js";
 import * as fs from "node:fs";
 import * as crypto from "node:crypto";
 import { restoreColorSafe } from "./error-formatter.js";
+import {
+  runTuiInit, runTuiRender, runTuiWaitEvent,
+  runTuiRenderAndWait, runTuiExit, tuiCleanup,
+} from "./tui-runtime.js";
 import { Spinnies } from "./spinnies/index.js";
 import { default as which } from "which";
 import * as readline from "readline";
@@ -26,6 +30,16 @@ import { default as makeFetchHappenOriginal } from "make-fetch-happen";
 import mergeStreams from "@sindresorhus/merge-streams";
 import { parseDbBinHeader, buildDbBin } from "./db-bin-format.js";
 
+/** @type {Set<import('node:child_process').ChildProcess>} */
+const activeChildProcesses = new Set();
+
+function killActiveChildren() {
+  for (const child of activeChildProcesses) {
+    try { child.kill("SIGTERM"); } catch (e) {}
+  }
+  activeChildProcesses.clear();
+}
+
 function detectColorSupport() {
   const env = process.env;
   if ("FORCE_COLOR" in env) {
@@ -36,6 +50,22 @@ function detectColorSupport() {
   if (!process.stdout.isTTY) return false;
   if (env.CI && (env.GITHUB_ACTIONS || env.GITLAB_CI || env.CIRCLECI))
     return true;
+  return true;
+}
+
+/**
+ * Standard heuristic for "should this program run as an interactive TUI?"
+ * Mirrors the precedence used by tools like git, fzf, and bubbletea. Users
+ * can override by passing their own `BackendTask FatalError Bool` as the
+ * `when` field of `Tui.Program.programOrScript`.
+ */
+function isInteractiveTerminal() {
+  const env = process.env;
+  if ("NO_COLOR" in env) return false;
+  if (env.TERM === "dumb") return false;
+  if (env.CI) return false;
+  if (!process.stdout.isTTY) return false;
+  if (!process.stdin.isTTY) return false;
   return true;
 }
 
@@ -215,7 +245,13 @@ function runGeneratorAppHelp(
       } else if (fromElm.command === "log") {
         console.log(fromElm.value);
       } else if (fromElm.tag === "ApiResponse") {
-        // Finished successfully
+        // Finished successfully — kill child processes before exiting
+        tuiCleanup();
+        killActiveChildren();
+        if (killApp) {
+          killApp();
+          killApp = null;
+        }
         process.exit(0);
       } else if (fromElm.tag === "PageProgress") {
         const args = fromElm.args[0];
@@ -765,6 +801,18 @@ async function runInternalJob(
         return [requestHash, await runDbMigrateRead(requestToPerform)];
       case "elm-pages-internal://db-migrate-write":
         return [requestHash, await runDbMigrateWrite(requestToPerform)];
+      case "elm-pages-internal://tui-is-interactive":
+        return [requestHash, jsonResponse(requestToPerform, isInteractiveTerminal())];
+      case "elm-pages-internal://tui-init":
+        return [requestHash, await runTuiInit(requestToPerform)];
+      case "elm-pages-internal://tui-render":
+        return [requestHash, await runTuiRender(requestToPerform)];
+      case "elm-pages-internal://tui-wait-event":
+        return [requestHash, await runTuiWaitEvent(requestToPerform)];
+      case "elm-pages-internal://tui-render-and-wait":
+        return [requestHash, await runTuiRenderAndWait(requestToPerform)];
+      case "elm-pages-internal://tui-exit":
+        return [requestHash, await runTuiExit(requestToPerform)];
       default:
         throw `Unexpected internal BackendTask request format: ${kleur.yellow(
           JSON.stringify(2, null, requestToPerform)
@@ -1708,6 +1756,8 @@ async function pipePartToStream(
       cwd: cwd,
       env: env,
     });
+    activeChildProcesses.add(newProcess);
+    newProcess.once("exit", () => activeChildProcesses.delete(newProcess));
 
     pipeIfPossible(lastStream, newProcess.stdin);
     if (!lastStream) {
@@ -1913,6 +1963,7 @@ export async function readKey() {
 
       // Handle Ctrl+C to exit gracefully
       if (key === "\u0003") {
+        killActiveChildren();
         process.exit();
       }
 
@@ -2432,3 +2483,20 @@ function getTimezoneDataTemporal(tzId, sinceMs, untilMs) {
   eras.reverse();
   return { defaultOffset, eras };
 }
+
+// Ensure terminal is restored and children are cleaned up on unexpected exit
+process.on("exit", () => {
+  tuiCleanup();
+  killActiveChildren();
+});
+process.on("SIGINT", () => {
+  tuiCleanup();
+  killActiveChildren();
+  process.exit(130);
+});
+process.on("SIGTERM", () => {
+  tuiCleanup();
+  killActiveChildren();
+  process.exit(143);
+});
+

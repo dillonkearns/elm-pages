@@ -34,7 +34,7 @@ If you click a link while a form is submitting, the form submission will be canc
 A form submission is part of the page's navigation state, and so is a page navigation. So if you have a page with an edit form, a delete form (no inputs but only a delete button), and a link to a new page,
 you can interact with any of these and it will cancel the previous interactions.
 
-You can access this state through `app.navigation` in your `Route` module, which is a value of type [`Pages.Navigation`](Pages-Navigation).
+You can access this state through `app.navigation` in your `Route` module, which is a value of type `Pages.Navigation`.
 
 This default form submission strategy is a good fit for more linear actions. This is more traditional server submission behavior that you might be familiar with from Rails or other server frameworks without JavaScript enhancement.
 
@@ -54,7 +54,9 @@ import Form
 import Form.Handler
 import Form.Validation exposing (Validation)
 import Html
+import Html.Attributes as Attr
 import Html.Styled
+import Html.Styled.Attributes
 import Pages.ConcurrentSubmission
 import Pages.Internal.Msg
 import Pages.Navigation
@@ -170,6 +172,14 @@ renderHtml attrs options_ app form_ =
         concurrent : Bool
         concurrent =
             options_.extras |> Maybe.map .concurrent |> Maybe.withDefault False
+
+        allAttrs : List (Html.Attribute (PagesMsg userMsg))
+        allAttrs =
+            if concurrent then
+                Attr.attribute "data-fetcher" "" :: attrs
+
+            else
+                attrs
     in
     form_
         |> Form.renderHtml
@@ -241,7 +251,7 @@ renderHtml attrs options_ app form_ =
                     )
             , extras = Nothing
             }
-            attrs
+            allAttrs
 
 
 {-| A replacement for `Form.renderStyledHtml` from `dillonkearns/elm-form` that integrates with `elm-pages`. Use this to render your [`Form`](https://package.elm-lang.org/packages/dillonkearns/elm-form/latest/Form)
@@ -266,6 +276,14 @@ renderStyledHtml attrs options_ app form_ =
         concurrent : Bool
         concurrent =
             options_.extras |> Maybe.map .concurrent |> Maybe.withDefault False
+
+        allAttrs : List (Html.Styled.Attribute (PagesMsg userMsg))
+        allAttrs =
+            if concurrent then
+                Html.Styled.Attributes.attribute "data-fetcher" "" :: attrs
+
+            else
+                attrs
     in
     form_
         |> Form.renderStyledHtml
@@ -337,4 +355,4 @@ renderStyledHtml attrs options_ app form_ =
                     )
             , extras = Nothing
             }
-            attrs
+            allAttrs

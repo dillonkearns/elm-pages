@@ -1,13 +1,16 @@
-module Data.User exposing (User, login, selection, updateUser)
+module Data.User exposing (User, find, login, signup, updateUser)
 
 import Api.InputObject
 import Api.Mutation
 import Api.Object.Users
 import Api.Query
 import Api.Scalar exposing (Uuid(..))
+import BackendTask exposing (BackendTask)
+import FatalError exposing (FatalError)
 import Graphql.Operation exposing (RootQuery)
 import Graphql.OptionalArgument exposing (OptionalArgument(..))
 import Graphql.SelectionSet as SelectionSet exposing (SelectionSet)
+import Request.Hasura
 
 
 type alias User =
@@ -16,21 +19,18 @@ type alias User =
     }
 
 
-selection : String -> SelectionSet User RootQuery
-selection userId =
+find : String -> BackendTask FatalError User
+find userId =
     Api.Query.users_by_pk { id = Uuid userId }
         (SelectionSet.map2 User
             Api.Object.Users.name
             Api.Object.Users.username
         )
         |> SelectionSet.nonNullOrFail
+        |> Request.Hasura.backendTask
 
 
-type alias LoginInfo =
-    { userId : String }
-
-
-login : { username : String, expectedPasswordHash : String } -> SelectionSet (Maybe Uuid) RootQuery
+login : { username : String, expectedPasswordHash : String } -> BackendTask FatalError (Maybe String)
 login { username, expectedPasswordHash } =
     Api.Query.users
         (\opts ->
@@ -48,7 +48,27 @@ login { username, expectedPasswordHash } =
             }
         )
         Api.Object.Users.id
-        |> SelectionSet.map List.head
+        |> SelectionSet.map (List.head >> Maybe.map (\(Uuid raw) -> raw))
+        |> Request.Hasura.backendTask
+
+
+signup : { name : String, username : String, password : String } -> BackendTask FatalError (Maybe String)
+signup { name, username, password } =
+    Api.Mutation.insert_users_one
+        identity
+        { object =
+            Api.InputObject.buildUsers_insert_input
+                (\opts ->
+                    { opts
+                        | name = Present name
+                        , username = Present username
+                        , password_hash = Present password
+                    }
+                )
+        }
+        Api.Object.Users.id
+        |> SelectionSet.map (Maybe.map (\(Uuid raw) -> raw))
+        |> Request.Hasura.mutationBackendTask
 
 
 eq : String -> Api.InputObject.String_comparison_exp
@@ -56,7 +76,7 @@ eq str =
     Api.InputObject.buildString_comparison_exp (\opt -> { opt | eq_ = Present str })
 
 
-updateUser : { userId : Uuid, name : String } -> SelectionSet () Graphql.Operation.RootMutation
+updateUser : { userId : String, name : String } -> BackendTask FatalError ()
 updateUser { userId, name } =
     Api.Mutation.update_users_by_pk
         (\_ ->
@@ -72,7 +92,9 @@ updateUser { userId, name } =
             }
         )
         { pk_columns =
-            { id = userId }
+            Api.InputObject.buildUsers_pk_columns_input
+                { id = Uuid userId }
         }
         SelectionSet.empty
         |> SelectionSet.nonNullOrFail
+        |> Request.Hasura.mutationBackendTask

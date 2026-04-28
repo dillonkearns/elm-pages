@@ -1,6 +1,12 @@
 set -ex;
 npm run build:generator
-npx elm-test --compiler lamdera
+# Run tui-widgets tests through their dedicated harness, since they compile
+# against tui-widgets/elm-application.json rather than the root elm.json.
+./tui-widgets/test.sh
+bash test-scripts/check-tui-public-api.sh
+
+# Root package tests exclude tui-widgets sources, which are exercised above.
+npx elm-test --compiler lamdera tests/ApiRouteTests.elm tests/CookieTest.elm tests/DbTestTests.elm tests/ExampleScriptTest.elm tests/FilePathTest.elm tests/FormDataTest.elm tests/GlobMatchTests.elm tests/HeadTests.elm tests/PathTests.elm tests/RouteTests.elm tests/ScriptTestTests.elm tests/SetCookieTest.elm tests/StaticHttpRequestsTests.elm tests/StaticResponsesTests.elm tests/TuiTests.elm tests/TuiPublicApiTests.elm
 (cd examples/routing && npm ci && npm run build && npx elm-test --compiler lamdera)
 (cd generator/dead-code-review && npx elm-test --compiler lamdera)
 (cd generator/server-review && npx elm-test --compiler lamdera)
@@ -133,6 +139,9 @@ print("bundle-script --help OK")
 
 # Timezone tests - tests BackendTask.Time.zone and zoneInRange with DST transitions
 (cd examples/end-to-end && TZ=America/New_York npx elm-pages run script/src/TimezoneTests.elm)
+
+# Process cleanup E2E - verify child processes spawned via BackendTask.Stream are killed on exit
+(cd generator && npx vitest run test/process-cleanup-e2e.test.js)
 
 # Scaffold tests - verify AddRoute with form fields generates compilable code
 # Uses end-to-end example which references local src/ via source-directories

@@ -1,13 +1,13 @@
 module Pages.Internal.Platform exposing
     ( Flags, Model, Msg(..), Program, ProgramConfig, application, init, update
-    , Effect(..), RequestInfo, view
+    , Effect(..), RequestInfo, view, ActionDataOrRedirect(..)
     )
 
 {-| Exposed for internal use only (used in generated code).
 
 @docs Flags, Model, Msg, Program, ProgramConfig, application, init, update
 
-@docs Effect, RequestInfo, view
+@docs Effect, RequestInfo, view, ActionDataOrRedirect
 
 -}
 
@@ -158,6 +158,7 @@ type alias Flags =
 type InitKind shared page actionData errorPage
     = OkPage shared page (Maybe actionData)
     | NotFound { reason : NotFoundReason, path : UrlPath }
+    | InitialRedirect String
 
 
 {-| -}
@@ -268,15 +269,19 @@ update config appMsg model =
     case appMsg of
         FormMsg formMsg ->
             let
-                -- TODO trigger formCmd
-                ( newModel, formCmd ) =
-                    Form.update formMsg model.pageFormState
+                ( newFormModel, maybeMsg ) =
+                    Form.updateWithMsg formMsg model.pageFormState
+
+                updatedModel : Model userModel pageData actionData sharedData
+                updatedModel =
+                    { model | pageFormState = newFormModel }
             in
-            ( { model
-                | pageFormState = newModel
-              }
-            , RunCmd formCmd
-            )
+            case maybeMsg of
+                Just msg ->
+                    update config msg updatedModel
+
+                Nothing ->
+                    ( updatedModel, NoEffect )
 
         LinkClicked urlRequest ->
             case urlRequest of
@@ -403,7 +408,7 @@ update config appMsg model =
                         ( model, BrowserLoadUrl redirectTo )
 
                     else
-                        ( model, NoEffect )
+                        ( { model | pendingRedirect = True }, NoEffect )
                             |> startNewGetLoad (currentUrlWithPath redirectTo model)
 
                 _ ->
@@ -420,11 +425,12 @@ update config appMsg model =
                         let
                             payload : { fields : List ( String, String ), method : Form.Method, action : String, id : Maybe String }
                             payload =
-                                { fields = fields.fields
-                                , method = fields.method
-                                , action = fields.action
-                                , id = Just fields.id
-                                }
+                                normalizeFormData model.url
+                                    { fields = fields.fields
+                                    , method = fields.method
+                                    , action = fields.action
+                                    , id = Just fields.id
+                                    }
                         in
                         if fields.useFetcher then
                             ( { model | nextTransitionKey = model.nextTransitionKey + 1 }
@@ -442,9 +448,7 @@ update config appMsg model =
                             let
                                 urlToSubmitTo : Url
                                 urlToSubmitTo =
-                                    fields.action
-                                        |> Url.fromString
-                                        |> Maybe.withDefault model.url
+                                    submittedUrl model.url payload
                             in
                             ( { model
                                 -- TODO should I setSubmitAttempted here, too?
@@ -456,11 +460,7 @@ update config appMsg model =
                                         )
                                 , pendingFrozenViewsUrl = Just urlToSubmitTo
                               }
-                            , FetchFrozenViews
-                                { path = urlToSubmitTo.path
-                                , query = urlToSubmitTo.query
-                                , body = Just (encodeFormData fields.fields)
-                                }
+                            , Submit payload
                             )
                                 |> (case fields.msg of
                                         Just justUserMsg ->
@@ -483,12 +483,19 @@ update config appMsg model =
                 Pages.Internal.Msg.FormMsg formMsg ->
                     -- TODO when init is called for a new page, also need to clear out client-side `pageFormState`
                     let
-                        ( formModel, formCmd ) =
-                            Form.update formMsg model.pageFormState
+                        ( newFormModel, maybeMsg ) =
+                            Form.updateWithMsg formMsg model.pageFormState
+
+                        updatedModel : Model userModel pageData actionData sharedData
+                        updatedModel =
+                            { model | pageFormState = newFormModel }
                     in
-                    ( { model | pageFormState = formModel }
-                    , RunCmd (Cmd.map UserMsg formCmd)
-                    )
+                    case maybeMsg of
+                        Just innerMsg ->
+                            update config (UserMsg innerMsg) updatedModel
+
+                        Nothing ->
+                            ( updatedModel, NoEffect )
 
                 Pages.Internal.Msg.NoOp ->
                     ( model, NoEffect )
@@ -958,6 +965,12 @@ update config appMsg model =
                                                     previousPageData.userModel
                                                     |> Tuple.mapSecond UserCmd
 
+                                        completedTransitionKey : Int
+                                        completedTransitionKey =
+                                            clearedModel.transition
+                                                |> Maybe.map Tuple.first
+                                                |> Maybe.withDefault clearedModel.nextTransitionKey
+
                                         updatedModel_ : Model userModel pageData actionData sharedData
                                         updatedModel_ =
                                             { clearedModel
@@ -972,6 +985,7 @@ update config appMsg model =
                                                     else
                                                         clearedModel.pageFormState
                                             }
+                                                |> clearLoadingFetchersAfterDataLoad completedTransitionKey
 
                                         onActionMsg_ : Maybe userMsg
                                         onActionMsg_ =
@@ -1010,7 +1024,7 @@ update config appMsg model =
                             -- Bytes decode failed
                             ( { model | pendingFrozenViewsUrl = Nothing }, NoEffect )
 
-                ( Just pageDataBytes, Just _, Err _ ) ->
+                ( Just pageDataBytes, Just pendingUrl, Err _ ) ->
                     -- Initial page load — page data arriving via port
                     let
                         pageDataResult : Maybe (InitKind sharedData pageData actionData errorPage)
@@ -1027,6 +1041,10 @@ update config appMsg model =
                                     NotFound notFound
                                         |> Just
 
+                                Just (ResponseSketch.Redirect redirectTo) ->
+                                    InitialRedirect redirectTo
+                                        |> Just
+
                                 _ ->
                                     Nothing
                     in
@@ -1035,7 +1053,7 @@ update config appMsg model =
                             let
                                 urls : { currentUrl : Url, basePath : List String }
                                 urls =
-                                    { currentUrl = model.url
+                                    { currentUrl = pendingUrl
                                     , basePath = config.basePath
                                     }
 
@@ -1055,18 +1073,18 @@ update config appMsg model =
                                     Just
                                         { path =
                                             { path = pagePath
-                                            , query = model.url.query
-                                            , fragment = model.url.fragment
+                                            , query = pendingUrl.query
+                                            , fragment = pendingUrl.fragment
                                             }
-                                        , metadata = config.urlToRoute model.url
+                                        , metadata = config.urlToRoute pendingUrl
                                         , pageUrl =
                                             Just
-                                                { protocol = model.url.protocol
-                                                , host = model.url.host
-                                                , port_ = model.url.port_
+                                                { protocol = pendingUrl.protocol
+                                                , host = pendingUrl.host
+                                                , port_ = pendingUrl.port_
                                                 , path = pagePath
-                                                , query = model.url.query |> Maybe.map QueryParams.fromString |> Maybe.withDefault Dict.empty
-                                                , fragment = model.url.fragment
+                                                , query = pendingUrl.query |> Maybe.map QueryParams.fromString |> Maybe.withDefault Dict.empty
+                                                , fragment = pendingUrl.fragment
                                                 }
                                         }
                                         |> config.init userFlags sharedData pageData actionData
@@ -1074,7 +1092,9 @@ update config appMsg model =
                                 initialModel : Model userModel pageData actionData sharedData
                                 initialModel =
                                     { model
-                                        | pageData =
+                                        | url = pendingUrl
+                                        , currentPath = pendingUrl.path
+                                        , pageData =
                                             Ok
                                                 { userModel = userModel
                                                 , sharedData = sharedData
@@ -1100,6 +1120,12 @@ update config appMsg model =
                               }
                             , NoEffect
                             )
+
+                        Just (InitialRedirect redirectTo) ->
+                            ( { model | pendingRedirect = True, pendingFrozenViewsUrl = Nothing }
+                            , NoEffect
+                            )
+                                |> startNewGetLoad (currentUrlWithPath redirectTo model)
 
                         _ ->
                             ( { model | pendingFrozenViewsUrl = Nothing }, NoEffect )
@@ -1180,19 +1206,23 @@ perform config model effect =
                 |> Maybe.withDefault Cmd.none
 
         Submit fields ->
-            if fields.method == Form.Get then
+            let
+                normalizedFields : FormData
+                normalizedFields =
+                    normalizeFormData model.url fields
+            in
+            if normalizedFields.method == Form.Get then
                 model.key
-                    |> Maybe.map (\key -> Browser.Navigation.pushUrl key (appendFormQueryParams fields))
+                    |> Maybe.map (\key -> Browser.Navigation.pushUrl key (appendFormQueryParams normalizedFields))
                     |> Maybe.withDefault Cmd.none
 
             else
                 let
                     urlToSubmitTo : Url
                     urlToSubmitTo =
-                        -- TODO add optional path parameter to Submit variant to allow submitting to other routes
-                        model.url
+                        urlFromAction model.url (Just normalizedFields)
                 in
-                fetchRouteData -1 (UpdateCacheAndUrlNew False model.url Nothing) config urlToSubmitTo (Just fields)
+                fetchRouteData -1 (UpdateCacheAndUrlNew False model.url Nothing) config urlToSubmitTo (Just normalizedFields)
 
         SubmitFetcher fetcherKey transitionId formData ->
             startFetcher2 config False fetcherKey transitionId formData model
@@ -1440,6 +1470,32 @@ appendFormQueryParams fields =
                 Form.Post ->
                     ""
            )
+
+
+normalizeFormData : Url -> FormData -> FormData
+normalizeFormData currentUrl formData =
+    if String.trim formData.action == "" then
+        { formData | action = Url.toString currentUrl }
+
+    else
+        formData
+
+
+submittedUrl : Url -> FormData -> Url
+submittedUrl currentUrl formData =
+    let
+        normalizedFormData : FormData
+        normalizedFormData =
+            normalizeFormData currentUrl formData
+    in
+    case normalizedFormData.method of
+        Form.Get ->
+            appendFormQueryParams normalizedFormData
+                |> Url.fromString
+                |> Maybe.withDefault currentUrl
+
+        Form.Post ->
+            urlFromAction currentUrl (Just normalizedFormData)
 
 
 urlFromAction : Url -> Maybe FormData -> Url

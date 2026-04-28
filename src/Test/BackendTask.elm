@@ -1,7 +1,9 @@
 module Test.BackendTask exposing
-    ( fromBackendTask, fromBackendTaskWith
+    ( TestSetup
+    , fromBackendTask, fromBackendTaskWith
     , fromScript, fromScriptWith
-    , init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRandomSeed, withWhich
+    , init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRandomSeed, withWhich
+    , withTimeZoneConfig, withTimeZoneByNameConfig
     , withDb, withDbSetTo
     , simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, simulateHttpStream
     , HttpError(..)
@@ -88,6 +90,8 @@ and assert on the results with [`ensureFile`](#ensureFile).
 ## See Also
 
   - [`Test.BackendTask.Time`](Test-BackendTask-Time) - configure virtual time zones
+  - [`Test.PagesProgram`](Test-PagesProgram) - end-to-end tests for elm-pages routes. Uses [`TestSetup`](#TestSetup) to seed initial state and reuses the simulators defined here for route-level HTTP and custom port responses.
+  - [`Test.Tui`](Test-Tui) - tests for `Tui.program` values. Uses [`TestSetup`](#TestSetup) to seed initial state and the simulators here to resolve `BackendTask` effects that a TUI performs via `Tui.Effect.perform`.
 
 
 ## Automatic Virtual State Emulation
@@ -142,7 +146,13 @@ simulate it.
 
 Seed initial state before the test starts running.
 
-@docs init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRandomSeed, withWhich
+@docs TestSetup, init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRandomSeed, withWhich
+
+## Companion Module Helpers
+
+Low-level setup helpers used by [`Test.BackendTask.Time`](Test-BackendTask-Time).
+
+@docs withTimeZoneConfig, withTimeZoneByNameConfig
 
 @docs withDb, withDbSetTo
 
@@ -212,7 +222,7 @@ import Expect exposing (Expectation)
 import FatalError exposing (FatalError)
 import Json.Encode as Encode
 import Pages.Script exposing (Script)
-import Test.BackendTask.Internal as Internal exposing (BackendTaskTest, TestSetup)
+import Test.BackendTask.Internal as Internal exposing (BackendTaskTest)
 import Time
 
 
@@ -239,6 +249,18 @@ type Output
 type HttpError
     = NetworkError
     | Timeout
+
+
+{-| The virtual environment used to start a backend task test.
+
+    import Test.BackendTask as BackendTaskTest
+
+    BackendTaskTest.init
+        |> BackendTaskTest.withFile "config.json" """{"key":"value"}"""
+
+-}
+type alias TestSetup =
+    Internal.TestSetup
 
 
 
@@ -395,6 +417,34 @@ withTime =
     Internal.withTime
 
 
+{-| Set a fixed request time for server-rendered route requests in
+[`Test.PagesProgram.start`](Test-PagesProgram#start).
+
+    import Time
+
+    BackendTaskTest.init
+        |> BackendTaskTest.withRequestTime (Time.millisToPosix 1709827200000)
+
+-}
+withRequestTime : Time.Posix -> TestSetup -> TestSetup
+withRequestTime =
+    Internal.withRequestTime
+
+
+{-| Seed a request header for server-rendered route requests in
+[`Test.PagesProgram.start`](Test-PagesProgram#start).
+
+Header names are normalized to lowercase.
+
+    BackendTaskTest.init
+        |> BackendTaskTest.withRequestHeader "accept-language" "en-US"
+
+-}
+withRequestHeader : String -> String -> TestSetup -> TestSetup
+withRequestHeader =
+    Internal.withRequestHeader
+
+
 {-| Set a fixed random seed for `BackendTask.Random.int32` and `BackendTask.Random.generate`.
 Without this, any use of `BackendTask.Random` will produce a test error with a helpful message.
 
@@ -419,6 +469,41 @@ withWhich =
     Internal.withWhich
 
 
+{-| Low-level helper used by [`Test.BackendTask.Time.withTimeZone`](Test-BackendTask-Time#withTimeZone).
+
+    import Test.BackendTask as BackendTaskTest
+
+    BackendTaskTest.init
+        |> BackendTaskTest.withTimeZoneConfig
+            { defaultOffset = 0, eras = [] }
+
+-}
+withTimeZoneConfig :
+    { defaultOffset : Int, eras : List { start : Int, offset : Int } }
+    -> TestSetup
+    -> TestSetup
+withTimeZoneConfig =
+    Internal.withTimeZone
+
+
+{-| Low-level helper used by [`Test.BackendTask.Time.withTimeZoneByName`](Test-BackendTask-Time#withTimeZoneByName).
+
+    import Test.BackendTask as BackendTaskTest
+
+    BackendTaskTest.init
+        |> BackendTaskTest.withTimeZoneByNameConfig "America/Chicago"
+            { defaultOffset = -360, eras = [] }
+
+-}
+withTimeZoneByNameConfig :
+    String
+    -> { defaultOffset : Int, eras : List { start : Int, offset : Int } }
+    -> TestSetup
+    -> TestSetup
+withTimeZoneByNameConfig =
+    Internal.withTimeZoneByName
+
+
 {-| Seed the virtual DB with the default seed value from the generated `testConfig`.
 
 The [elm-pages Script DB](https://elm-pages.com/docs/elm-pages-scripts-db/) is a
@@ -439,8 +524,8 @@ withDb :
     { a | schemaVersion : Int, schemaHash : String, encode : db -> Bytes, seed : db }
     -> TestSetup
     -> TestSetup
-withDb config =
-    Internal.withDb config
+withDb =
+    Internal.withDb
 
 
 {-| Seed the virtual DB with a specific initial value.
@@ -457,8 +542,8 @@ withDbSetTo :
     -> { a | schemaVersion : Int, schemaHash : String, encode : db -> Bytes }
     -> TestSetup
     -> TestSetup
-withDbSetTo initialValue config =
-    Internal.withDbSetTo initialValue config
+withDbSetTo =
+    Internal.withDbSetTo
 
 
 
@@ -1097,3 +1182,5 @@ expectDb :
     -> Expectation
 expectDb config assertion =
     Internal.expectDb config assertion
+
+

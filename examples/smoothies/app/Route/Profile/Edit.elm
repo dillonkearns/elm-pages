@@ -1,33 +1,29 @@
 module Route.Profile.Edit exposing (ActionData, Data, Model, Msg, route)
 
-import Api.Scalar exposing (Uuid(..))
 import Data.User as User exposing (User)
 import BackendTask exposing (BackendTask)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
 import Form.FieldView as FieldView
+import Form.Handler
 import Form.Validation as Validation
-import Form.Value
 import Head
-import Head.Seo as Seo
-import Html exposing (Html)
-import Html.Attributes as Attr
+import Html.Styled as Html exposing (Html)
+import Html.Styled.Attributes as Attr
 import MySession
-import Pages.FormState
+import Pages.Form
 import PagesMsg exposing (PagesMsg)
-import Pages.PageUrl exposing (PageUrl)
-import Pages.Url
-import Path exposing (Path)
-import Request.Hasura
 import Route
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, App)
-import Server.Request as Request
+import RouteBuilder exposing (App, StatefulRoute)
+import Server.Request as Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Server.Session as Session
 import Shared
+import UrlPath exposing (UrlPath)
 import View exposing (View)
 
 
@@ -59,31 +55,29 @@ route =
 
 
 init :
-    Maybe PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
-    -> App Data ActionData RouteParams
     -> ( Model, Effect Msg )
-init maybePageUrl sharedModel static =
+init app sharedModel =
     ( {}
     , Effect.none
     )
 
 
 update :
-    PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
-    -> App Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
-update pageUrl sharedModel static msg model =
+update app sharedModel msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
 
 
-subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
-subscriptions maybePageUrl routeParams path sharedModel model =
+subscriptions : RouteParams -> UrlPath -> Shared.Model -> Model -> Sub Msg
+subscriptions routeParams path sharedModel model =
     Sub.none
 
 
@@ -96,21 +90,20 @@ type alias ActionData =
     Result { fields : List ( String, String ), errors : Dict String (List String) } Action
 
 
-data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
-data routeParams =
-    Request.succeed ()
-        |> MySession.expectSessionDataOrRedirect (Session.get "userId")
-            (\userId () session ->
-                User.selection userId
-                    |> Request.Hasura.backendTask
-                    |> BackendTask.map
-                        (\user ->
-                            user
-                                |> Data
-                                |> Response.render
-                                |> Tuple.pair session
-                        )
-            )
+data : RouteParams -> Request -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    MySession.expectSessionDataOrRedirect (Session.get "userId")
+        (\userId session ->
+            User.find userId
+                |> BackendTask.map
+                    (\user ->
+                        user
+                            |> Data
+                            |> Response.render
+                            |> Tuple.pair session
+                    )
+        )
+        request
 
 
 type alias Action =
@@ -119,9 +112,9 @@ type alias Action =
     }
 
 
-formParser : Form.DoneForm String (BackendTask (Validation.Combined String Action)) Data (List (Html (PagesMsg msg)))
+formParser : Pages.Form.FormWithServerValidations String Action Data (List (Html (PagesMsg msg)))
 formParser =
-    Form.init
+    Form.form
         (\username name ->
             { combine =
                 Validation.succeed
@@ -139,14 +132,8 @@ formParser =
             , view =
                 \info ->
                     let
-                        errors field =
-                            info.errors
-                                |> Form.errorsForField field
-
                         errorsView field =
-                            (-- TODO
-                             --if field.status == Pages.FormState.Blurred then
-                             if True then
+                            (if True then
                                 info.errors
                                     |> Form.errorsForField field
                                     |> List.map (\error -> Html.li [] [ Html.text error ])
@@ -158,16 +145,16 @@ formParser =
                     in
                     [ Html.div
                         []
-                        [ Html.label [] [ Html.text "Username ", username |> FieldView.input [] ]
+                        [ Html.label [] [ Html.text "Username ", username |> FieldView.inputStyled [] ]
                         , errorsView username
                         ]
                     , Html.div []
-                        [ Html.label [] [ Html.text "Name ", name |> FieldView.input [] ]
+                        [ Html.label [] [ Html.text "Name ", name |> FieldView.inputStyled [] ]
                         , errorsView name
                         ]
                     , Html.button []
                         [ Html.text <|
-                            if info.isTransitioning then
+                            if info.submitting then
                                 "Updating..."
 
                             else
@@ -179,17 +166,17 @@ formParser =
         |> Form.field "username"
             (Field.text
                 |> Field.required "Username is required"
-                |> Field.withClientValidation validateUsername
-                |> Field.withInitialValue (\{ user } -> Form.Value.string user.username)
+                |> Field.validateMap validateUsername
+                |> Field.withInitialValue (\{ user } -> user.username)
             )
         |> Form.field "name"
             (Field.text
                 |> Field.required "Name is required"
-                |> Field.withInitialValue (\{ user } -> Form.Value.string user.name)
+                |> Field.withInitialValue (\{ user } -> user.name)
             )
 
 
-toValidUsername : String -> Validation.Field String parsed1 field -> BackendTask (Validation.Combined String String)
+toValidUsername : String -> Validation.Field String parsed1 field -> BackendTask FatalError (Validation.Validation String String Never Never)
 toValidUsername username usernameField =
     BackendTask.succeed
         (if username == "dillon123" then
@@ -200,78 +187,42 @@ toValidUsername username usernameField =
         )
 
 
-validateUsername : String -> ( Maybe String, List String )
+validateUsername : String -> Result String String
 validateUsername rawUsername =
     if rawUsername |> String.contains "@" then
-        ( Just rawUsername, [ "Cannot contain @" ] )
+        Err "Cannot contain @"
 
     else
-        ( Just rawUsername, [] )
+        Ok rawUsername
 
 
-action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
-action routeParams =
-    Request.formDataWithServerValidation (formParser |> Form.initCombined identity)
-        |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
-            (\userId parsedActionData session ->
-                parsedActionData
-                    |> BackendTask.andThen
-                        (\parsedAction ->
-                            case parsedAction |> Debug.log "parsedAction" of
-                                Ok ( response, { name } ) ->
-                                    User.updateUser { userId = userId, name = name |> Debug.log "Updating name mutation" }
-                                        |> Request.Hasura.mutationBackendTask
-                                        |> BackendTask.map
-                                            (\_ ->
-                                                Route.redirectTo Route.Profile
-                                            )
-                                        |> BackendTask.map (Tuple.pair session)
-
-                                Err (Form.Response errors) ->
-                                    -- TODO need to render errors here?
-                                    BackendTask.succeed
-                                        (Response.render (Err errors))
-                                        |> BackendTask.map (Tuple.pair session)
-                        )
-            )
+action : RouteParams -> Request -> BackendTask FatalError (Response ActionData ErrorPage)
+action routeParams request =
+    -- TODO: re-implement with file-based data layer
+    -- Original: parsed form with server validation, called User.updateUser, redirected to Profile
+    BackendTask.succeed (Response.render (Ok { username = "", name = "" }))
 
 
 head :
     App Data ActionData RouteParams
     -> List Head.Tag
-head static =
-    Seo.summary
-        { canonicalUrlOverride = Nothing
-        , siteName = "elm-pages"
-        , image =
-            { url = Pages.Url.external "TODO"
-            , alt = "elm-pages logo"
-            , dimensions = Nothing
-            , mimeType = Nothing
-            }
-        , description = "Update your profile"
-        , locale = Nothing
-        , title = "Profile"
-        }
-        |> Seo.website
+head app =
+    []
 
 
 view :
-    Maybe PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
     -> Model
-    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel model app =
+view app sharedModel model =
     { title = "Ctrl-R Smoothies"
     , body =
         [ Html.p []
             [ Html.text <| "Welcome " ++ app.data.user.name ++ "!" ]
         , case app.action of
             Just (Err error) ->
-                error.errors
-                    |> Debug.toString
-                    |> Html.text
+                Html.text "Form errors"
 
             Nothing ->
                 Html.text "No action"
@@ -279,14 +230,14 @@ view maybeUrl sharedModel model app =
             _ ->
                 Html.text "No errors"
         , formParser
-            |> Form.renderHtml "edit-form"
+            |> Pages.Form.renderStyledHtml
                 [ Attr.style "display" "flex"
                 , Attr.style "flex-direction" "column"
                 , Attr.style "gap" "20px"
                 ]
-                -- TODO pass in form response from ActionData
-                Nothing
+                (Form.options "edit-form"
+                    |> Form.withInput app.data
+                )
                 app
-                app.data
         ]
     }

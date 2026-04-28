@@ -7,6 +7,21 @@ will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [3.4.0] - 2026-04-22
+
+### Added
+
+- `elm-pages test` command — auto-discovers and runs every test in your
+  project through `elm-test`: `ProgramTest` values (for elm-pages
+  routes), `TuiTest.Test` values (for `Tui` programs), and vanilla
+  `Test` values from
+  [elm-explorations/test](https://package.elm-lang.org/packages/elm-explorations/test/latest/).
+  Replaces the need to run `elm-test` separately. Pass `--visual` to
+  step through named TUI tests in an interactive terminal stepper.
+- Browser-based visual test viewer at `/_tests` on the `elm-pages dev`
+  server. Steps through route tests as a timeline with per-step
+  rendered views, network log, and fetcher inspector.
+
 ## [3.3.4] - 2026-04-01
 
 ### Added

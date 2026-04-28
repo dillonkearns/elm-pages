@@ -35,7 +35,6 @@ implementation details.
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import BackendTask.Internal.Request
-import Char
 import FatalError exposing (FatalError)
 import FilePath.Internal
 import Json.Decode as Decode

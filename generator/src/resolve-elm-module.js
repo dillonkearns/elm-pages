@@ -31,7 +31,7 @@ function findNearestElmJson(filePath) {
   return searchForElmJson(path.dirname(filePath));
 }
 
-function getElmModuleName(inputPath) {
+function getElmModuleName(inputPath, { extraSourceDirs = [] } = {}) {
   const filePath = path.normalize(
     path.isAbsolute(inputPath) ? inputPath : path.resolve(inputPath)
   );
@@ -47,11 +47,15 @@ function getElmModuleName(inputPath) {
 
   if (!sourceDirectories) {
     throw new Error(
-      `The elm.json at ${elmJsonPath} does not have source-directories (is it a package elm.json?)`
+      `The elm.json at ${elmJsonPath} does not have source-directories (is it a package elm.json?).\n` +
+      `Run elm-pages test from a project with an application elm.json, e.g.:\n` +
+      `  cd examples/end-to-end && npx elm-pages test script/src/TuiTestStepper.elm`
     );
   }
 
-  const matchingSourceDir = sourceDirectories
+
+  const allSourceDirs = [...sourceDirectories, ...extraSourceDirs];
+  const matchingSourceDir = allSourceDirs
     .map((sourceDir) => path.join(projectDirectory, sourceDir))
     .find((absoluteSourceDir) => filePath.startsWith(absoluteSourceDir));
 
@@ -67,7 +71,20 @@ function getElmModuleName(inputPath) {
   return { projectDirectory, moduleName, sourceDirectory: matchingSourceDir };
 }
 
-export async function resolveInputPathOrModuleName(inputPathOrModuleName) {
+/**
+ * Like resolveInputPathOrModuleName but also checks `tests/` as a source
+ * directory, matching elm-test's convention. Used by `elm-pages test`.
+ */
+export async function resolveTestInputPath(inputPathOrModuleName) {
+  return resolveInputPathOrModuleName(inputPathOrModuleName, {
+    extraSourceDirs: ["tests", "snapshot-tests/src"],
+  });
+}
+
+export async function resolveInputPathOrModuleName(
+  inputPathOrModuleName,
+  options = {}
+) {
   const parsed = parse(inputPathOrModuleName);
   if (parsed) {
     const { filePath } = parsed;
@@ -84,7 +101,7 @@ export async function resolveInputPathOrModuleName(inputPathOrModuleName) {
       sourceDirectory: path.resolve("./script/src"),
     };
   } else {
-    return getElmModuleName(inputPathOrModuleName);
+    return getElmModuleName(inputPathOrModuleName, options);
   }
 }
 

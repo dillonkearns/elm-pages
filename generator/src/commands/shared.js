@@ -5,6 +5,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as url from "node:url";
+import { createRequire } from "node:module";
+import * as globby from "globby";
+
+const requireCJS = createRequire(import.meta.url);
+const elmTestParser = requireCJS("../vendor/elm-test-parser.cjs");
 
 // Cache for lamdera executable check
 let lamderaVerified = false;
@@ -151,6 +156,324 @@ port gotBatchSub : (List { key : String, json : Json.Decode.Value, bytes : Maybe
 }
 
 /**
+ * Generate a ScriptMain.elm that runs named TUI tests through the
+ * interactive terminal stepper.
+ *
+ * Public-API contract: the generated module MUST only import
+ * `Test.Tui` (public, via elm.json exposed-modules) plus the user's
+ * own test module. Reaching into `Test.Tui.Internal` from generated
+ * code is not allowed - snapshot consumption goes through the public
+ * `Test.Tui.toNamedSnapshots` surface.
+ *
+ * @param {string} moduleName
+ * @param {string[]} tuiTestValues - names of exposed `Test.Tui.Test` values
+ */
+export function testStepperWrapperFile(moduleName, tuiTestValues) {
+  const shouldPrefixExportName = tuiTestValues.length > 1;
+  const snapshotEntries = tuiTestValues
+    .map(
+      (name) =>
+        shouldPrefixExportName
+          ? `            ${moduleName}.${name}\n` +
+            `                |> Test.Tui.toNamedSnapshots\n` +
+            `                |> List.map (\\( testName, snapshots ) -> ( "${name}: " ++ testName, snapshots ))`
+          : `            Test.Tui.toNamedSnapshots ${moduleName}.${name}`
+    )
+    .join("\n            , ");
+
+  return `port module ScriptMain exposing (main)
+
+import Ansi.Color
+import BackendTask
+import Bytes exposing (Bytes)
+import Json.Decode
+import Json.Encode
+import Pages.Internal.Platform.GeneratorApplication
+import Pages.Script as Script exposing (Script)
+import Tui
+import Tui.Effect as Effect
+import Tui.Screen as Screen
+import Tui.Sub
+import Test.Tui
+import ${moduleName}
+
+
+main : Pages.Internal.Platform.GeneratorApplication.Program
+main =
+    Pages.Internal.Platform.GeneratorApplication.app
+        { data =
+            runNamed
+                (List.concat
+                    [ ${snapshotEntries}
+                    ]
+                )
+        , scriptModuleName = "${moduleName}.Stepper"
+        , toJsPort = toJsPort
+        , fromJsPort = fromJsPort identity
+        , gotBatchSub = gotBatchSub identity
+        , sendPageData = \\_ -> Cmd.none
+        }
+
+
+runNamed : List ( String, List Test.Tui.Snapshot ) -> Script
+runNamed namedTests =
+    let
+        allTests : List { name : String, snapshots : List Test.Tui.Snapshot }
+        allTests =
+            namedTests
+                |> List.map (\\( name, snapshots ) -> { name = name, snapshots = snapshots })
+    in
+    Tui.program
+        { data = BackendTask.succeed allTests
+        , init = namedStepperInit
+        , update = stepperUpdate
+        , view = stepperView
+        , subscriptions = stepperSubscriptions
+        }
+        |> Tui.toScript
+
+
+type alias StepperModel =
+    { snapshots : List Test.Tui.Snapshot
+    , currentIndex : Int
+    , allTests : List { name : String, snapshots : List Test.Tui.Snapshot }
+    , currentTestIndex : Int
+    }
+
+
+type StepperMsg
+    = KeyPressed Tui.Sub.KeyEvent
+
+
+namedStepperInit : List { name : String, snapshots : List Test.Tui.Snapshot } -> ( StepperModel, Effect.Effect StepperMsg )
+namedStepperInit tests =
+    let
+        firstSnapshots : List Test.Tui.Snapshot
+        firstSnapshots =
+            tests
+                |> List.head
+                |> Maybe.map .snapshots
+                |> Maybe.withDefault []
+    in
+    ( { snapshots = firstSnapshots
+      , currentIndex = 0
+      , allTests = tests
+      , currentTestIndex = 0
+      }
+    , Effect.none
+    )
+
+
+stepperUpdate : StepperMsg -> StepperModel -> ( StepperModel, Effect.Effect StepperMsg )
+stepperUpdate msg model =
+    case msg of
+        KeyPressed event ->
+            case event.key of
+                Tui.Sub.Arrow Tui.Sub.Right ->
+                    ( { model
+                        | currentIndex =
+                            min (List.length model.snapshots - 1) (model.currentIndex + 1)
+                      }
+                    , Effect.none
+                    )
+
+                Tui.Sub.Arrow Tui.Sub.Left ->
+                    ( { model
+                        | currentIndex = max 0 (model.currentIndex - 1)
+                      }
+                    , Effect.none
+                    )
+
+                Tui.Sub.Tab ->
+                    switchToNextTest model
+
+                Tui.Sub.Character 'q' ->
+                    ( model, Effect.exit )
+
+                Tui.Sub.Escape ->
+                    ( model, Effect.exit )
+
+                _ ->
+                    ( model, Effect.none )
+
+
+switchToNextTest : StepperModel -> ( StepperModel, Effect.Effect StepperMsg )
+switchToNextTest model =
+    if List.length model.allTests <= 1 then
+        ( model, Effect.none )
+
+    else
+        let
+            nextIndex : Int
+            nextIndex =
+                modBy (List.length model.allTests) (model.currentTestIndex + 1)
+
+            nextSnapshots : List Test.Tui.Snapshot
+            nextSnapshots =
+                model.allTests
+                    |> List.drop nextIndex
+                    |> List.head
+                    |> Maybe.map .snapshots
+                    |> Maybe.withDefault []
+        in
+        ( { model
+            | currentTestIndex = nextIndex
+            , snapshots = nextSnapshots
+            , currentIndex = 0
+          }
+        , Effect.none
+        )
+
+
+stepperView : Tui.Context -> StepperModel -> Screen.Screen
+stepperView ctx model =
+    let
+        dimStyling : Screen.Screen -> Screen.Screen
+        dimStyling =
+            Screen.dim
+
+        maybeSnapshot : Maybe Test.Tui.Snapshot
+        maybeSnapshot =
+            model.snapshots
+                |> List.drop model.currentIndex
+                |> List.head
+    in
+    case maybeSnapshot of
+        Just snapshot ->
+            let
+                headerStyling : Screen.Screen -> Screen.Screen
+                headerStyling =
+                    Screen.fg Ansi.Color.cyan >> Screen.bold
+
+                separator : String
+                separator =
+                    String.repeat (ctx.width - 4) "─"
+
+                headerText : String
+                headerText =
+                    if List.length model.allTests > 1 then
+                        let
+                            testName : String
+                            testName =
+                                model.allTests
+                                    |> List.drop model.currentTestIndex
+                                    |> List.head
+                                    |> Maybe.map .name
+                                    |> Maybe.withDefault "test"
+                        in
+                        "  " ++ testName ++ " — Step " ++ String.fromInt (model.currentIndex + 1) ++ " of " ++ String.fromInt (List.length model.snapshots)
+
+                    else
+                        "  Test Stepper — Step " ++ String.fromInt (model.currentIndex + 1) ++ " of " ++ String.fromInt (List.length model.snapshots)
+
+                footerText : String
+                footerText =
+                    if List.length model.allTests > 1 then
+                        "  ← → navigate   Tab next test   q quit"
+
+                    else
+                        "  ← → navigate   q quit"
+
+                stepIndicator : Screen.Screen
+                stepIndicator =
+                    Screen.concat
+                        (model.snapshots
+                            |> List.indexedMap
+                                (\\i snapshotForIndicator ->
+                                    if i == model.currentIndex then
+                                        Screen.text (" ● " ++ snapshotForIndicator.label ++ " ")
+                                            |> headerStyling
+
+                                    else
+                                        let
+                                            hasAssertions : Bool
+                                            hasAssertions =
+                                                not (List.isEmpty snapshotForIndicator.assertions)
+                                        in
+                                        if hasAssertions then
+                                            Screen.text " ◆ " |> Screen.fg Ansi.Color.green
+
+                                        else
+                                            Screen.text " ○ " |> dimStyling
+                                )
+                        )
+            in
+            Screen.lines
+                ([ snapshot.screen
+                 , Screen.text ""
+                       , Screen.text ("  " ++ separator) |> dimStyling
+                       , Screen.text ""
+                       , stepIndicator
+                       , Screen.text ""
+                       , Screen.text footerText |> dimStyling
+                       , Screen.text ""
+                       , Screen.text ("  " ++ separator) |> dimStyling
+                       , Screen.text ""
+                       , Screen.text headerText |> headerStyling
+                       , Screen.text ""
+                       , Screen.concat
+                            [ Screen.text "  Action: " |> dimStyling
+                            , Screen.text snapshot.label
+                                |> Screen.fg Ansi.Color.yellow
+                                |> Screen.bold
+                            , if snapshot.hasPendingEffects then
+                                Screen.text "  ⟳ pending effect"
+                                    |> Screen.fg Ansi.Color.magenta
+
+                              else
+                                Screen.empty
+                            ]
+                       ]
+                    ++ (if List.isEmpty snapshot.assertions then
+                            []
+
+                        else
+                            snapshot.assertions
+                                |> List.map
+                                    (\\assertion ->
+                                        Screen.text ("    " ++ assertion)
+                                            |> Screen.fg Ansi.Color.green
+                                    )
+                       )
+                    ++ [ case snapshot.modelState of
+                            Just modelStr ->
+                                Screen.lines
+                                    [ Screen.text ""
+                                    , Screen.text "  Model:"
+                                        |> Screen.fg Ansi.Color.green
+                                        |> Screen.bold
+                                    , modelStr
+                                        |> String.lines
+                                        |> List.map (\\line -> Screen.text ("    " ++ line) |> dimStyling)
+                                        |> Screen.lines
+                                    ]
+
+                            Nothing ->
+                                Screen.empty
+                       ]
+                )
+
+        Nothing ->
+            Screen.text "  No snapshots" |> Screen.dim
+
+
+stepperSubscriptions : StepperModel -> Tui.Sub.Sub StepperMsg
+stepperSubscriptions _ =
+    Tui.Sub.onKeyPress KeyPressed
+
+
+port toJsPort : { json : Json.Encode.Value, bytes : List { key : String, data : Bytes } } -> Cmd msg
+
+
+port fromJsPort : (Json.Decode.Value -> msg) -> Sub msg
+
+
+port gotBatchSub : (List { key : String, json : Json.Decode.Value, bytes : Maybe Bytes } -> msg) -> Sub msg
+`;
+}
+
+
+/**
  * @param {string} moduleName
  */
 export function generatorWrapperFile(moduleName) {
@@ -248,7 +571,6 @@ migrateFromV${fromVersion} old =
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
-import BackendTask.Internal.Request
 import Bytes exposing (Bytes)
 import Bytes.Decode as BD
 import Db
@@ -259,6 +581,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Lamdera.Wire3 as Wire
 import Pages.DbSeed
+import Pages.Internal.DbRequest
 
 
 schemaHash : String
@@ -390,34 +713,6 @@ hexDigit n =
         _ -> 'f'
 
 
-internalRequest : String -> BackendTask.Http.Body -> Decode.Decoder a -> BackendTask FatalError a
-internalRequest name body expect =
-    BackendTask.Internal.Request.request
-        { name = name
-        , body = body
-        , expect = expect
-        }
-
-
-internalRequestWithHeaders : String -> List ( String, String ) -> BackendTask.Http.Body -> Decode.Decoder a -> BackendTask FatalError a
-internalRequestWithHeaders name headers body expect =
-    BackendTask.Internal.Request.requestWithHeaders
-        { name = name
-        , headers = headers
-        , body = body
-        , expect = expect
-        }
-
-
-internalBytesRequest : String -> BackendTask.Http.Body -> BD.Decoder a -> BackendTask FatalError a
-internalBytesRequest name body expect =
-    BackendTask.Internal.Request.requestBytes
-        { name = name
-        , body = body
-        , expect = expect
-        }
-
-
 get : Connection -> BackendTask FatalError Db.Db
 get connection =
     loadDb connection
@@ -498,9 +793,10 @@ ${hasMigrations ? migrationBranches : ""}
 
 readPayload : Connection -> BackendTask FatalError DbReadPayload
 readPayload connection =
-    internalBytesRequest "db-read-meta"
-        (BackendTask.Http.jsonBody (Encode.object (connectionFields connection)))
-        dbReadPayloadBytesDecoder
+    Pages.Internal.DbRequest.readMeta
+        { body = BackendTask.Http.jsonBody (Encode.object (connectionFields connection))
+        , decoder = dbReadPayloadBytesDecoder
+        }
 
 
 persistMigrated : Connection -> Db.Db -> BackendTask FatalError Db.Db
@@ -509,10 +805,11 @@ persistMigrated connection db =
         wire3Bytes =
             Wire.bytesEncode (Db.w3_encode_Db db)
     in
-    internalRequestWithHeaders "db-migrate-write"
-        (connectionHeaders connection)
-        (BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes)
-        (Decode.succeed ())
+    Pages.Internal.DbRequest.migrateWrite
+        { headers = connectionHeaders connection
+        , body = BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes
+        , decoder = Decode.succeed ()
+        }
         |> BackendTask.map (\\_ -> db)
 
 
@@ -559,30 +856,33 @@ write connection db =
         wire3Bytes =
             Wire.bytesEncode (Db.w3_encode_Db db)
     in
-    internalRequestWithHeaders "db-write"
-        (( "x-schema-hash", schemaHash ) :: connectionHeaders connection)
-        (BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes)
-        (Decode.succeed ())
+    Pages.Internal.DbRequest.write
+        { headers = ( "x-schema-hash", schemaHash ) :: connectionHeaders connection
+        , body = BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes
+        , decoder = Decode.succeed ()
+        }
 
 
 acquireLock : Connection -> BackendTask FatalError String
 acquireLock connection =
-    internalRequest "db-lock-acquire"
-        (BackendTask.Http.jsonBody (Encode.object (connectionFields connection)))
-        Decode.string
+    Pages.Internal.DbRequest.lockAcquire
+        { body = BackendTask.Http.jsonBody (Encode.object (connectionFields connection))
+        , decoder = Decode.string
+        }
 
 
 releaseLock : Connection -> String -> BackendTask FatalError ()
 releaseLock connection token =
-    internalRequest "db-lock-release"
-        (BackendTask.Http.jsonBody
-            (Encode.object
-                ([ ( "token", Encode.string token ) ]
-                    ++ connectionFields connection
+    Pages.Internal.DbRequest.lockRelease
+        { body =
+            BackendTask.Http.jsonBody
+                (Encode.object
+                    ([ ( "token", Encode.string token ) ]
+                        ++ connectionFields connection
+                    )
                 )
-            )
-        )
-        (Decode.succeed ())
+        , decoder = Decode.succeed ()
+        }
 
 
 testConfig :
@@ -725,7 +1025,7 @@ export async function compileElmForScript(
   await rewriteElmJson(
     `${projectDirectory}/elm.json`,
     `${projectDirectory}/elm-stuff/elm-pages/elm.json`,
-    {}
+    { extraSourceDirs: options.extraSourceDirs }
   );
 
   // Generate Pages.Db module if this script uses the database.
@@ -873,4 +1173,385 @@ function moduleDefinesValue(content, valueName) {
   const annotationPattern = new RegExp(`^${valueName}\\s*:`, "m");
   const definitionPattern = new RegExp(`^${valueName}(?:\\s|=)`, "m");
   return annotationPattern.test(content) || definitionPattern.test(content);
+}
+
+// ─── Test value discovery ───────────────────────────────────────────────
+//
+// Discovery has two phases:
+//   1. extractExposedNames: robust streaming tokenizer (vendored from
+//      elm-test) returns all exposed lowercase top-level names in a file,
+//      handling comments, strings, ports, and `exposing (..)` correctly.
+//   2. classifyAllTestValues: reads the file once, strips comments and
+//      string literals, then parses each name's top-level type annotation
+//      to classify it as a Test, Test.Tui.Test, or Test.PagesProgram.Test.
+//      Function types are rejected (a helper returning a Test is not itself
+//      a test).
+
+const DEFAULT_TEST_ROOTS = [
+  { glob: "tests/**/*.elm", baseDir: "tests" },
+  { glob: "snapshot-tests/src/**/*.elm", baseDir: "snapshot-tests/src" },
+];
+
+// Result types we recognize. Matched against the annotation's final
+// component after stripping any top-level function arrows.
+const VANILLA_RESULT_RE = /^(?:Test|Test\.Test)$/;
+const TUI_RESULT_RE = /^(?:Test\.Tui\.Test|TuiTest\.Test)$/;
+const PROGRAM_RESULT_RE = /^(?:Test\.PagesProgram\.Test|PagesProgram\.Test)$/;
+
+/**
+ * Return the exposed lowercase top-level names in an Elm module using the
+ * vendored elm-test streaming tokenizer. Returns `[]` on I/O error or if
+ * the file is an effect module.
+ * @param {string} filePath
+ * @returns {Promise<string[]>}
+ */
+export async function extractExposedNames(filePath) {
+  try {
+    return await elmTestParser.extractExposedPossiblyTests(
+      filePath,
+      fs.createReadStream
+    );
+  } catch (_) {
+    return [];
+  }
+}
+
+/**
+ * Replace the contents of Elm line/block comments (nestable) and string
+ * literals with spaces of equal length, preserving newlines. Lets later
+ * regex passes scan annotations without false matches inside comments or
+ * strings.
+ * @param {string} source
+ * @returns {string}
+ */
+export function stripCommentsAndStrings(source) {
+  let out = "";
+  let i = 0;
+  const n = source.length;
+  while (i < n) {
+    const ch = source[i];
+    const next = i + 1 < n ? source[i + 1] : "";
+
+    if (ch === "-" && next === "-") {
+      out += "  ";
+      i += 2;
+      while (i < n && source[i] !== "\n") {
+        out += " ";
+        i++;
+      }
+      continue;
+    }
+
+    if (ch === "{" && next === "-") {
+      let depth = 1;
+      out += "  ";
+      i += 2;
+      while (i < n && depth > 0) {
+        const c = source[i];
+        const c2 = i + 1 < n ? source[i + 1] : "";
+        if (c === "{" && c2 === "-") {
+          depth++;
+          out += "  ";
+          i += 2;
+        } else if (c === "-" && c2 === "}") {
+          depth--;
+          out += "  ";
+          i += 2;
+        } else if (c === "\n") {
+          out += "\n";
+          i++;
+        } else {
+          out += " ";
+          i++;
+        }
+      }
+      continue;
+    }
+
+    if (ch === '"' && next === '"' && source[i + 2] === '"') {
+      out += "   ";
+      i += 3;
+      while (i < n) {
+        if (
+          source[i] === '"' &&
+          source[i + 1] === '"' &&
+          source[i + 2] === '"'
+        ) {
+          out += "   ";
+          i += 3;
+          break;
+        }
+        out += source[i] === "\n" ? "\n" : " ";
+        i++;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      out += '"';
+      i++;
+      while (i < n && source[i] !== '"' && source[i] !== "\n") {
+        if (source[i] === "\\" && i + 1 < n) {
+          out += "  ";
+          i += 2;
+        } else {
+          out += " ";
+          i++;
+        }
+      }
+      if (i < n) {
+        out += source[i] === '"' ? '"' : "\n";
+        i++;
+      }
+      continue;
+    }
+
+    out += ch;
+    i++;
+  }
+  return out;
+}
+
+/**
+ * Extract the top-level type annotation for `name` from (already-stripped)
+ * content. Returns null if no annotation is present.
+ * @param {string} strippedContent
+ * @param {string} name
+ * @returns {string|null}
+ */
+function findTopLevelAnnotation(strippedContent, name) {
+  const lines = strippedContent.split(/\r?\n/);
+  const annotationStart = new RegExp(`^${name}\\s*:`);
+
+  for (let i = 0; i < lines.length; i++) {
+    if (!annotationStart.test(lines[i])) continue;
+
+    const collected = [lines[i]];
+    for (let j = i + 1; j < lines.length; j++) {
+      if (/^[a-z][a-zA-Z0-9_]*\s*(?::|=)/.test(lines[j])) break;
+      collected.push(lines[j]);
+    }
+    return collected.join("\n");
+  }
+  return null;
+}
+
+/**
+ * Given an annotation like `myFn : A -> B -> C`, return `{ resultType: "C",
+ * isFunction: true }`. For `myTest : Test` returns `{ resultType: "Test",
+ * isFunction: false }`. The search for `->` respects paren/bracket/brace
+ * nesting so record-field arrows don't count.
+ * @param {string} annotation
+ * @returns {{ resultType: string, isFunction: boolean }}
+ */
+function parseAnnotationResult(annotation) {
+  const body = annotation.replace(/^[a-z][a-zA-Z0-9_]*\s*:/, "");
+  let depth = 0;
+  let lastArrow = -1;
+  for (let i = 0; i < body.length - 1; i++) {
+    const c = body[i];
+    if (c === "(" || c === "[" || c === "{") depth++;
+    else if (c === ")" || c === "]" || c === "}") depth--;
+    else if (c === "-" && body[i + 1] === ">" && depth === 0) lastArrow = i;
+  }
+  const rawResult = lastArrow >= 0 ? body.slice(lastArrow + 2) : body;
+  return {
+    resultType: rawResult.replace(/\s+/g, " ").trim(),
+    isFunction: lastArrow >= 0,
+  };
+}
+
+/**
+ * Classify each exposed name in a file as:
+ *   - program/tui/vanilla: matched a known test type
+ *   - missingAnnotation: exposed but no top-level type annotation
+ *     (a forgotten annotation is the usual cause — the caller should
+ *      treat this as a hard error)
+ *   - nonTest: annotated but the annotation isn't a recognized test type
+ *     (e.g. an exposed helper function — intentional, pass through)
+ *
+ * Reads and strips the file once.
+ *
+ * @param {string} filePath
+ * @returns {Promise<{
+ *   program: string[],
+ *   tui: string[],
+ *   vanilla: string[],
+ *   missingAnnotation: string[],
+ *   nonTest: string[],
+ * }>}
+ */
+export async function classifyAllTestValues(filePath) {
+  const names = await extractExposedNames(filePath);
+  const empty = {
+    program: [],
+    tui: [],
+    vanilla: [],
+    missingAnnotation: [],
+    nonTest: [],
+  };
+  if (names.length === 0) return empty;
+
+  let content;
+  try {
+    content = fs.readFileSync(filePath, "utf8");
+  } catch (_) {
+    return empty;
+  }
+  const stripped = stripCommentsAndStrings(content);
+
+  const result = {
+    program: [],
+    tui: [],
+    vanilla: [],
+    missingAnnotation: [],
+    nonTest: [],
+  };
+  for (const name of names) {
+    const annotation = findTopLevelAnnotation(stripped, name);
+    if (annotation === null) {
+      result.missingAnnotation.push(name);
+      continue;
+    }
+    const { resultType, isFunction } = parseAnnotationResult(annotation);
+    if (isFunction) {
+      result.nonTest.push(name);
+      continue;
+    }
+    if (PROGRAM_RESULT_RE.test(resultType)) result.program.push(name);
+    else if (TUI_RESULT_RE.test(resultType)) result.tui.push(name);
+    else if (VANILLA_RESULT_RE.test(resultType)) result.vanilla.push(name);
+    else result.nonTest.push(name);
+  }
+
+  return result;
+}
+
+/**
+ * Scan an Elm source file for exposed ProgramTest values.
+ * @param {string} filePath
+ * @returns {Promise<string[]>}
+ */
+export async function findProgramTestValues(filePath) {
+  return (await classifyAllTestValues(filePath)).program;
+}
+
+/**
+ * Scan an Elm source file for exposed named TUI test values.
+ * @param {string} filePath
+ * @returns {Promise<string[]>}
+ */
+export async function findTuiTestValues(filePath) {
+  return (await classifyAllTestValues(filePath)).tui;
+}
+
+/**
+ * Scan an Elm source file for exposed vanilla elm-explorations/test Test
+ * values. Excludes the framework-specific ProgramTest and TuiTest types.
+ * @param {string} filePath
+ * @returns {Promise<string[]>}
+ */
+export async function findVanillaTestValues(filePath) {
+  return (await classifyAllTestValues(filePath)).vanilla;
+}
+
+export async function discoverProgramTestModules(
+  searchRoots = DEFAULT_TEST_ROOTS
+) {
+  return (await discoverAllTestModules(searchRoots)).program;
+}
+
+export async function discoverTuiTestModules(
+  searchRoots = DEFAULT_TEST_ROOTS
+) {
+  return (await discoverAllTestModules(searchRoots)).tui;
+}
+
+export async function discoverVanillaTestModules(
+  searchRoots = DEFAULT_TEST_ROOTS
+) {
+  return (await discoverAllTestModules(searchRoots)).vanilla;
+}
+
+/**
+ * Walk the search roots once, classifying every file. Returns the three
+ * test buckets plus a `warnings` list naming files that have at least one
+ * classified test AND at least one exposed-but-unclassified value (a
+ * likely-forgotten annotation the user should know about).
+ *
+ * @param {{glob: string, baseDir: string}[]} [searchRoots]
+ * @returns {Promise<{
+ *   program: {moduleName: string, file: string, values: string[]}[],
+ *   tui: {moduleName: string, file: string, values: string[]}[],
+ *   vanilla: {moduleName: string, file: string, values: string[]}[],
+ *   missingAnnotations: {file: string, moduleName: string, names: string[]}[],
+ * }>}
+ */
+export async function discoverAllTestModules(
+  searchRoots = DEFAULT_TEST_ROOTS
+) {
+  const program = [];
+  const tui = [];
+  const vanilla = [];
+  const missingAnnotations = [];
+
+  for (const { glob, baseDir } of searchRoots) {
+    const files = globby.globbySync([glob]);
+    for (const file of files) {
+      const classified = await classifyAllTestValues(file);
+      const moduleName = path
+        .relative(baseDir, file)
+        .replace(/\.elm$/, "")
+        .replace(/[/\\]/g, ".");
+
+      if (classified.program.length > 0) {
+        program.push({ moduleName, file, values: classified.program });
+      }
+      if (classified.tui.length > 0) {
+        tui.push({ moduleName, file, values: classified.tui });
+      }
+      if (classified.vanilla.length > 0) {
+        vanilla.push({ moduleName, file, values: classified.vanilla });
+      }
+
+      if (classified.missingAnnotation.length > 0) {
+        missingAnnotations.push({
+          file,
+          moduleName,
+          names: classified.missingAnnotation,
+        });
+      }
+    }
+  }
+  return { program, tui, vanilla, missingAnnotations };
+}
+
+/**
+ * Build a hard-error message describing exposed values that have no
+ * top-level type annotation. Discovery treats these as "forgotten
+ * annotation" footguns and fails rather than skipping them silently.
+ *
+ * @param {{file: string, names: string[]}[]} missingAnnotations
+ * @returns {string}
+ */
+export function missingAnnotationsError(missingAnnotations) {
+  const lines = [
+    "Exposed values without a type annotation.",
+    "",
+    "These values are exposed from test modules but have no top-level type",
+    "annotation, so elm-pages can't tell whether they're tests. Either add a",
+    "type annotation or remove them from the module's exposing list.",
+    "",
+  ];
+  for (const { file, names } of missingAnnotations) {
+    for (const name of names) {
+      lines.push(`  ${file}: ${name}`);
+    }
+  }
+  lines.push("");
+  lines.push("Expected test annotations:");
+  lines.push("  : Test                 (elm-explorations/test)");
+  lines.push("  : Test.Tui.Test        (TUI test)");
+  lines.push("  : TestApp.ProgramTest  (page/program test)");
+  return lines.join("\n");
 }

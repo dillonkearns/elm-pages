@@ -128,6 +128,12 @@ trap cleanup EXIT
 # ── Step 2: Register local Elm package with elm-wrap ─────────────────────
 echo ""
 echo "--- Registering local Elm package with elm-wrap ---"
+# Clear any stale package-artifact cache from prior runs. Since --local-dev
+# symlinks the repo root as the "package directory", Elm reads artifacts.dat
+# from here; if that cache predates current elm.json changes (e.g. a newly
+# exposed module), compiles see the old exposed-modules list and fail
+# confusingly. A fresh install by a real user wouldn't have these.
+rm -f "$REPO_ROOT/artifacts.dat" "$REPO_ROOT/artifacts.x.dat"
 wrap install --local-dev dillonkearns/elm-pages -y -q
 echo "  Registered dillonkearns/elm-pages@$ELM_PKG_VERSION from $REPO_ROOT"
 
@@ -192,7 +198,169 @@ echo "--- Smoke test: elm-pages run script/src/Stars.elm ---"
 npx elm-pages run script/src/Stars.elm
 echo "  Script succeeded."
 
-# ── Step 8: Outdated dependency report ───────────────────────────────────
+# ── Step 8: Smoke test — DB feature ─────────────────────────────────────
+# Exercises Pages.Db + migration infrastructure against the real installed
+# package (not source-directories) so internal-import leaks get caught.
+echo ""
+echo "--- Smoke test: DB script (Pages.Db against installed package) ---"
+
+# Schema lives in script source; migrations live at runtime-dir root
+# (where `elm-pages run` is invoked), matching the convention in
+# examples/end-to-end/.
+mkdir -p db/Db/Migrate
+
+cat > script/src/Db.elm <<'ELMEOF'
+module Db exposing (Db, Todo)
+
+
+type alias Db =
+    { todos : List Todo }
+
+
+type alias Todo =
+    { title : String
+    , done : Bool
+    }
+ELMEOF
+
+cat > db/Db/Migrate/V1.elm <<'ELMEOF'
+module Db.Migrate.V1 exposing (migrate, seed)
+
+import Db
+
+
+seed : () -> Db.Db
+seed () =
+    { todos = [] }
+
+
+migrate : () -> Db.Db
+migrate =
+    seed
+ELMEOF
+
+cat > script/src/TestDb.elm <<'ELMEOF'
+module TestDb exposing (run)
+
+import BackendTask
+import Pages.Db
+import Pages.Script as Script exposing (Script)
+
+
+run : Script
+run =
+    Script.withoutCliOptions
+        (Pages.Db.update Pages.Db.default
+            (\db -> { db | todos = [ { title = "milk", done = False } ] })
+            |> BackendTask.andThen (\_ -> Script.log "DB smoke test passed.")
+        )
+        |> Script.withDatabasePath ".elm-pages-data/smoke.db.bin"
+ELMEOF
+
+npx elm-pages run script/src/TestDb.elm
+echo "  DB smoke test succeeded."
+
+# ── Step 9: Smoke test — test (TestApp + VirtualFS) ─────────────────────
+# Exercises the generated TestApp.elm + Test.PagesProgram against the
+# real installed package. Catches internal-import leaks like
+# Test.BackendTask.Internal.VirtualFS that source-directory overrides
+# in examples mask.
+echo ""
+echo "--- Smoke test: elm-pages test (TestApp compiles against installed package) ---"
+
+mkdir -p tests
+
+# Install elm-explorations/test. Needs to be in regular direct deps (not
+# just test-dependencies) because dev-server's /_tests compile uses
+# `elm make` rather than `elm-test` — test-dependencies would be invisible.
+python3 - <<PYEOF
+import json
+path = 'elm.json'
+with open(path) as f:
+    d = json.load(f)
+d['dependencies']['direct']['elm-explorations/test'] = '2.2.1'
+d['dependencies'].setdefault('indirect', {}).pop('elm-explorations/test', None)
+with open(path, 'w') as f:
+    json.dump(d, f, indent=4)
+    f.write('\n')
+PYEOF
+
+cat > tests/IndexTest.elm <<'ELMEOF'
+module IndexTest exposing (indexTest)
+
+import Test.BackendTask as BackendTaskTest
+import Test.Html.Selector as Selector
+import Test.PagesProgram as PagesProgram
+import TestApp
+
+
+indexTest : TestApp.ProgramTest
+indexTest =
+    TestApp.start "/" BackendTaskTest.init
+        |> PagesProgram.ensureViewHas [ Selector.text "elm-pages is up and running!" ]
+ELMEOF
+
+npx elm-pages test tests/IndexTest.elm
+echo "  test smoke test succeeded."
+
+# ── Step 10: Smoke test — dev-server TestViewer compiles ────────────────
+# `elm-pages dev` generates TestViewer.elm (importing
+# Test.PagesProgram.Viewer) at elm-stuff/elm-pages/test-viewer/ for the
+# /_tests browser route. Compile-path is separate from `elm-pages test`,
+# so we exercise it directly here to catch internal-import leaks that
+# only affect the dev server.
+echo ""
+echo "--- Smoke test: dev /_tests TestViewer compiles against installed package ---"
+
+mkdir -p elm-stuff/elm-pages/test-viewer
+
+cat > elm-stuff/elm-pages/test-viewer/TestViewer.elm <<'ELMEOF'
+module TestViewer exposing (main)
+
+import IndexTest
+import Test.PagesProgram
+import Test.PagesProgram.Viewer as Viewer
+
+
+main : Program Viewer.Flags Viewer.Model Viewer.Msg
+main =
+    Viewer.app
+        [ ( "IndexTest.indexTest"
+          , IndexTest.indexTest |> Test.PagesProgram.toSnapshots
+          )
+        ]
+ELMEOF
+
+# Set up the test-viewer elm.json the same way dev-server.js does:
+# start from the project elm.json, adjust source-dirs to be relative to
+# the test-viewer compile dir, add tests/ for IndexTest, and inject
+# lamdera/codecs + elm/bytes (generated TestApp imports Lamdera.Wire3).
+python3 - <<PYEOF
+import json, os
+
+with open('elm.json') as f:
+    d = json.load(f)
+
+dirs = [os.path.join('../../..', sd) for sd in d['source-directories']]
+dirs = [sd for sd in dirs if 'test-viewer' not in sd]
+dirs.append('../../../tests')
+dirs.append('.')
+d['source-directories'] = dirs
+
+# Inject the same deps dev-server.js injects
+d['dependencies'].setdefault('direct', {})['lamdera/codecs'] = '1.0.0'
+d['dependencies'].setdefault('indirect', {}).pop('lamdera/codecs', None)
+d['dependencies']['direct']['elm/bytes'] = '1.0.8'
+d['dependencies'].setdefault('indirect', {}).pop('elm/bytes', None)
+
+with open('elm-stuff/elm-pages/test-viewer/elm.json', 'w') as f:
+    json.dump(d, f, indent=4)
+PYEOF
+
+(cd elm-stuff/elm-pages/test-viewer && lamdera make TestViewer.elm --output=/dev/null 2>&1 | tail -5)
+echo "  dev /_tests smoke test succeeded."
+
+# ── Step 11: Outdated dependency report ──────────────────────────────────
 echo ""
 echo "--- Outdated dependencies (informational) ---"
 

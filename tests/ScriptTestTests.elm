@@ -24,9 +24,14 @@ import Pages.Script as Script
 import Random
 import Test exposing (Test, describe, test)
 import Test.BackendTask as BackendTaskTest exposing (Output(..))
+import Test.BackendTask.Internal as BackendTaskInternal
 import Test.BackendTask.Time as BackendTaskTime
 import Test.Runner
 import Time
+import Tui
+import Tui.Effect as TuiEffect
+import Tui.Screen
+import Tui.Sub as TuiSub
 
 
 all : Test
@@ -655,6 +660,52 @@ Missing required option: --name
 
 elm-pages-test --name <NAME>"""
                             )
+            , test "Tui.programWithCliOptions runs data in quiet mode like other TUI entrypoints" <|
+                \() ->
+                    let
+                        cliConfig : Program.Config { dir : String }
+                        cliConfig =
+                            Program.config
+                                |> Program.add
+                                    (OptionsParser.build (\dir -> { dir = dir })
+                                        |> OptionsParser.with
+                                            (Option.optionalKeywordArg "dir"
+                                                |> Option.withDefault "."
+                                            )
+                                    )
+
+                        script : Script.Script
+                        script =
+                            Tui.programWithCliOptions cliConfig
+                                (\_ ->
+                                    Tui.program
+                                        { data =
+                                            BackendTask.Custom.run "checkQuiet" Encode.null (Decode.succeed ())
+                                                |> BackendTask.allowFatal
+                                        , init = \() -> ( (), TuiEffect.none )
+                                        , update = \_ model -> ( model, TuiEffect.none )
+                                        , view = \_ _ -> Tui.Screen.empty
+                                        , subscriptions = \_ -> TuiSub.none
+                                        }
+                                )
+                    in
+                    case BackendTaskInternal.fromScript [] script of
+                        BackendTaskInternal.Running state ->
+                            case state.pendingRequests of
+                                [ request ] ->
+                                    Expect.equal True request.quiet
+
+                                requests ->
+                                    Expect.fail
+                                        ("Expected exactly one pending request, got "
+                                            ++ String.fromInt (List.length requests)
+                                        )
+
+                        BackendTaskInternal.TestError message ->
+                            Expect.fail message
+
+                        BackendTaskInternal.Done _ ->
+                            Expect.fail "Expected the script to stop before entering TUI mode"
             ]
         , describe "fromBackendTask + expectFailure"
             [ test "fails for BackendTask.fail" <|
@@ -2568,6 +2619,69 @@ but the pending requests are:
                             , body = Encode.object [ ( "error", Encode.string "Something broke" ) ]
                             }
                         |> BackendTaskTest.ensureStdout [ "server error: 500" ]
+                        |> BackendTaskTest.expectSuccess
+            , test "map3 with andThen-based requests to same URL, different bodies" <|
+                \() ->
+                    let
+                        makeRequest : String -> Decode.Decoder a -> BackendTask FatalError a
+                        makeRequest body decoder =
+                            BackendTask.Env.expect "SECRET"
+                                |> BackendTask.allowFatal
+                                |> BackendTask.andThen
+                                    (\secret ->
+                                        BackendTask.Http.request
+                                            { url = "https://api.example.com/graphql"
+                                            , method = "POST"
+                                            , headers = [ ( "x-secret", secret ) ]
+                                            , body = BackendTask.Http.jsonBody (Encode.object [ ( "query", Encode.string body ) ])
+                                            , retries = Nothing
+                                            , timeoutInMs = Nothing
+                                            }
+                                            (BackendTask.Http.expectJson decoder)
+                                            |> BackendTask.allowFatal
+                                    )
+
+                        smoothiesReq : BackendTask FatalError String
+                        smoothiesReq =
+                            makeRequest "{ products }" (Decode.field "data" (Decode.field "products" (Decode.index 0 (Decode.field "name" Decode.string))))
+
+                        userReq : BackendTask FatalError String
+                        userReq =
+                            makeRequest "{ users_by_pk }" (Decode.field "data" (Decode.field "users_by_pk" (Decode.field "name" Decode.string)))
+
+                        cartReq : BackendTask FatalError String
+                        cartReq =
+                            makeRequest "{ cart }" (Decode.field "data" (Decode.field "users_by_pk" (Decode.field "orders" (Decode.list (Decode.field "qty" Decode.int) |> Decode.map List.sum |> Decode.map String.fromInt))))
+
+                        combinedResponse : Encode.Value
+                        combinedResponse =
+                            Encode.object
+                                [ ( "data"
+                                  , Encode.object
+                                        [ ( "products", Encode.list identity [ Encode.object [ ( "name", Encode.string "Smoothie" ) ] ] )
+                                        , ( "users_by_pk"
+                                          , Encode.object
+                                                [ ( "name", Encode.string "Alice" )
+                                                , ( "orders", Encode.list identity [ Encode.object [ ( "qty", Encode.int 2 ) ] ] )
+                                                ]
+                                          )
+                                        ]
+                                  )
+                                ]
+                    in
+                    BackendTask.map3 (\a b c -> a ++ " " ++ b ++ " cart:" ++ c)
+                        smoothiesReq
+                        userReq
+                        cartReq
+                        |> BackendTask.andThen (\combined -> Script.log combined)
+                        |> BackendTaskTest.fromBackendTaskWith
+                            (BackendTaskTest.init
+                                |> BackendTaskTest.withEnv "SECRET" "test-secret"
+                            )
+                        |> BackendTaskTest.simulateHttpPost "https://api.example.com/graphql" combinedResponse
+                        |> BackendTaskTest.simulateHttpPost "https://api.example.com/graphql" combinedResponse
+                        |> BackendTaskTest.simulateHttpPost "https://api.example.com/graphql" combinedResponse
+                        |> BackendTaskTest.ensureStdout [ "Smoothie Alice cart:2" ]
                         |> BackendTaskTest.expectSuccess
             ]
         , describe "glob sorting"

@@ -1,7 +1,7 @@
 {
   "name": "elm-pages",
   "type": "module",
-  "version": "3.3.4",
+  "version": "3.4.0",
   "homepage": "https://elm-pages.com",
   "moduleResolution": "node",
   "description": "Hybrid Elm framework with full-stack and static routes.",
@@ -9,6 +9,7 @@
   "scripts": {
     "start": "cd examples/end-to-end && npm ci && npx elm-pages dev",
     "test": "./test.sh",
+    "test:tui-widgets": "./tui-widgets/test.sh",
     "test:snapshot": "(cd examples/escaping && npm ci && npm test) && (cd examples/base-path && npm ci && npm test)",
     "cypress": "npm start & cypress run",
     "build:generator": "elm-codegen install && (cd codegen && lamdera make Generate.elm --output elm-pages-codegen.js && mv elm-pages-codegen.js elm-pages-codegen.cjs)",

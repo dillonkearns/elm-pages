@@ -33,6 +33,7 @@ export async function generate(basePath) {
   ensureDirSync("./.elm-pages");
   ensureDirSync("./gen");
   ensureDirSync("./elm-stuff/elm-pages/.elm-pages");
+  ensureDirSync("./elm-stuff/elm-pages/test-viewer");
 
   const uiFileContent = elmPagesUiFile();
 
@@ -61,6 +62,10 @@ export async function generate(basePath) {
     ),
     writeFileIfChanged("./.elm-pages/Main.elm", browserCode.mainModule),
     writeFileIfChanged("./.elm-pages/Route.elm", browserCode.routesModule),
+    writeFileIfChanged(
+      "./elm-stuff/elm-pages/test-viewer/TestApp.elm",
+      browserCode.testAppModule
+    ),
     writeFetcherModules("./.elm-pages", browserCode.fetcherModules),
     writeFetcherModules(
       "./elm-stuff/elm-pages/client/.elm-pages",

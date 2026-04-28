@@ -6,12 +6,13 @@
         "../../src",
         ".elm-pages",
         "../../plugins",
-        "elm-program-test-src"
+        "elm-stuff/elm-pages/test-viewer"
     ],
     "elm-version": "0.19.1",
     "dependencies": {
         "direct": {
             "MaybeJustJames/yaml": "2.1.7",
+            "BrianHicks/elm-string-graphemes": "1.0.4",
             "avh4/elm-color": "1.0.0",
             "avh4/elm-fifo": "1.0.4",
             "danfishgold/base64-bytes": "1.1.0",
@@ -19,7 +20,7 @@
             "dillonkearns/elm-bcp47-language-tag": "2.0.0",
             "dillonkearns/elm-cli-options-parser": "5.0.1",
             "dillonkearns/elm-date-or-date-time": "2.0.0",
-            "dillonkearns/elm-form": "3.0.0",
+            "dillonkearns/elm-form": "3.1.0",
             "dillonkearns/elm-ts-json": "2.1.2",
             "elm/browser": "1.0.2",
             "elm/bytes": "1.0.8",
@@ -35,9 +36,8 @@
             "elm/virtual-dom": "1.0.3",
             "elm-community/dict-extra": "2.4.0",
             "elm-community/list-extra": "8.7.0",
-            "elm-explorations/test": "1.2.2",
+            "elm-explorations/test": "2.1.1",
             "hecrj/html-parser": "2.4.0",
-            "jgrenat/elm-html-test-runner": "1.0.3",
             "jluckyiv/elm-utc-date-strings": "1.0.0",
             "justinmimbs/date": "4.0.1",
             "mdgriffith/elm-codegen": "6.0.1",
@@ -56,9 +56,9 @@
         },
         "indirect": {
             "Chadtech/elm-bool-extra": "2.4.2",
+            "elm/file": "1.0.5",
             "elm-community/basics-extra": "4.1.0",
             "elm-community/maybe-extra": "5.3.0",
-            "elm/file": "1.0.5",
             "elmcraft/core-extra": "2.3.0",
             "fredcy/elm-parseint": "2.0.1",
             "jinjor/elm-xml-parser": "2.0.0",

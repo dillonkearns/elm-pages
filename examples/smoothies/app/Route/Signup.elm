@@ -1,24 +1,28 @@
 module Route.Signup exposing (ActionData, Data, Model, Msg, route)
 
+import Data.User
 import BackendTask exposing (BackendTask)
-import Dict
-import Effect exposing (Effect)
+import BackendTask.Custom
 import ErrorPage exposing (ErrorPage)
+import FatalError exposing (FatalError)
+import Json.Decode
+import Json.Encode
+import Form
+import Form.Field as Field
+import Form.FieldView
+import Form.Handler
+import Form.Validation as Validation exposing (Validation)
 import Head
-import Head.Seo as Seo
-import Html exposing (Html)
-import Html.Attributes as Attr
-import Http
+import Html.Styled as Html exposing (Html)
+import Html.Styled.Attributes as Attr
 import MySession
+import Pages.Form
 import PagesMsg exposing (PagesMsg)
-import Pages.PageUrl exposing (PageUrl)
-import Pages.Url
-import Path exposing (Path)
 import Route
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, App)
-import Server.Request as Request
-import Server.Response as Response exposing (Response)
-import Server.Session as Session exposing (Session)
+import RouteBuilder exposing (App, StatelessRoute)
+import Server.Request as Request exposing (Request)
+import Server.Response
+import Server.Session as Session
 import Shared
 import View exposing (View)
 
@@ -27,201 +31,180 @@ type alias Model =
     {}
 
 
-type Msg
-    = NoOp
-    | GotResponse (Result Http.Error ActionData)
+type alias Msg =
+    ()
 
 
 type alias RouteParams =
     {}
 
 
-route : StatefulRoute RouteParams Data ActionData Model Msg
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
         { head = head
         , data = data
         , action = action
         }
-        |> RouteBuilder.buildWithLocalState
-            { view = view
-            , update = update
-            , subscriptions = subscriptions
-            , init = init
+        |> RouteBuilder.buildNoState { view = view }
+
+
+form : Pages.Form.FormWithServerValidations String String input (List (Html (PagesMsg Msg)))
+form =
+    Form.form
+        (\name username password ->
+            { combine =
+                Validation.succeed
+                    (\n u p ->
+                        BackendTask.Custom.run "hashPassword"
+                            (Json.Encode.string p)
+                            Json.Decode.string
+                            |> BackendTask.allowFatal
+                            |> BackendTask.andThen
+                                (\hashed ->
+                                    Data.User.signup { name = n, username = u, password = hashed }
+                                        |> BackendTask.map
+                                            (\maybeUserId ->
+                                                case maybeUserId of
+                                                    Just userId ->
+                                                        Validation.succeed userId
+
+                                                    Nothing ->
+                                                        Validation.fail "Could not create account." Validation.global
+                                            )
+                                )
+                    )
+                    |> Validation.andMap name
+                    |> Validation.andMap username
+                    |> Validation.andMap password
+            , view =
+                \info ->
+                    [ name |> fieldView info "Name"
+                    , username |> fieldView info "Email"
+                    , password |> fieldView info "Password"
+                    , globalErrors info
+                    , Html.button []
+                        [ if info.submitting then
+                            Html.text "Creating account..."
+
+                          else
+                            Html.text "Sign Up"
+                        ]
+                    ]
             }
-
-
-action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
-action _ =
-    MySession.withSession
-        (Request.skip "TODO")
-        --(Request.expectFormPost
-        --    (\{ field } ->
-        --        Request.map2 Tuple.pair
-        --            (field "first")
-        --            (field "email")
-        --    )
-        --)
-        (\( first, email ) maybeSession ->
-            let
-                session : Session
-                session =
-                    maybeSession |> Result.toMaybe |> Maybe.andThen identity |> Maybe.withDefault Session.empty
-            in
-            validate session
-                { email = email
-                , first = first
-                }
-                |> BackendTask.succeed
         )
+        |> Form.field "name" (Field.text |> Field.required "Required")
+        |> Form.field "username" (Field.text |> Field.email |> Field.required "Required")
+        |> Form.field "password" (Field.text |> Field.password |> Field.required "Required")
 
 
-validate : Session -> { first : String, email : String } -> ( Session, Response ActionData ErrorPage )
-validate session { first, email } =
-    if first /= "" && email /= "" then
-        ( session
-            |> Session.withFlash "message" ("Success! You're all signed up " ++ first)
-        , Route.redirectTo Route.Signup
-        )
-
-    else
-        ( session
-        , ValidationErrors
-            { errors = [ "Cannot be blank?" ]
-            , fields =
-                [ ( "first", first )
-                , ( "email", email )
-                ]
-            }
-            |> Response.render
-        )
+fieldView :
+    Form.Context String data
+    -> String
+    -> Validation.Field String parsed Form.FieldView.Input
+    -> Html msg
+fieldView formState label field =
+    Html.div []
+        [ Html.label []
+            [ Html.text (label ++ " ")
+            , field |> Form.FieldView.inputStyled []
+            ]
+        , errorsForField formState field
+        ]
 
 
-init :
-    Maybe PageUrl
-    -> Shared.Model
-    -> App Data ActionData RouteParams
-    -> ( Model, Effect Msg )
-init maybePageUrl sharedModel static =
-    ( {}
-    , Effect.none
+errorsForField : Form.Context String data -> Validation.Field String parsed kind -> Html msg
+errorsForField formState field =
+    (if formState.submitAttempted then
+        formState.errors
+            |> Form.errorsForField field
+            |> List.map (\error -> Html.li [] [ Html.text error ])
+
+     else
+        []
     )
+        |> Html.ul [ Attr.style "color" "red" ]
 
 
-update :
-    PageUrl
-    -> Shared.Model
-    -> App Data ActionData RouteParams
-    -> Msg
-    -> Model
-    -> ( Model, Effect Msg )
-update pageUrl sharedModel static msg model =
-    case msg of
-        NoOp ->
-            ( model, Effect.none )
-
-        GotResponse result ->
-            let
-                _ =
-                    Debug.log "GotResponse" result
-            in
-            ( model, Effect.none )
-
-
-subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
-subscriptions maybePageUrl routeParams path sharedModel model =
-    Sub.none
+globalErrors : Form.Context String data -> Html msg
+globalErrors formState =
+    formState.errors
+        |> Form.errorsForField Validation.global
+        |> List.map (\error -> Html.li [] [ Html.text error ])
+        |> Html.ul [ Attr.style "color" "red" ]
 
 
 type alias Data =
-    { flashMessage : Maybe (Result String String)
+    {}
+
+
+type alias ActionData =
+    { errors : Form.ServerResponse String
     }
 
 
-type ActionData
-    = Success { email : String, first : String }
-    | ValidationErrors
-        { errors : List String
-        , fields : List ( String, String )
-        }
+data : RouteParams -> Request -> BackendTask FatalError (Server.Response.Response Data ErrorPage)
+data _ _ =
+    BackendTask.succeed (Server.Response.render {})
 
 
-data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
-data routeParams =
-    MySession.withSession
-        (Request.succeed ())
-        (\() sessionResult ->
-            let
-                session : Session
-                session =
-                    sessionResult |> Result.toMaybe |> Maybe.andThen identity |> Maybe.withDefault Session.empty
+action : RouteParams -> Request -> BackendTask FatalError (Server.Response.Response ActionData ErrorPage)
+action _ request =
+    request
+        |> MySession.withSession
+            (\session ->
+                case request |> Request.formDataWithServerValidation (form |> Form.Handler.init identity) of
+                    Nothing ->
+                        BackendTask.fail (FatalError.fromString "Invalid form response")
 
-                flashMessage : Maybe String
-                flashMessage =
-                    session |> Session.get "message"
-            in
-            ( Session.empty
-            , Response.render
-                { flashMessage = flashMessage |> Maybe.map Ok }
+                    Just resultData ->
+                        resultData
+                            |> BackendTask.map
+                                (\result ->
+                                    case result of
+                                        Err errors ->
+                                            ( session
+                                                |> Result.withDefault Session.empty
+                                            , Server.Response.render
+                                                { errors = errors
+                                                }
+                                            )
+
+                                        Ok ( _, userId ) ->
+                                            ( session
+                                                |> Result.withDefault Session.empty
+                                                |> Session.insert "userId" userId
+                                            , Route.redirectTo Route.Index
+                                            )
+                                )
             )
-                |> BackendTask.succeed
-        )
 
 
 head :
     App Data ActionData RouteParams
     -> List Head.Tag
-head static =
+head _ =
     []
 
 
 view :
-    Maybe PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
-    -> Model
-    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel model static =
-    { title = "Signup"
+view app _ =
+    { title = "Sign Up"
     , body =
-        [ Html.p []
-            [ case static.action of
-                Just (Success { email, first }) ->
-                    Html.text <| "Hello " ++ first ++ "!"
-
-                Just (ValidationErrors { errors }) ->
-                    errors
-                        |> List.map (\error -> Html.li [] [ Html.text error ])
-                        |> Html.ul []
-
-                _ ->
-                    Html.text ""
-            ]
-        , flashView static.data.flashMessage
-        , Html.form
-            [ Attr.method "POST"
-            ]
-            [ Html.label [] [ Html.text "First", Html.input [ Attr.name "first" ] [] ]
-            , Html.label [] [ Html.text "Email", Html.input [ Attr.name "email" ] [] ]
-            , Html.input [ Attr.type_ "submit", Attr.value "Signup" ] []
+        [ Html.h2 [] [ Html.text "Create an account" ]
+        , form
+            |> Pages.Form.renderStyledHtml
+                []
+                (Form.options "signup"
+                    |> Form.withServerResponse (app.action |> Maybe.map .errors)
+                )
+                app
+        , Html.p []
+            [ Html.text "Already have an account? "
+            , Html.a [ Attr.href "/login" ] [ Html.text "Log in" ]
             ]
         ]
     }
-
-
-flashView : Maybe (Result String String) -> Html msg
-flashView message =
-    Html.p
-        [ Attr.style "background-color" "rgb(163 251 163)"
-        ]
-        [ Html.text <|
-            case message of
-                Nothing ->
-                    ""
-
-                Just (Ok okMessage) ->
-                    okMessage
-
-                Just (Err error) ->
-                    "Something went wrong: " ++ error
-        ]

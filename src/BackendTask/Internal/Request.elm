@@ -1,5 +1,14 @@
 module BackendTask.Internal.Request exposing (request, request2, requestBytes, requestWithHeaders)
 
+{-| Internal `BackendTask` primitives used by framework modules
+(`BackendTask.File`, `BackendTask.Custom`, `BackendTask.Env`, etc.) to
+reach the `elm-pages-internal://*` JS handlers without going through the
+public `BackendTask.Http.requestRaw` URL guard. Not exposed in the
+package — generated user-facing code routes via `Pages.Internal.DbRequest`
+instead, which restricts callers to the `db-*` runtime handlers.
+
+-}
+
 import BackendTask exposing (BackendTask)
 import BackendTask.Http exposing (Body)
 import Bytes.Decode
@@ -12,6 +21,8 @@ import Pages.StaticHttpRequest exposing (RawRequest(..))
 import RequestsAndPending
 
 
+{-| Internal JSON-decoding request used by generated modules.
+-}
 request :
     { name : String
     , body : Body
@@ -27,6 +38,8 @@ request { name, body, expect } =
         }
 
 
+{-| Internal JSON-decoding request with custom headers.
+-}
 requestWithHeaders :
     { name : String
     , headers : List ( String, String )
@@ -73,6 +86,8 @@ requestWithHeaders { name, headers, body, expect } =
         )
 
 
+{-| Internal request variant that decodes an error payload alongside the success decoder.
+-}
 request2 :
     { name : String
     , body : Body
@@ -131,6 +146,8 @@ request2 { name, body, expect, onError, errorDecoder } =
         )
 
 
+{-| Internal bytes-decoding request used by generated modules.
+-}
 requestBytes :
     { name : String
     , body : Body

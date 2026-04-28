@@ -414,7 +414,7 @@ doThen task1 task2 =
         |> BackendTask.andThen (\() -> task1)
 
 
-{-| Same as [`expectWhich`](#expectWhich), but returns `Nothing` if the command is not found instead of failing with a [`FatalError`](FatalError).
+{-| Same as [`expectWhich`](#expectWhich), but returns `Nothing` if the command is not found instead of failing with a `FatalError`.
 -}
 which : String -> BackendTask error (Maybe String)
 which command_ =
@@ -425,7 +425,7 @@ which command_ =
         }
 
 
-{-| Check if a command is available on the system. If it is, return the full path to the command, otherwise fail with a [`FatalError`](FatalError).
+{-| Check if a command is available on the system. If it is, return the full path to the command, otherwise fail with a `FatalError`.
 
     module MyScript exposing (run)
 
@@ -727,7 +727,7 @@ exec command_ args_ =
 
 {-| Run a single command and return stderr and stdout combined as a single String.
 
-If you want to do more advanced things like piping together multiple commands in a pipeline, or piping in a file to a command, etc., see the [`Stream`](BackendTask-Stream) module.
+If you want to do more advanced things like piping together multiple commands in a pipeline, or piping in a file to a command, etc., see the `BackendTask.Stream` module.
 
     module MyScript exposing (run)
 

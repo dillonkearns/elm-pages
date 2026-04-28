@@ -3,20 +3,22 @@ module Route.DependentForm exposing (ActionData, Data, Model, Msg, route)
 import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
 import Form.FieldView
-import Form.Validation as Validation exposing (Combined, Field)
+import Form.Handler
+import Form.Validation as Validation exposing (Validation)
 import Head
-import Html exposing (Html)
-import Html.Attributes as Attr
+import Html.Styled as Html exposing (Html)
+import Html.Styled.Attributes as Attr
+import Pages.Form
 import PagesMsg exposing (PagesMsg)
-import Pages.PageUrl exposing (PageUrl)
-import Path exposing (Path)
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, App)
-import Server.Request as Request
+import RouteBuilder exposing (App, StatefulRoute)
+import Server.Request as Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Shared
+import UrlPath exposing (UrlPath)
 import View exposing (View)
 
 
@@ -48,29 +50,27 @@ route =
 
 
 init :
-    Maybe PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
-    -> App Data ActionData RouteParams
     -> ( Model, Effect Msg )
-init maybePageUrl sharedModel static =
+init app sharedModel =
     ( {}, Effect.none )
 
 
 update :
-    PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
-    -> App Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
-update pageUrl sharedModel static msg model =
+update app sharedModel msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
 
 
-subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
-subscriptions maybePageUrl routeParams path sharedModel model =
+subscriptions : RouteParams -> UrlPath -> Shared.Model -> Model -> Sub Msg
+subscriptions routeParams path sharedModel model =
     Sub.none
 
 
@@ -82,59 +82,41 @@ type alias ActionData =
     {}
 
 
-data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
-data routeParams =
-    Request.succeed (BackendTask.succeed (Response.render Data))
+data : RouteParams -> Request -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    BackendTask.succeed (Response.render Data)
 
 
-action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
-action routeParams =
-    Request.formData (dependentParser |> Form.initCombined identity)
-        |> Request.map
-            (\parsedForm ->
-                let
-                    _ =
-                        Debug.log "parsedForm"
-                            (case parsedForm of
-                                Ok (ParsedLink url) ->
-                                    "Received a link: " ++ url
+action : RouteParams -> Request -> BackendTask FatalError (Response ActionData ErrorPage)
+action routeParams request =
+    case request |> Request.formData (dependentParser |> Form.Handler.init identity) of
+        Just ( _, parsedForm ) ->
+            BackendTask.succeed (Response.render ActionData)
 
-                                Ok (ParsedPost post) ->
-                                    "Received a post: " ++ post.title ++ " , " ++ (post.body |> Maybe.withDefault "No body")
-
-                                Err formErrors ->
-                                    "formErrors"
-                            )
-                in
-                BackendTask.succeed
-                    (Response.render ActionData)
-            )
+        Nothing ->
+            BackendTask.succeed (Response.render ActionData)
 
 
 head :
     App Data ActionData RouteParams
     -> List Head.Tag
-head static =
+head app =
     []
 
 
 view :
-    Maybe PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
     -> Model
-    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel model app =
+view app sharedModel model =
     { title = "Dependent Form Example"
     , body =
         [ Html.h2 [] [ Html.text "Example" ]
         , dependentParser
-            |> Form.toDynamicTransition
-            |> Form.renderHtml "dependent-example" []
-                -- TODO pass in form response from ActionData
-                Nothing
+            |> Pages.Form.renderStyledHtml []
+                (Form.options "dependent-example")
                 app
-                ()
         ]
     }
 
@@ -148,9 +130,9 @@ type alias PostInfo =
     { title : String, body : Maybe String }
 
 
-linkForm : Form.HtmlForm String PostAction data Msg
+linkForm : Form.StyledHtmlForm String PostAction data msg
 linkForm =
-    Form.init
+    Form.form
         (\url ->
             { combine =
                 Validation.succeed ParsedLink
@@ -169,9 +151,9 @@ linkForm =
             )
 
 
-postForm : Form.HtmlForm String PostAction data Msg
+postForm : Form.StyledHtmlForm String PostAction data msg
 postForm =
-    Form.init
+    Form.form
         (\title body ->
             { combine =
                 Validation.succeed PostInfo
@@ -190,16 +172,16 @@ postForm =
         |> Form.field "body" Field.text
 
 
-dependentParser : Form.HtmlForm String PostAction data Msg
+dependentParser : Form.StyledHtmlForm String PostAction data msg
 dependentParser =
-    Form.init
+    Form.form
         (\kind postForm_ ->
             { combine =
                 kind
                     |> Validation.andThen postForm_.combine
             , view =
                 \formState ->
-                    [ Form.FieldView.radio []
+                    [ Form.FieldView.radioStyled []
                         (\enum toRadio ->
                             Html.label []
                                 [ toRadio []
@@ -248,7 +230,7 @@ dependentParser =
 fieldView :
     Form.Context String data
     -> String
-    -> Field String parsed Form.FieldView.Input
+    -> Validation.Field String parsed Form.FieldView.Input
     -> Html msg
 fieldView formState label field =
     let
@@ -267,7 +249,7 @@ fieldView formState label field =
     Html.div []
         [ Html.label []
             [ Html.text (label ++ " ")
-            , field |> Form.FieldView.input []
+            , field |> Form.FieldView.inputStyled []
             ]
         , errorsView
         ]

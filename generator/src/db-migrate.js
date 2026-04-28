@@ -192,7 +192,6 @@ export function generateMigrateChain(targetVersion) {
   const imports = [
     "import BackendTask exposing (BackendTask)",
     "import BackendTask.Http",
-    "import BackendTask.Internal.Request",
     // Base64 no longer needed — raw bytes sent through port
     "import Bytes exposing (Bytes)",
     "import Bytes.Decode",
@@ -206,6 +205,7 @@ export function generateMigrateChain(targetVersion) {
     "import Json.Decode as Decode",
     "import Json.Encode as Encode",
     "import Lamdera.Wire3 as Wire",
+    "import Pages.Internal.DbRequest",
     "import Pages.Script as Script exposing (Script)",
   ];
 
@@ -280,19 +280,18 @@ saveAndLog newDb fromVersion toVersion =
         wire3Bytes =
             Wire.bytesEncode (Db.w3_encode_Db newDb)
     in
-    BackendTask.Internal.Request.request
-        { name = "db-migrate-write"
+    Pages.Internal.DbRequest.migrateWrite
+        { headers = []
         , body = BackendTask.Http.bytesBody "application/octet-stream" wire3Bytes
-        , expect = Decode.succeed ()
+        , decoder = Decode.succeed ()
         }
 
 
 readDbBin : BackendTask FatalError { version : Int, bytes : Bytes }
 readDbBin =
-    BackendTask.Internal.Request.requestBytes
-        { name = "db-migrate-read"
-        , body = BackendTask.Http.jsonBody Encode.null
-        , expect =
+    Pages.Internal.DbRequest.migrateRead
+        { body = BackendTask.Http.jsonBody Encode.null
+        , decoder =
             Bytes.Decode.unsignedInt32 Bytes.BE
                 |> Bytes.Decode.andThen
                     (\\version ->

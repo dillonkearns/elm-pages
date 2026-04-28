@@ -35,14 +35,16 @@ export async function getUserSourceDirs(projectDirectory) {
 }
 
 /**
- * Set up coverage instrumentation before compilation.
+ * Instrument source files for coverage (copy, run elm-instrument, save metadata).
+ * This is the shared core used by both `setupCoverage` (for `run`) and
+ * `test` (which handles Coverage.elm placement and elm.json separately).
  *
  * @param {string} projectDirectory - The script's project directory
  * @param {string[]} userSourceDirs - Source dirs to instrument (relative to projectDirectory)
  * @param {string} compileDir - Compilation directory (elm-stuff/elm-pages)
  * @returns {Promise<{coverageDir: string, dirMapping: Record<string,string>}>}
  */
-export async function setupCoverage(
+export async function instrumentSources(
   projectDirectory,
   userSourceDirs,
   compileDir
@@ -108,6 +110,36 @@ export async function setupCoverage(
     // info.json missing — elm-instrument produced no output at all
   }
 
+  // Save source directory info so the exit handler can resolve module → file paths
+  await fs.promises.writeFile(
+    path.join(coverageDir, "module-paths.json"),
+    JSON.stringify(expectedModules)
+  );
+
+  return { coverageDir, dirMapping };
+}
+
+/**
+ * Set up coverage instrumentation before compilation.
+ * Instruments sources, writes Coverage.elm stub, and rewrites elm.json.
+ * Used by `elm-pages run --coverage`.
+ *
+ * @param {string} projectDirectory - The script's project directory
+ * @param {string[]} userSourceDirs - Source dirs to instrument (relative to projectDirectory)
+ * @param {string} compileDir - Compilation directory (elm-stuff/elm-pages)
+ * @returns {Promise<{coverageDir: string, dirMapping: Record<string,string>}>}
+ */
+export async function setupCoverage(
+  projectDirectory,
+  userSourceDirs,
+  compileDir
+) {
+  const { coverageDir, dirMapping } = await instrumentSources(
+    projectDirectory,
+    userSourceDirs,
+    compileDir
+  );
+
   // Write Coverage.elm stub into the compile dir's .elm-pages/ (already a source dir)
   await fs.promises.writeFile(
     path.join(compileDir, ".elm-pages", "Coverage.elm"),
@@ -116,12 +148,6 @@ export async function setupCoverage(
 
   // Redirect compile elm.json source dirs to instrumented copies
   await rewriteElmJsonForCoverage(compileDir, dirMapping);
-
-  // Save source directory info so the exit handler can resolve module → file paths
-  await fs.promises.writeFile(
-    path.join(coverageDir, "module-paths.json"),
-    JSON.stringify(expectedModules)
-  );
 
   return { coverageDir, dirMapping };
 }
@@ -164,10 +190,13 @@ export async function injectCoverageTracking(jsFilePath, coverageDataDir) {
   // and the F2 wrapper (track), so it works regardless of how calls are compiled:
   //   Debug calls:    $author$project$Coverage$track$('Mod', 0)
   //   Optimize calls: A2($author$project$Coverage$track, 'Mod', 0)
+  //
+  // SIGTERM/SIGINT handlers ensure data is written even when the process is
+  // killed externally (e.g. elm-test uses worker.kill() which sends SIGTERM).
   const replacement = `var __coverage_fs = require("fs");
 var __coverage_path = require("path");
 var __coverage_counters = {};
-process.on("exit", function() {
+function __coverage_flush() {
     if (Object.keys(__coverage_counters).length > 0) {
         try { __coverage_fs.mkdirSync(${dir}, { recursive: true }); } catch(e) {}
         __coverage_fs.writeFileSync(
@@ -175,7 +204,10 @@ process.on("exit", function() {
             JSON.stringify(__coverage_counters)
         );
     }
-});
+}
+process.on("exit", __coverage_flush);
+process.on("SIGTERM", function() { __coverage_flush(); process.exit(0); });
+process.on("SIGINT", function() { __coverage_flush(); process.exit(0); });
 var $author$project$Coverage$track$ = function(moduleName, index) {
     __coverage_counters[moduleName] = __coverage_counters[moduleName] || [];
     __coverage_counters[moduleName].push(index);
@@ -655,7 +687,7 @@ function generateLcov(info, allCounters, projectDirectory, modulePaths) {
  * Coverage.elm stub. When compiled, produces $author$project$Coverage$track
  * which the JS post-processor replaces with actual tracking code.
  */
-const COVERAGE_ELM_STUB = `module Coverage exposing (track)
+export const COVERAGE_ELM_STUB = `module Coverage exposing (track)
 
 
 track : String -> Int -> ()

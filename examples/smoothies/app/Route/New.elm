@@ -1,31 +1,28 @@
 module Route.New exposing (ActionData, Data, Model, Msg, route)
 
-import Api.Scalar exposing (Uuid(..))
-import Data.Smoothies as Smoothies
 import BackendTask exposing (BackendTask)
 import Dict exposing (Dict)
-import Dict.Extra
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
 import Form.FieldView as FieldView
+import Form.Handler
 import Form.Validation as Validation
 import Head
-import Html exposing (Html)
-import Html.Attributes as Attr
+import Html.Styled as Html exposing (Html)
+import Html.Styled.Attributes as Attr
 import MySession
-import Pages.FormState
+import Pages.Form
 import PagesMsg exposing (PagesMsg)
-import Pages.PageUrl exposing (PageUrl)
-import Path exposing (Path)
-import Request.Hasura
 import Route
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, App)
-import Server.Request as Request
+import RouteBuilder exposing (App, StatefulRoute)
+import Server.Request as Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Server.Session as Session
 import Shared
+import UrlPath exposing (UrlPath)
 import View exposing (View)
 
 
@@ -57,29 +54,27 @@ route =
 
 
 init :
-    Maybe PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
-    -> App Data ActionData RouteParams
     -> ( Model, Effect Msg )
-init maybePageUrl sharedModel static =
+init app sharedModel =
     ( {}, Effect.none )
 
 
 update :
-    PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
-    -> App Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
-update pageUrl sharedModel static msg model =
+update app sharedModel msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
 
 
-subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
-subscriptions maybePageUrl routeParams path sharedModel model =
+subscriptions : RouteParams -> UrlPath -> Shared.Model -> Model -> Sub Msg
+subscriptions routeParams path sharedModel model =
     Sub.none
 
 
@@ -91,44 +86,28 @@ type alias ActionData =
     {}
 
 
-data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
-data routeParams =
-    Request.succeed (BackendTask.succeed (Response.render Data))
+data : RouteParams -> Request -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    BackendTask.succeed (Response.render Data)
 
 
-action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
-action routeParams =
-    Request.formData (form |> Form.initCombined identity)
-        |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
-            (\userId parsed session ->
-                case parsed of
-                    Ok okParsed ->
-                        Smoothies.create okParsed
-                            |> Request.Hasura.mutationBackendTask
-                            |> BackendTask.map
-                                (\_ ->
-                                    ( session
-                                    , Route.redirectTo Route.Index
-                                    )
-                                )
-
-                    Err errors ->
-                        BackendTask.succeed
-                            -- TODO need to render errors here
-                            ( session, Response.render {} )
-            )
+action : RouteParams -> Request -> BackendTask FatalError (Response ActionData ErrorPage)
+action routeParams request =
+    -- TODO: re-implement with file-based data layer
+    -- Original: parsed form, called Smoothies.create, redirected to Index
+    BackendTask.succeed (Response.render {})
 
 
 head :
     App Data ActionData RouteParams
     -> List Head.Tag
-head static =
+head app =
     []
 
 
-form : Form.HtmlForm String NewItem Data Msg
+form : Form.StyledHtmlForm String NewItem data msg
 form =
-    Form.init
+    Form.form
         (\name description price imageUrl ->
             { combine =
                 Validation.succeed NewItem
@@ -144,9 +123,7 @@ form =
                                 |> Form.errorsForField field
 
                         errorsView field =
-                            (--if field.status == Pages.FormState.Blurred then
-                             -- TODO make field.status available through `Validation` type
-                             if True then
+                            (if True then
                                 errors field
                                     |> List.map (\error -> Html.li [] [ Html.text error ])
 
@@ -159,7 +136,7 @@ form =
                             Html.div []
                                 [ Html.label []
                                     [ Html.text (label ++ " ")
-                                    , field |> FieldView.input []
+                                    , field |> FieldView.inputStyled []
                                     ]
                                 , errorsView field
                                 ]
@@ -176,16 +153,13 @@ form =
         |> Form.field "description"
             (Field.text
                 |> Field.required "Required"
-                |> Field.withClientValidation
+                |> Field.validateMap
                     (\description ->
-                        ( Just description
-                        , if (description |> String.length) < 5 then
-                            [ "Description must be at last 5 characters"
-                            ]
+                        if (description |> String.length) < 5 then
+                            Err "Description must be at least 5 characters"
 
-                          else
-                            []
-                        )
+                        else
+                            Ok description
                     )
             )
         |> Form.field "price" (Field.int { invalid = \_ -> "Invalid int" } |> Field.required "Required")
@@ -193,87 +167,25 @@ form =
 
 
 view :
-    Maybe PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
     -> Model
-    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel model app =
-    let
-        pendingCreation : Result (Dict String (List String)) NewItem
-        pendingCreation =
-            form
-                |> Form.parse "form" app app.data
-                |> parseIgnoreErrors
-    in
+view app sharedModel model =
     { title = "New Item"
     , body =
         [ Html.h2 [] [ Html.text "New item" ]
         , form
-            |> Form.renderHtml "form"
+            |> Pages.Form.renderStyledHtml
                 [ Attr.style "display" "flex"
                 , Attr.style "flex-direction" "column"
                 , Attr.style "gap" "20px"
                 ]
-                -- TODO pass in form response from ActionData
-                Nothing
+                (Form.options "form")
                 app
-                app.data
-        , pendingCreation
-            |> Debug.log "pendingCreation"
-            |> Result.toMaybe
-            |> Maybe.map pendingView
-            |> Maybe.withDefault (Html.div [] [])
         ]
     }
 
 
 type alias NewItem =
     { name : String, description : String, price : Int, imageUrl : String }
-
-
-toResult : ( Maybe parsed, Dict String (List error) ) -> Result (Dict String (List error)) parsed
-toResult ( maybeParsed, fieldErrors ) =
-    let
-        isEmptyDict : Bool
-        isEmptyDict =
-            if Dict.isEmpty fieldErrors then
-                True
-
-            else
-                fieldErrors
-                    |> Dict.Extra.any (\_ errors -> List.isEmpty errors)
-    in
-    case ( maybeParsed, isEmptyDict ) of
-        ( Just parsed, True ) ->
-            Ok parsed
-
-        _ ->
-            Err fieldErrors
-
-
-parseIgnoreErrors : ( Maybe parsed, Dict String (List error) ) -> Result (Dict String (List error)) parsed
-parseIgnoreErrors ( maybeParsed, fieldErrors ) =
-    case maybeParsed of
-        Just parsed ->
-            Ok parsed
-
-        _ ->
-            Err fieldErrors
-
-
-pendingView : NewItem -> Html (PagesMsg Msg)
-pendingView item =
-    Html.div [ Attr.class "item" ]
-        [ Html.h2 [] [ Html.text "Preview" ]
-        , Html.div []
-            [ Html.h3 [] [ Html.text item.name ]
-            , Html.p [] [ Html.text item.description ]
-            , Html.p [] [ "$" ++ String.fromInt item.price |> Html.text ]
-            ]
-        , Html.div []
-            [ Html.img
-                [ Attr.src (item.imageUrl ++ "?ixlib=rb-1.2.1&raw_url=true&q=80&fm=jpg&crop=entropy&cs=tinysrgb&auto=format&fit=crop&w=600&h=903") ]
-                []
-            ]
-        ]
