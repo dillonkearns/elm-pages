@@ -438,6 +438,14 @@ otherFile routes phaseString routesWithEphemeral =
                                     (\( _, data ) ->
                                         errorPageView data
                                     )
+                                    :: Elm.Case.branch
+                                        (Elm.Arg.tuple
+                                            Elm.Arg.ignore
+                                            (Elm.Arg.customType "Data404NotFoundPage____" ())
+                                        )
+                                        (\_ ->
+                                            errorPageView Gen.ErrorPage.values_.notFound
+                                        )
                                     :: (routes |> List.map routeToBranch)
                                     ++ [ Elm.Case.branch Elm.Arg.ignore (\_ -> defaultCaseView) ]
                                 )
