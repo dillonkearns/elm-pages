@@ -3410,6 +3410,22 @@ viewUrlBar snapshot =
     let
         isUrlAssertion =
             isUrlAssertionStep snapshot
+
+        urlText =
+            snapshot.browserUrl
+                |> Maybe.map formatBrowserUrl
+                |> Maybe.withDefault "(no URL tracking)"
+
+        titleSegments =
+            if String.isEmpty snapshot.title then
+                []
+
+            else
+                [ Html.span [ Attr.class "url-bar-title" ]
+                    [ Html.text snapshot.title ]
+                , Html.span [ Attr.class "url-bar-sep" ]
+                    [ Html.text "›" ]
+                ]
     in
     Html.div
         [ Attr.classList
@@ -3417,14 +3433,38 @@ viewUrlBar snapshot =
             , ( "url-bar-asserted", isUrlAssertion )
             ]
         ]
-        [ Html.span [ Attr.class "url-bar-icon" ] [ Html.text ">" ]
-        , Html.span [ Attr.class "url-bar-text" ]
-            [ Html.text
-                (snapshot.browserUrl
-                    |> Maybe.withDefault "(no URL tracking)"
-                )
-            ]
-        ]
+        (titleSegments
+            ++ [ Html.span [ Attr.class "url-bar-text" ] [ Html.text urlText ] ]
+        )
+
+
+{-| Strip the origin (scheme + host + port) so the bar shows
+`/blog/post-1?draft=true` rather than
+`http://localhost:1234/blog/post-1?draft=true`. Falls through unchanged
+if the input doesn't parse as an absolute URL.
+-}
+formatBrowserUrl : String -> String
+formatBrowserUrl raw =
+    case Url.fromString raw of
+        Just url ->
+            url.path
+                ++ (case url.query of
+                        Just q ->
+                            "?" ++ q
+
+                        Nothing ->
+                            ""
+                   )
+                ++ (case url.fragment of
+                        Just f ->
+                            "#" ++ f
+
+                        Nothing ->
+                            ""
+                   )
+
+        Nothing ->
+            raw
 
 
 {-| Whether the current step is asserting against the browser URL. The
@@ -3468,24 +3508,7 @@ viewRenderedPageWithOptions viewportWidth maybePreviewMode snapshot =
             ]
          ]
         )
-        [ Html.div [ Attr.class "page-title-bar" ]
-            [ Html.span [ Attr.class "page-title-dots" ]
-                [ Html.span [ Attr.class "dot dot-red" ] []
-                , Html.span [ Attr.class "dot dot-yellow" ] []
-                , Html.span [ Attr.class "dot dot-green" ] []
-                ]
-            , Html.span [ Attr.class "page-title-text" ] [ Html.text snapshot.title ]
-            , case maybePreviewMode of
-                Just Before ->
-                    Html.span [ Attr.class "preview-mode-badge preview-mode-before" ] [ Html.text "BEFORE" ]
-
-                Just After ->
-                    Html.span [ Attr.class "preview-mode-badge preview-mode-after" ] [ Html.text "AFTER" ]
-
-                Nothing ->
-                    Html.text ""
-            ]
-        , Html.div
+        [ Html.div
             (Attr.class "page-body"
                 :: (case ( snapshot.targetElement, snapshot.assertionSelectors ) of
                         ( Just (BySelectors sels), _ ) ->
@@ -7302,18 +7325,40 @@ body {
     transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-/* Highlight the URL bar when the current step is an
-   `ensureBrowserUrl` / `expectBrowserUrl` assertion -- mirrors the
-   in-page assertion overlay (#7ee787 / rgba(126,231,135,0.1)) so the
-   user's eye lands on the thing the test is checking. */
-.url-bar-asserted {
-    border-color: #7ee787;
-    background: rgba(126, 231, 135, 0.1);
+/* Highlight the URL portion only when the current step is an
+   `ensureBrowserUrl` / `expectBrowserUrl` assertion. The title carries
+   no assertion-relevant state, so the ring is scoped to the URL text
+   itself. `outline` matches the bright-green ring vocabulary used for
+   in-page assertion targets and the `.rendered-page-after` overlay,
+   and doesn't affect flex layout — toggling assertion state never
+   reflows sibling cells. */
+.url-bar-asserted .url-bar-text {
+    color: #7ee787;
+    outline: 2px solid rgba(126, 231, 135, 0.7);
+    outline-offset: 2px;
+    border-radius: 3px;
+    transition: color 0.15s ease, outline-color 0.15s ease;
 }
 
-.url-bar-icon {
+/* Document title sits ahead of the URL as a small, dim cue. Shrinks
+   twice as fast as the URL when the bar runs out of room — when
+   something has to go, the URL is the more diagnostic of the two. */
+.url-bar-title {
     color: #8896a6;
+    font-size: 12.5px;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex-shrink: 2;
+    min-width: 0;
+}
+
+.url-bar-sep {
+    color: #3a4555;
     font-size: 13px;
+    flex-shrink: 0;
+    user-select: none;
 }
 
 .url-bar-text {
@@ -7323,6 +7368,8 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 /* === RENDERED PAGE === */
@@ -7338,48 +7385,6 @@ body {
     border-radius: 8px;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
 }
-
-.page-title-bar {
-    padding: 8px 16px;
-    background: #f0f0f0;
-    border-bottom: 1px solid #ddd;
-    font-size: 12px;
-    color: #666;
-    border-radius: 8px 8px 0 0;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-    overflow: hidden;
-}
-
-/* Ellipsis on the title so a long URL or test name can't shove the
-   BEFORE/AFTER badge past the iframe's right edge on narrow viewports.
-   The wrapping `.rendered-page` already has `overflow: hidden`, but
-   without ellipsis here the badge would just clip mid-character. */
-.page-title-text {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.page-title-dots {
-    display: flex;
-    gap: 5px;
-    margin-right: 4px;
-}
-
-.dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-}
-
-.dot-red { background: #ff5f57; }
-.dot-yellow { background: #ffbd2e; }
-.dot-green { background: #28c840; }
 
 .page-body {
     display: none;
@@ -7408,25 +7413,6 @@ body {
 
 .rendered-page-after .page-body {
     background: rgba(126, 231, 135, 0.03);
-}
-
-.preview-mode-badge {
-    flex-shrink: 0;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 1px 8px;
-    border-radius: 3px;
-    letter-spacing: 0.5px;
-}
-
-.preview-mode-before {
-    background: rgba(231, 76, 60, 0.15);
-    color: #e74c3c;
-}
-
-.preview-mode-after {
-    background: rgba(126, 231, 135, 0.15);
-    color: #7ee787;
 }
 
 /* === NETWORK SIDEBAR (N1 · list with live state chips) === */
