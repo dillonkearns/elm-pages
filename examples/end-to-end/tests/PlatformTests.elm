@@ -185,6 +185,15 @@ suite =
                         (\url -> url |> Expect.equal "https://localhost:1234/get-form?page=2")
                     , PagesProgram.ensureViewHas [ PSelector.text "Current page: 2" ]
                     ]
+        , test "GET form submission appends fields to existing query parameters" <|
+            \() ->
+                PagesProgram.expect (TestApp.start "/get-form?sort=recent" BackendTaskTest.init)
+                    [ PagesProgram.ensureViewHas [ PSelector.text "Current page: 1" ]
+                    , PagesProgram.clickButton "Page 2"
+                    , PagesProgram.ensureBrowserUrl
+                        (\url -> url |> Expect.equal "https://localhost:1234/get-form?sort=recent&page=2")
+                    , PagesProgram.ensureViewHas [ PSelector.text "Current page: 2" ]
+                    ]
         , test "raw cross-route logout form clears the session and redirects" <|
             \() ->
                 PagesProgram.expect

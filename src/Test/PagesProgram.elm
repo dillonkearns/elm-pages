@@ -6066,11 +6066,7 @@ processEffectsWrapped config baseUrl requestDefaults makeReady makePlatformResol
                 if formData.method == Form.Get then
                     let
                         newUrl =
-                            makeTestUrl baseUrl
-                                (formData.action
-                                    ++ "?"
-                                    ++ encodeFormFields formData.fields
-                                )
+                            makeGetFormSubmitUrl baseUrl formData.action formData.fields
 
                         ( newModel, newEffect ) =
                             platformUpdateClean config (Platform.UrlChanged newUrl) wrappedModel.platformModel
@@ -6777,6 +6773,32 @@ encodeFormFields fields =
                 Url.percentEncode name ++ "=" ++ Url.percentEncode value
             )
         |> String.join "&"
+
+
+makeGetFormSubmitUrl : String -> String -> List ( String, String ) -> Url
+makeGetFormSubmitUrl baseUrl action fields =
+    let
+        actionUrl =
+            makeTestUrl baseUrl action
+
+        encodedFields =
+            encodeFormFields fields
+
+        query =
+            case ( actionUrl.query, encodedFields ) of
+                ( existingQuery, "" ) ->
+                    existingQuery
+
+                ( Nothing, _ ) ->
+                    Just encodedFields
+
+                ( Just "", _ ) ->
+                    Just encodedFields
+
+                ( Just existingQuery, _ ) ->
+                    Just (existingQuery ++ "&" ++ encodedFields)
+    in
+    { actionUrl | query = query }
 
 
 {-| Extract page data from a PageServerResponse result, converting ErrorPage
