@@ -108,10 +108,11 @@ type alias NetworkEntry =
     }
 
 
-{-| Whether an HTTP request was stubbed or is pending.
+{-| Whether an HTTP request is pending, completed, or failed.
 -}
 type NetworkStatus
     = Stubbed
+    | Failed
     | Pending
 
 

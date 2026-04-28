@@ -1865,31 +1865,60 @@ pressEnter : List Selector.Selector -> Step model msg
 pressEnter selectors =
     Internal.Step
         (\programTest ->
-            programTest
-                |> dispatchKeyDown "pressEnter" "Enter" selectors
-                |> dispatchFormSubmitForInput selectors
+            let
+                defaultPrevented : Bool
+                defaultPrevented =
+                    keyDownPreventsDefault "Enter" selectors programTest
+            in
+            if defaultPrevented then
+                programTest
+                    |> dispatchKeyDown "pressEnter" "Enter" selectors
+
+            else
+                programTest
+                    |> dispatchKeyDown "pressEnter" "Enter" selectors
+                    |> dispatchFormSubmitForInput selectors
         )
 
 
 dispatchKeyDown : String -> String -> List Selector.Selector -> ProgramTest model msg -> ProgramTest model msg
 dispatchKeyDown label key selectors programTest =
+    tryDispatchEvent { targetRequired = True } selectors (keyDownEvent key) label programTest
+
+
+keyDownEvent : String -> ( String, Encode.Value )
+keyDownEvent key =
     let
         keyCode =
             keyCodeFor key
-
-        payload =
-            Encode.object
-                [ ( "key", Encode.string key )
-                , ( "code", Encode.string (codeFor key) )
-                , ( "keyCode", Encode.int keyCode )
-                , ( "which", Encode.int keyCode )
-                , ( "altKey", Encode.bool False )
-                , ( "ctrlKey", Encode.bool False )
-                , ( "metaKey", Encode.bool False )
-                , ( "shiftKey", Encode.bool False )
-                ]
     in
-    tryDispatchEvent { targetRequired = True } selectors ( "keydown", payload ) label programTest
+    ( "keydown"
+    , Encode.object
+        [ ( "key", Encode.string key )
+        , ( "code", Encode.string (codeFor key) )
+        , ( "keyCode", Encode.int keyCode )
+        , ( "which", Encode.int keyCode )
+        , ( "altKey", Encode.bool False )
+        , ( "ctrlKey", Encode.bool False )
+        , ( "metaKey", Encode.bool False )
+        , ( "shiftKey", Encode.bool False )
+        ]
+    )
+
+
+keyDownPreventsDefault : String -> List Selector.Selector -> ProgramTest model msg -> Bool
+keyDownPreventsDefault key selectors (ProgramTest state) =
+    case state.phase of
+        Ready ready ->
+            renderScopedView ready
+                |> Query.find selectors
+                |> Event.simulate (keyDownEvent key)
+                |> Event.expectPreventDefault
+                |> getFailureMessage
+                |> (==) Nothing
+
+        Resolving _ ->
+            False
 
 
 dispatchFormSubmitForInput : List Selector.Selector -> ProgramTest model msg -> ProgramTest model msg
@@ -4158,22 +4187,28 @@ asBackgroundReloadResolver phase =
 {-| Try advancing a resolver with a simulation. Returns Ok ProgramTest
 on success, Err on AdvanceError.
 -}
-advanceResolver : NetworkSource -> Maybe model -> List (Resolver model msg) -> Simulation -> State model msg -> Resolver model msg -> Result String (ProgramTest model msg)
+type alias AdvanceResolverError =
+    { message : String
+    , networkLog : List NetworkEntry
+    }
+
+
+advanceResolver : NetworkSource -> Maybe model -> List (Resolver model msg) -> Simulation -> State model msg -> Resolver model msg -> Result AdvanceResolverError (ProgramTest model msg)
 advanceResolver source maybeModel remainingPendingResolvers sim state (Resolver resolver) =
     let
         simInfo =
             case sim of
                 SimHttpGet url responseJson ->
-                    { label = "simulateHttpGet " ++ url, method = "GET", url = url, portName = Nothing, responsePreview = Just (Encode.encode 2 responseJson) }
+                    { label = "simulateHttpGet " ++ url, method = "GET", url = url, portName = Nothing, responsePreview = Just (Encode.encode 2 responseJson), status = Stubbed }
 
                 SimHttpPost url responseJson ->
-                    { label = "simulateHttpPost " ++ url, method = "POST", url = url, portName = Nothing, responsePreview = Just (Encode.encode 2 responseJson) }
+                    { label = "simulateHttpPost " ++ url, method = "POST", url = url, portName = Nothing, responsePreview = Just (Encode.encode 2 responseJson), status = Stubbed }
 
                 SimHttpError method url errorString ->
-                    { label = "simulateHttpError " ++ method ++ " " ++ url ++ " " ++ errorString, method = method, url = url, portName = Nothing, responsePreview = Nothing }
+                    { label = "simulateHttpError " ++ method ++ " " ++ url ++ " " ++ errorString, method = method, url = url, portName = Nothing, responsePreview = Just errorString, status = Failed }
 
                 SimCustom portName responseJson ->
-                    { label = "simulateCustom " ++ portName, method = "PORT", url = portName, portName = Just portName, responsePreview = Just (Encode.encode 2 responseJson) }
+                    { label = "simulateCustom " ++ portName, method = "PORT", url = portName, portName = Just portName, responsePreview = Just (Encode.encode 2 responseJson), status = Stubbed }
 
         stepIdx =
             List.length state.snapshots
@@ -4186,7 +4221,7 @@ advanceResolver source maybeModel remainingPendingResolvers sim state (Resolver 
         networkEntry =
             { method = simInfo.method
             , url = simInfo.url
-            , status = Stubbed
+            , status = simInfo.status
             , stepIndex = stepIdx
             , portName = simInfo.portName
             , responsePreview = simInfo.responsePreview
@@ -4202,7 +4237,7 @@ advanceResolver source maybeModel remainingPendingResolvers sim state (Resolver 
                         (\entry ( matched, acc ) ->
                             if not matched && simulationMatchesNetworkEntry sim entry then
                                 ( True
-                                , acc ++ [ { entry | status = Stubbed, responsePreview = simInfo.responsePreview, stepIndex = stepIdx } ]
+                                , acc ++ [ { entry | status = simInfo.status, responsePreview = simInfo.responsePreview, stepIndex = stepIdx } ]
                                 )
 
                             else
@@ -4246,7 +4281,7 @@ advanceResolver source maybeModel remainingPendingResolvers sim state (Resolver 
                 )
 
         AdvanceError errMsg ->
-            Err errMsg
+            Err { message = errMsg, networkLog = updatedLog }
 
 
 advanceResolverOrError : NetworkSource -> Maybe model -> List (Resolver model msg) -> Simulation -> State model msg -> Resolver model msg -> ProgramTest model msg
@@ -4255,8 +4290,8 @@ advanceResolverOrError source maybeModel remainingPendingResolvers sim state res
         Ok programTest ->
             programTest
 
-        Err errMsg ->
-            ProgramTest { state | error = Just errMsg }
+        Err err ->
+            ProgramTest { state | error = Just err.message, networkLog = err.networkLog }
 
 
 applySimulation : Simulation -> ProgramTest model msg -> ProgramTest model msg
@@ -4281,8 +4316,12 @@ applySimulation sim (ProgramTest state) =
                         Ok (ProgramTest newState) ->
                             ProgramTest newState
 
-                        Err errMsg ->
-                            ProgramTest { state | error = Just ("Fetcher effect resolution failed:\n\n" ++ errMsg) }
+                        Err err ->
+                            ProgramTest
+                                { state
+                                    | error = Just ("Fetcher effect resolution failed:\n\n" ++ err.message)
+                                    , networkLog = err.networkLog
+                                }
 
                 Nothing ->
                     case state.phase of
@@ -4346,6 +4385,12 @@ applySimulation sim (ProgramTest state) =
                                                         }
 
                                         Err errMsg ->
+                                            let
+                                                updatedLog : List NetworkEntry
+                                                updatedLog =
+                                                    state.networkLog
+                                                        |> markMatchingNetworkEntryStubbed sim (List.length state.snapshots)
+                                            in
                                             ProgramTest
                                                 { state
                                                     | error =
@@ -4356,6 +4401,7 @@ applySimulation sim (ProgramTest state) =
                                                                 ++ " failed:\n\n"
                                                                 ++ errMsg
                                                             )
+                                                    , networkLog = updatedLog
                                                 }
 
                                 Nothing ->
@@ -4441,10 +4487,14 @@ simulationMatchesNetworkEntry sim entry =
 markMatchingNetworkEntryStubbed : Simulation -> Int -> List NetworkEntry -> List NetworkEntry
 markMatchingNetworkEntryStubbed sim stepIndex entries =
     let
+        status : NetworkStatus
+        status =
+            simulationNetworkStatus sim
+
         markFirst : NetworkEntry -> ( Bool, List NetworkEntry ) -> ( Bool, List NetworkEntry )
         markFirst entry ( matched, acc ) =
             if not matched && simulationMatchesNetworkEntry sim entry then
-                ( True, acc ++ [ { entry | status = Stubbed, stepIndex = stepIndex } ] )
+                ( True, acc ++ [ { entry | status = status, responsePreview = simulationErrorPreview sim entry.responsePreview, stepIndex = stepIndex } ] )
 
             else
                 ( matched, acc ++ [ entry ] )
@@ -4452,6 +4502,26 @@ markMatchingNetworkEntryStubbed sim stepIndex entries =
     entries
         |> List.foldl markFirst ( False, [] )
         |> Tuple.second
+
+
+simulationNetworkStatus : Simulation -> NetworkStatus
+simulationNetworkStatus sim =
+    case sim of
+        SimHttpError _ _ _ ->
+            Failed
+
+        _ ->
+            Stubbed
+
+
+simulationErrorPreview : Simulation -> Maybe String -> Maybe String
+simulationErrorPreview sim existingPreview =
+    case sim of
+        SimHttpError _ _ errorString ->
+            Just errorString
+
+        _ ->
+            existingPreview
 
 
 findResolverBySimulation : Simulation -> List (Resolver model msg) -> Maybe ( Resolver model msg, List (Resolver model msg) )

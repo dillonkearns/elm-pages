@@ -4086,8 +4086,8 @@ viewEffectInspector snapshot =
 
 {-| Network entry with its life-span across the snapshot stream: the step at
 which it was first observed, and (if any) the step at which its status became
-`Stubbed`. `endStep == Nothing` at the current step means the request is still
-in flight.
+`Stubbed` or `Failed`. `endStep == Nothing` at the current step means the
+request is still in flight.
 -}
 type alias NetworkLane =
     { entry : NetworkEntry
@@ -4112,8 +4112,8 @@ Instead we lean on the fact that `networkLog` is append-only:
     even when mutated. So position is a stable identity for a request.
   - `startStep` for position `p` = the first snapshot whose log is long
     enough to contain `p`.
-  - `endStep` for position `p` = the first snapshot whose log has
-    `log[p].status == Stubbed`.
+  - `endStep` for position `p` = the first snapshot whose log has resolved,
+    either as `Stubbed` or `Failed`.
 
 The authoritative list of requests is the final snapshot's log (it's
 cumulative, so nothing is missing).
@@ -4151,7 +4151,7 @@ buildNetworkLanes allSnapshots =
                         entryAt p snap
                             |> Maybe.andThen
                                 (\e ->
-                                    if e.status == Stubbed then
+                                    if networkStatusResolved e.status then
                                         Just i
 
                                     else
@@ -4176,6 +4176,24 @@ buildNetworkLanes allSnapshots =
                 , endStep = endStepAt p
                 }
             )
+
+
+networkStatusResolved : NetworkStatus -> Bool
+networkStatusResolved status =
+    status /= Pending
+
+
+networkStatusEventKind : NetworkStatus -> EventKind
+networkStatusEventKind status =
+    case status of
+        Failed ->
+            EventFail
+
+        Stubbed ->
+            EventComplete
+
+        Pending ->
+            EventComplete
 
 
 viewNetworkSidebar : Model -> Int -> List Snapshot -> Html Msg
@@ -4275,13 +4293,9 @@ viewNetworkRow currentStep allSnapshots lane =
         endActive =
             endReached
 
-        -- `NetworkStatus = Stubbed | Pending` in the current data model, so
-        -- we can't distinguish errored from successful responses. Treat all
-        -- resolutions as EventComplete until the runtime grows a failed
-        -- variant.
         endKind : EventKind
         endKind =
-            EventComplete
+            networkStatusEventKind lane.entry.status
 
         stateClass =
             if isFuture then
@@ -4289,6 +4303,9 @@ viewNetworkRow currentStep allSnapshots lane =
 
             else if isLive then
                 "net-row-inflight"
+
+            else if lane.entry.status == Failed then
+                "net-row-failed"
 
             else
                 "net-row-resolved"
@@ -4462,7 +4479,14 @@ viewNetRowDetails entry =
                     (\preview ->
                         Html.details [ Attr.class "net-response-details" ]
                             [ Html.summary [ Attr.class "net-response-summary" ]
-                                [ Html.text "Response" ]
+                                [ Html.text
+                                    (if entry.status == Failed then
+                                        "Error"
+
+                                     else
+                                        "Response"
+                                    )
+                                ]
                             , Html.pre [ Attr.class "net-response-body" ]
                                 [ Html.text (formatJsonPreview preview) ]
                             ]

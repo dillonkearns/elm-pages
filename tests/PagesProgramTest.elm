@@ -418,6 +418,45 @@ all =
                         [ PagesProgram.pressEnter [ PSelector.id "free-input" ]
                         , PagesProgram.ensureViewHas [ PSelector.text "last: Enter" ]
                         ]
+            , test "does not submit enclosing form when keydown prevents default" <|
+                \() ->
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { lastKey = "", submitCount = 0 }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        SubmittedForm ->
+                                            ( { model | submitCount = model.submitCount + 1 }, [] )
+
+                                        KeyDownPrevented key ->
+                                            ( { model | lastKey = key }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Prevented"
+                                    , body =
+                                        [ Html.form
+                                            [ Html.Events.onSubmit SubmittedForm ]
+                                            [ Html.input
+                                                [ Attr.id "prevented-input"
+                                                , Html.Events.preventDefaultOn "keydown"
+                                                    (Decode.field "key" Decode.string
+                                                        |> Decode.map (\key -> ( KeyDownPrevented key, key == "Enter" ))
+                                                    )
+                                                ]
+                                                []
+                                            ]
+                                        , Html.text ("last: " ++ model.lastKey)
+                                        , Html.text ("submits=" ++ String.fromInt model.submitCount)
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.pressEnter [ PSelector.id "prevented-input" ]
+                        , PagesProgram.ensureViewHas [ PSelector.text "last: Enter" ]
+                        , PagesProgram.ensureViewHas [ PSelector.text "submits=0" ]
+                        ]
             , test "fails loudly when the selector matches no element" <|
                 \() ->
                     PagesProgram.expect
@@ -506,6 +545,9 @@ all =
                                     case msg of
                                         SubmittedForm ->
                                             ( { model | submitCount = model.submitCount + 1 }, [] )
+
+                                        KeyDownPrevented _ ->
+                                            ( model, [] )
                             , view =
                                 \_ model ->
                                     { title = "Form"
@@ -3212,6 +3254,58 @@ all =
                         |> List.head
                         |> Maybe.andThen .responsePreview
                         |> Expect.equal (Just "{\n  \"name\": \"Alice\"\n}")
+            , test "simulateHttpError marks the network entry as failed" <|
+                \() ->
+                    PagesProgram.snapshots
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { stars = Nothing }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        FetchStars ->
+                                            ( model
+                                            , [ BackendTask.Http.getJson
+                                                    "https://api.github.com/repos/dillonkearns/elm-pages"
+                                                    (Decode.field "stargazers_count" Decode.int)
+                                                    |> BackendTask.allowFatal
+                                                    |> BackendTask.map GotStars
+                                              ]
+                                            )
+
+                                        GotStars count ->
+                                            ( { model | stars = Just count }, [] )
+                            , view =
+                                \_ model ->
+                                    { title = "Stars"
+                                    , body =
+                                        [ case model.stars of
+                                            Nothing ->
+                                                Html.button [ Html.Events.onClick FetchStars ] [ Html.text "Load Stars" ]
+
+                                            Just count ->
+                                                Html.text ("Stars: " ++ String.fromInt count)
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.clickButton "Load Stars"
+                        , PagesProgram.simulateHttpError
+                            "GET"
+                            "https://api.github.com/repos/dillonkearns/elm-pages"
+                            NetworkError
+                        ]
+                        |> List.concatMap .networkLog
+                        |> List.filter
+                            (\e ->
+                                e.url
+                                    == "https://api.github.com/repos/dillonkearns/elm-pages"
+                                    && e.status
+                                    == Failed
+                            )
+                        |> List.head
+                        |> Maybe.andThen .responsePreview
+                        |> Expect.equal (Just "NetworkError")
             ]
         ]
 
@@ -3251,6 +3345,7 @@ type KeyboardMsg
 
 type FormMsg
     = SubmittedForm
+    | KeyDownPrevented String
 
 
 type CheckMsg
