@@ -345,13 +345,16 @@ findTestIndex name tests =
         |> Maybe.map Tuple.first
 
 
-{-| If a test has an ERROR step, return its index so we can auto-navigate to it.
+{-| If a test has a snapshot carrying an `errorMessage`, return its
+index so we can auto-navigate to it. Catches both inline failed
+assertions (the assertion's own snapshot, with `errorMessage` set)
+and the synthetic ERROR snapshot for framework-level errors.
 -}
 errorStepIndex : NamedTest -> Maybe Int
 errorStepIndex test =
     test.snapshots
         |> List.indexedMap Tuple.pair
-        |> List.filter (\( _, s ) -> s.stepKind == Error)
+        |> List.filter (\( _, s ) -> s.errorMessage /= Nothing)
         |> List.head
         |> Maybe.map Tuple.first
 
@@ -386,7 +389,7 @@ resolveStepFromUrl url snapshots =
         Nothing ->
             snapshots
                 |> List.indexedMap Tuple.pair
-                |> List.filter (\( _, s ) -> s.stepKind == Error)
+                |> List.filter (\( _, s ) -> s.errorMessage /= Nothing)
                 |> List.head
                 |> Maybe.map Tuple.first
                 |> Maybe.withDefault 0
@@ -937,7 +940,7 @@ currentTestName model =
 testHasError : NamedTest -> Bool
 testHasError test =
     test.snapshots
-        |> List.any (\s -> s.stepKind == Error)
+        |> List.any (\s -> s.errorMessage /= Nothing)
 
 
 {-| A node in the suite tree. `Test.PagesProgram.toNamedSnapshots`
@@ -1117,11 +1120,11 @@ firstErrorAt test =
         |> List.indexedMap Tuple.pair
         |> List.filterMap
             (\( i, s ) ->
-                case ( s.stepKind, s.errorMessage ) of
-                    ( Error, Just msg ) ->
+                case s.errorMessage of
+                    Just msg ->
                         Just { atStep = i + 1, errorMsg = msg }
 
-                    _ ->
+                    Nothing ->
                         Nothing
             )
         |> List.head
@@ -1150,11 +1153,84 @@ view model =
 viewSuiteOverview : Model -> List (Html Msg)
 viewSuiteOverview model =
     [ viewHeader model
+    , viewSuiteOverviewSubbar model
     , Html.div [ Attr.class "viewer-body suite-overview-body" ]
-        [ viewTestListSidebar model
-        , viewSuiteMain model
+        [ viewSuiteCardGrid model
         ]
     ]
+
+
+{-| Sub-toolbar shown above the card grid: aggregate stats + filter
+input + the highlight legend so the overlay vocabulary is
+self-explanatory at thumbnail scale.
+-}
+viewSuiteOverviewSubbar : Model -> Html Msg
+viewSuiteOverviewSubbar model =
+    let
+        totalTests =
+            List.length model.tests
+
+        moduleCount =
+            model.tests
+                |> List.map (\t -> (parseTestPath t.name).ancestors |> List.head |> Maybe.withDefault "")
+                |> dedupe
+                |> List.length
+
+        failingCount =
+            model.tests
+                |> List.filter testHasError
+                |> List.length
+
+        statsText =
+            String.fromInt moduleCount
+                ++ " "
+                ++ pluralize "module" moduleCount
+                ++ " · "
+                ++ String.fromInt totalTests
+                ++ " "
+                ++ pluralize "test" totalTests
+    in
+    Html.div [ Attr.class "suite-overview-subbar" ]
+        [ Html.div [ Attr.class "suite-overview-stats" ]
+            [ Html.span [ Attr.class "suite-overview-stats-text" ] [ Html.text statsText ]
+            , if failingCount > 0 then
+                Html.span [ Attr.class "suite-overview-stats-failing" ]
+                    [ Html.text (" · " ++ String.fromInt failingCount ++ " failing") ]
+
+              else
+                Html.text ""
+            ]
+        , Html.input
+            [ Attr.class "suite-overview-filter"
+            , Attr.placeholder "Filter tests…"
+            , Attr.value model.searchQuery
+            , Html.Events.onInput UpdateSearch
+            ]
+            []
+        ]
+
+
+pluralize : String -> Int -> String
+pluralize word n =
+    if n == 1 then
+        word
+
+    else
+        word ++ "s"
+
+
+dedupe : List String -> List String
+dedupe xs =
+    xs
+        |> List.foldl
+            (\x acc ->
+                if List.member x acc then
+                    acc
+
+                else
+                    acc ++ [ x ]
+            )
+            []
 
 
 viewCommandLogShell : Model -> List (Html Msg)
@@ -1597,12 +1673,25 @@ viewCommandLogSidebar model =
         errorIndex =
             snapshots
                 |> List.indexedMap Tuple.pair
-                |> List.filter (\( _, s ) -> s.stepKind == Error)
+                |> List.filter (\( _, s ) -> s.errorMessage /= Nothing)
                 |> List.head
                 |> Maybe.map Tuple.first
 
-        failureCauseIndex =
-            errorIndex |> Maybe.map (\ei -> ei - 1)
+        -- The interaction whose effect was being asserted on. When the
+        -- failing assertion is a child of an interaction, mark the
+        -- parent so it stays loud-red even when collapsed (or scrolled
+        -- past the active row). Standalone failing assertions have no
+        -- parent here.
+        parentOfFailureIndex =
+            errorIndex
+                |> Maybe.andThen
+                    (\ei ->
+                        if isChildStep ei snapshots then
+                            Just (parentOfChild ei snapshots)
+
+                        else
+                            Nothing
+                    )
     in
     Html.div [ Attr.class "sidebar" ]
         [ -- Per-test header lives in the toolbar breadcrumb now;
@@ -1688,7 +1777,7 @@ viewCommandLogSidebar model =
                                         eventDots =
                                             viewStepChannelGutter model events
                                     in
-                                    [ viewStepRow i stepLabel snapshot model.currentStepIndex isHovering (model.hoveredStepIndex == Just i) (failureCauseIndex == Just i) isChild isGroupParent isExpanded numChildren eventDots ]
+                                    [ viewStepRow i stepLabel snapshot model.currentStepIndex isHovering (model.hoveredStepIndex == Just i) (parentOfFailureIndex == Just i) isChild isGroupParent isExpanded numChildren eventDots ]
                         in
                         groupHeader ++ stepRow
                     )
@@ -2020,7 +2109,7 @@ viewRailColumnHeader model =
 
 
 viewStepRow : Int -> StepLabel -> Snapshot -> Int -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Int -> Html Msg -> Html Msg
-viewStepRow index stepLabel snapshot currentIndex isHovering isHovered isFailureCause isChild isGroupParent isExpanded numChildren eventDots =
+viewStepRow index stepLabel snapshot currentIndex isHovering isHovered containsError isChild isGroupParent isExpanded numChildren eventDots =
     let
         isActive =
             index == currentIndex
@@ -2034,8 +2123,8 @@ viewStepRow index stepLabel snapshot currentIndex isHovering isHovered isFailure
             , ( "step-row-active", isActive )
             , ( "step-row-hovered", isHovered )
             , ( "step-row-past", isPast && not isActive )
-            , ( "step-row-error", snapshot.stepKind == Error )
-            , ( "step-row-failure-cause", isFailureCause )
+            , ( "step-row-error", snapshot.errorMessage /= Nothing )
+            , ( "step-row-contains-error", containsError )
             , ( "step-row-child", isChild )
             ]
         , Attr.id ("step-" ++ String.fromInt index)
@@ -2673,31 +2762,409 @@ firstJust f list =
                     firstJust f rest
 
 
-{-| Right-area content for the suite overview. Renders the calm
-PassingCard when every test is green, or a stack of FailureCards
-when any test fails. Empty suite (no tests) gets its own card.
+{-| Suite overview card grid. Replaces the older centered "N tests
+passing" panel with a per-module card grid where each card shows a
+representative-step thumbnail.
 -}
-viewSuiteMain : Model -> Html Msg
-viewSuiteMain model =
+viewSuiteCardGrid : Model -> Html Msg
+viewSuiteCardGrid model =
+    if List.isEmpty model.tests then
+        viewSuiteEmptyCard
+
+    else
+        let
+            grouped =
+                groupTestsByModule
+                    (filterTestsByQuery model.searchQuery
+                        (List.indexedMap Tuple.pair model.tests)
+                    )
+        in
+        if List.isEmpty grouped then
+            Html.div [ Attr.class "suite-overview-empty-filter" ]
+                [ Html.text ("No tests match \"" ++ model.searchQuery ++ "\". ")
+                , Html.button
+                    [ Attr.class "suite-overview-clear-filter"
+                    , Html.Events.onClick (UpdateSearch "")
+                    ]
+                    [ Html.text "Clear filter" ]
+                ]
+
+        else
+            Html.div [ Attr.class "suite-overview-grid" ]
+                (grouped |> List.map viewModuleGroup)
+
+
+{-| One per module. Header shows the module name + a tally line ("3
+tests · all passing" / "3 tests · 1 failing"); a `repeat(auto-fill,
+minmax(260px, 1fr))` grid below.
+-}
+viewModuleGroup : ( String, List ( Int, NamedTest ) ) -> Html Msg
+viewModuleGroup ( moduleName, tests ) =
     let
-        failingTests =
-            model.tests
-                |> List.indexedMap Tuple.pair
-                |> List.filter (\( _, t ) -> testHasError t)
+        failing =
+            tests |> List.filter (\( _, t ) -> testHasError t) |> List.length
 
-        passingCount =
-            List.length model.tests - List.length failingTests
+        total =
+            List.length tests
+
+        tallyText =
+            String.fromInt total
+                ++ " "
+                ++ pluralize "test" total
+                ++ (if failing > 0 then
+                        " · " ++ String.fromInt failing ++ " failing"
+
+                    else
+                        " · all passing"
+                   )
     in
-    Html.div [ Attr.class "suite-main" ]
-        [ if List.isEmpty model.tests then
-            viewSuiteEmptyCard
+    Html.div [ Attr.class "suite-module-group" ]
+        [ Html.div [ Attr.class "suite-module-header" ]
+            [ Html.span [ Attr.class "suite-module-name" ]
+                [ Html.text
+                    (if String.isEmpty moduleName then
+                        "(no module)"
 
-          else if List.isEmpty failingTests then
-            viewPassingCard passingCount
-
-          else
-            viewFailureReport failingTests model
+                     else
+                        moduleName
+                    )
+                ]
+            , Html.span
+                [ Attr.classList
+                    [ ( "suite-module-tally", True )
+                    , ( "suite-module-tally-failing", failing > 0 )
+                    ]
+                ]
+                [ Html.text tallyText ]
+            ]
+        , Html.div [ Attr.class "suite-module-cards" ]
+            (tests |> List.map viewSuiteCard)
         ]
+
+
+{-| Build a [(moduleName, tests)] list, preserving the source order
+of tests within each module and the order modules first appear.
+-}
+groupTestsByModule : List ( Int, NamedTest ) -> List ( String, List ( Int, NamedTest ) )
+groupTestsByModule tests =
+    tests
+        |> List.foldl
+            (\( idx, t ) acc ->
+                let
+                    moduleName =
+                        (parseTestPath t.name).ancestors
+                            |> List.head
+                            |> Maybe.withDefault ""
+
+                    insert pairs =
+                        case pairs of
+                            [] ->
+                                [ ( moduleName, [ ( idx, t ) ] ) ]
+
+                            ( name, members ) :: rest ->
+                                if name == moduleName then
+                                    ( name, members ++ [ ( idx, t ) ] ) :: rest
+
+                                else
+                                    ( name, members ) :: insert rest
+                in
+                insert acc
+            )
+            []
+
+
+filterTestsByQuery : String -> List ( Int, NamedTest ) -> List ( Int, NamedTest )
+filterTestsByQuery rawQuery tests =
+    let
+        q =
+            String.toLower (String.trim rawQuery)
+    in
+    if String.isEmpty q then
+        tests
+
+    else
+        tests
+            |> List.filter
+                (\( _, t ) -> String.contains q (String.toLower t.name))
+
+
+{-| Pick the snapshot index to show in the thumbnail. Heuristic:
+fail step (forced) → author's `represent` mark → final snapshot.
+-}
+representativeStepIndex : NamedTest -> Int
+representativeStepIndex test =
+    case errorStepIndex test of
+        Just i ->
+            i
+
+        Nothing ->
+            let
+                authorMarked =
+                    test.snapshots
+                        |> List.indexedMap Tuple.pair
+                        |> List.filter (\( _, s ) -> s.representative)
+                        |> List.head
+                        |> Maybe.map Tuple.first
+            in
+            case authorMarked of
+                Just i ->
+                    i
+
+                Nothing ->
+                    max 0 (List.length test.snapshots - 1)
+
+
+{-| One card. Thumbnail is wired to the dev-server iframe-sync poll
+via a hidden `.page-body` plus a matching iframe; both share the same
+`data-thumb-id` so the poll knows which body source belongs to which
+iframe.
+-}
+viewSuiteCard : ( Int, NamedTest ) -> Html Msg
+viewSuiteCard ( testIdx, test ) =
+    let
+        hasError =
+            testHasError test
+
+        repIdx =
+            representativeStepIndex test
+
+        thumbId =
+            "thumb-" ++ String.fromInt testIdx
+
+        repSnapshot =
+            test.snapshots
+                |> List.drop repIdx
+                |> List.head
+
+        totalSteps =
+            List.length test.snapshots
+
+        leafName =
+            (parseTestPath test.name).leaf
+
+        statusGlyph =
+            if hasError then
+                Html.span [ Attr.class "suite-card-status suite-card-status-fail" ]
+                    [ Html.text "✕" ]
+
+            else
+                Html.span [ Attr.class "suite-card-status suite-card-status-ok" ]
+                    [ Html.text "✓" ]
+
+        -- Use the same primary/sub labelling the rail uses, so a
+        -- representative step on an assertion reads as "5b" rather
+        -- than "6" — matching what the user sees in the sidebar.
+        stepLabels =
+            computeStepLabels test.snapshots
+
+        repLabel =
+            stepLabels
+                |> List.drop repIdx
+                |> List.head
+                |> Maybe.withDefault { primary = repIdx + 1, sub = Nothing }
+
+        primaryTotal =
+            stepLabels
+                |> List.map .primary
+                |> List.maximum
+                |> Maybe.withDefault totalSteps
+
+        stepBadgeText =
+            "step " ++ formatStepLabel repLabel ++ " / " ++ String.fromInt primaryTotal
+
+        subtitle =
+            case ( hasError, firstErrorAt test ) of
+                ( True, Just { atStep, errorMsg } ) ->
+                    let
+                        failLabel =
+                            stepLabels
+                                |> List.drop (atStep - 1)
+                                |> List.head
+                                |> Maybe.withDefault { primary = atStep, sub = Nothing }
+                    in
+                    Html.div [ Attr.class "suite-card-subtitle suite-card-subtitle-fail" ]
+                        [ Html.text
+                            ("step "
+                                ++ formatStepLabel failLabel
+                                ++ ": "
+                                ++ extractFailureSummary errorMsg
+                            )
+                        ]
+
+                _ ->
+                    Html.div [ Attr.class "suite-card-subtitle" ]
+                        [ Html.text (cardSummary test) ]
+    in
+    Html.button
+        [ Attr.classList
+            [ ( "suite-card-v2", True )
+            , ( "suite-card-v2-fail", hasError )
+            ]
+        , Html.Events.onClick (GoToTest testIdx)
+        ]
+        [ Html.div [ Attr.class "suite-card-thumb" ]
+            [ viewSuiteCardThumbBody thumbId repSnapshot
+            , Html.span [ Attr.class "suite-card-thumb-badge" ]
+                [ Html.text stepBadgeText ]
+            ]
+        , Html.div [ Attr.class "suite-card-meta" ]
+            [ Html.div [ Attr.class "suite-card-title-row" ]
+                [ statusGlyph
+                , Html.span [ Attr.class "suite-card-name" ] [ Html.text leafName ]
+                ]
+            , subtitle
+            , Html.div [ Attr.class "suite-card-meta-row" ]
+                [ Html.text (String.fromInt primaryTotal ++ " " ++ pluralize "step" primaryTotal) ]
+            ]
+        ]
+
+
+{-| Hidden source `.page-body` (mirrored into the thumb iframe by
+the dev-server poll) plus the iframe itself. The two share a
+`data-thumb-id` attribute so the poll knows which body belongs to
+which iframe; the iframe's `data-thumb-scope` carries the scope-rect
+selector so the poll can compute a zoom-into transform.
+-}
+viewSuiteCardThumbBody : String -> Maybe Snapshot -> Html Msg
+viewSuiteCardThumbBody thumbId maybeSnapshot =
+    case maybeSnapshot of
+        Nothing ->
+            Html.div [ Attr.class "suite-card-thumb-empty" ] []
+
+        Just snapshot ->
+            let
+                highlightAttr =
+                    case ( snapshot.targetElement, snapshot.assertionSelectors ) of
+                        ( Just (BySelectors sels), _ ) ->
+                            [ Attr.attribute "data-highlight"
+                                (Encode.encode 0
+                                    (encodeInteractionHighlight sels snapshot.scopeSelectors)
+                                )
+                            ]
+
+                        ( Just target, _ ) ->
+                            [ Attr.attribute "data-highlight"
+                                (Encode.encode 0 (encodeTargetSelector target))
+                            ]
+
+                        ( Nothing, _ :: _ ) ->
+                            [ Attr.attribute "data-highlight"
+                                (Encode.encode 0
+                                    (encodeAssertionHighlight snapshot.assertionSelectors snapshot.scopeSelectors)
+                                )
+                            ]
+
+                        _ ->
+                            []
+
+                isFailingAssertion =
+                    snapshot.errorMessage /= Nothing
+
+                modeAttr =
+                    [ Attr.attribute "data-thumb-mode"
+                        (if isFailingAssertion then
+                            "fail"
+
+                         else
+                            "ok"
+                        )
+                    ]
+            in
+            Html.div [ Attr.class "suite-card-thumb-frame" ]
+                [ Html.div
+                    (Attr.class "page-body suite-card-thumb-source"
+                        :: Attr.attribute "data-thumb-id" thumbId
+                        :: highlightAttr
+                    )
+                    (snapshot.body |> List.map (Html.map (\_ -> NoOp)))
+                , Html.node "iframe"
+                    ([ Attr.class "suite-card-thumb-iframe"
+                     , Attr.attribute "data-thumb-id" thumbId
+                     , -- Pin the iframe's layout viewport to match the
+                       -- iframe's CSS width so the page renders at
+                       -- desktop dimensions even when the iframe is
+                       -- transform-scaled down to thumb size.
+                       Attr.attribute "src" "/_tests-preview?vp=1280"
+                     ]
+                        ++ modeAttr
+                    )
+                    []
+                ]
+
+
+{-| One-line summary shown under the test name on a passing card.
+Walks the snapshots for the first interaction step and the last
+assertion step, joining them with " → ". Falls back to "all assertions"
+if nothing interactable was seen.
+-}
+cardSummary : NamedTest -> String
+cardSummary test =
+    let
+        firstInteraction =
+            test.snapshots
+                |> List.filter (\s -> s.stepKind == Interaction)
+                |> List.head
+                |> Maybe.map (\s -> compactLabel s.label)
+
+        lastAssertion =
+            test.snapshots
+                |> List.filter (\s -> s.stepKind == Assertion)
+                |> List.reverse
+                |> List.head
+                |> Maybe.map (\s -> compactLabel s.label)
+    in
+    case ( firstInteraction, lastAssertion ) of
+        ( Just a, Just b ) ->
+            a ++ " → " ++ b
+
+        ( Just a, Nothing ) ->
+            a
+
+        ( Nothing, Just b ) ->
+            b
+
+        ( Nothing, Nothing ) ->
+            String.fromInt (List.length test.snapshots) ++ " " ++ pluralize "step" (List.length test.snapshots)
+
+
+{-| Trim a step label to fit on the card subtitle line. Drops any
+parenthesized argument list.
+-}
+compactLabel : String -> String
+compactLabel label =
+    case String.split "(" label of
+        head :: _ ->
+            String.trim head
+
+        [] ->
+            label
+
+
+{-| Reduce a multi-line elm-test failure message to a single short
+line for the card subtitle. Prefers the last `✗ …` line (the actual
+failed expectation, e.g. `has text "Page not found!!!"`); falls back
+to the first line otherwise.
+-}
+extractFailureSummary : String -> String
+extractFailureSummary errorMsg =
+    let
+        lines =
+            String.split "\n" errorMsg
+                |> List.map String.trim
+                |> List.filter (\l -> not (String.isEmpty l))
+
+        lastFailLine =
+            lines
+                |> List.filter (String.startsWith "✗")
+                |> List.reverse
+                |> List.head
+    in
+    case lastFailLine of
+        Just line ->
+            line |> String.dropLeft 1 |> String.trim
+
+        Nothing ->
+            lines |> List.head |> Maybe.withDefault errorMsg
 
 
 viewSuiteEmptyCard : Html Msg
@@ -2705,18 +3172,6 @@ viewSuiteEmptyCard =
     Html.div [ Attr.class "suite-card suite-card-empty" ]
         [ Html.div [ Attr.class "suite-card-body-text" ]
             [ Html.text "No tests yet. Add a test to your suite to see it here." ]
-        ]
-
-
-viewPassingCard : Int -> Html Msg
-viewPassingCard count =
-    Html.div [ Attr.class "suite-card suite-card-passing" ]
-        [ Html.div [ Attr.class "suite-card-badge" ]
-            [ Html.span [ Attr.class "suite-card-check" ] [ Html.text "✓" ] ]
-        , Html.h2 [ Attr.class "suite-card-heading" ]
-            [ Html.text (String.fromInt count ++ " tests passing") ]
-        , Html.p [ Attr.class "suite-card-body-text" ]
-            [ Html.text "Suite is healthy. Pick any test on the left to step through it." ]
         ]
 
 
@@ -2826,28 +3281,32 @@ viewMainPanel model =
             Just snapshot ->
                 case snapshot.errorMessage of
                     Just errorMsg ->
-                        Html.div [ Attr.class "main-panel-content" ]
-                            [ viewUrlBar
-                                (previousSnapshot
-                                    |> Maybe.withDefault snapshot
-                                )
-                            , viewErrorPanel errorMsg
-                            , case previousSnapshot of
-                                Just prev ->
-                                    viewRenderedPageWithWidth model.viewportWidth prev
+                        let
+                            -- For an inline failed assertion the snapshot's
+                            -- own body is the page state where the check
+                            -- ran, plus the right assertion selectors for
+                            -- the red highlight ring. The synthetic ERROR
+                            -- snapshot (framework-level errors) has no
+                            -- real body, so fall back to the previous
+                            -- snapshot in that case.
+                            pageSnapshot =
+                                if snapshot.stepKind == Error then
+                                    previousSnapshot |> Maybe.withDefault snapshot
 
-                                Nothing ->
-                                    viewEmptyRenderedPage
+                                else
+                                    snapshot
+                        in
+                        Html.div [ Attr.class "main-panel-content" ]
+                            [ viewUrlBar pageSnapshot
+                            , viewErrorPanel errorMsg
+                            , viewRenderedPageWithWidth model.viewportWidth pageSnapshot
                             , if model.showFetchers then
                                 viewFetcherInspector (displayedStepIndex model) (currentSnapshots model)
 
                               else
                                 Html.text ""
                             , if model.showEffects then
-                                viewEffectInspector
-                                    (previousSnapshot
-                                        |> Maybe.withDefault snapshot
-                                    )
+                                viewEffectInspector pageSnapshot
 
                               else
                                 Html.text ""
@@ -5170,16 +5629,33 @@ computeNamedGroupStarts snapshots =
             Set.empty
 
 
-{-| Initial `expandedGroups` set so every named group is expanded on load.
-Uses the negated-key convention the named-group toggle uses: key `-(i + 1)`
-for the snapshot at index `i` that starts the group.
+{-| Initial `expandedGroups` set so every named group is expanded on
+load, plus any parent whose child carries an `errorMessage` — without
+that, landing on the failing assertion row would hide it under a
+collapsed parent and the user would see a regular-coloured rail with
+no obvious failure indicator.
+
+Uses two key spaces in the same set: positive `parentIndex` for
+parent-of-children groups (assertions hanging off an interaction);
+negative `-(i + 1)` for named groups created by `PagesProgram.group`.
+
 -}
 defaultExpandedGroups : List Snapshot -> Set Int
 defaultExpandedGroups snapshots =
-    computeNamedGroupStarts snapshots
-        |> Set.toList
-        |> List.map (\i -> -(i + 1))
-        |> Set.fromList
+    let
+        namedGroupKeys =
+            computeNamedGroupStarts snapshots
+                |> Set.toList
+                |> List.map (\i -> -(i + 1))
+
+        parentsOfFailingChildren =
+            snapshots
+                |> List.indexedMap Tuple.pair
+                |> List.filter (\( _, s ) -> s.errorMessage /= Nothing)
+                |> List.filter (\( i, _ ) -> isChildStep i snapshots)
+                |> List.map (\( i, _ ) -> parentOfChild i snapshots)
+    in
+    Set.fromList (namedGroupKeys ++ parentsOfFailingChildren)
 
 
 {-| Find the index of the first snapshot in the same named group.
@@ -5730,12 +6206,14 @@ body {
     border-left-color: #e74c3c;
 }
 
-/* Step that caused the failure — the step *before* the error. Reads as
-   amber so it's distinct from the red error row itself. */
-.step-row-failure-cause {
-    border-left-color: #fcd34d;
-    background: rgba(252, 211, 77, 0.06);
-    box-shadow: inset 0 -1px 0 rgba(252, 211, 77, 0.18);
+/* The interaction whose effect was being asserted on when the
+   assertion failed. Painted with the same red as the failing
+   assertion row itself so the failure stays loud-visible even when
+   the user collapses the parent's children or scrolls past the
+   active row. */
+.step-row-contains-error {
+    background: rgba(231, 76, 60, 0.08);
+    border-left-color: #e74c3c;
 }
 
 .step-row-child {
@@ -5932,9 +6410,10 @@ body {
     font-size: 12.5px;
 }
 
-/* Failure-cause amber tinge applies to whatever arg color the row uses. */
-.step-row-failure-cause .step-arg {
-    color: #fcd34d;
+/* The parent of a failing assertion — recolour its arg so the row
+   reads cohesively in the same red family as the error row below. */
+.step-row-contains-error .step-arg {
+    color: #fca5a5;
 }
 
 .model-parse-error-banner {
@@ -5967,9 +6446,278 @@ body {
 /* === SUITE OVERVIEW === */
 
 .suite-overview-body {
-    display: flex;
+    /* Override .viewer-body's `display: flex` so the card grid below
+       gets full width — without this, the grid container collapses to
+       its min-content size and we end up with a single column. */
     flex: 1;
     min-height: 0;
+    display: block;
+    overflow-y: auto;
+    background: #0d1117;
+}
+
+/* Sub-toolbar above the card grid: stats + filter input. */
+.suite-overview-subbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 20px;
+    background: #10161f;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    flex-shrink: 0;
+}
+
+.suite-overview-stats {
+    font-size: 11.5px;
+    color: #a4b1c2;
+    font-family: "JetBrains Mono", "SF Mono", monospace;
+}
+
+.suite-overview-stats-text {
+    color: #8896a6;
+}
+
+.suite-overview-stats-failing {
+    color: #ff7a7a;
+    font-weight: 600;
+}
+
+.suite-overview-filter {
+    margin-left: auto;
+    width: 240px;
+    padding: 6px 10px;
+    background: #0d1117;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 5px;
+    color: #c8d3e0;
+    font-size: 12.5px;
+    font-family: inherit;
+}
+
+.suite-overview-filter:focus {
+    outline: none;
+    border-color: rgba(125, 211, 252, 0.4);
+}
+
+/* === CARD GRID === */
+
+.suite-overview-grid {
+    padding: 14px 16px 28px;
+}
+
+.suite-overview-empty-filter {
+    padding: 32px 20px;
+    color: #a4b1c2;
+    font-size: 13px;
+}
+
+.suite-overview-clear-filter {
+    background: transparent;
+    border: none;
+    color: #7dd3fc;
+    cursor: pointer;
+    font: inherit;
+    padding: 0;
+    text-decoration: underline;
+}
+
+.suite-module-group {
+    margin-bottom: 22px;
+}
+
+.suite-module-header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.suite-module-name {
+    font-size: 12px;
+    color: #c2cbd6;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.suite-module-tally {
+    color: #5b6573;
+    font-size: 10.5px;
+    font-family: "JetBrains Mono", "SF Mono", monospace;
+}
+
+.suite-module-tally-failing {
+    color: #ff7a7a;
+}
+
+.suite-module-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 14px;
+}
+
+@media (min-width: 1440px) {
+    .suite-module-cards {
+        grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+        gap: 16px;
+    }
+}
+
+@media (min-width: 1920px) {
+    .suite-module-cards {
+        grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
+    }
+}
+
+@media (min-width: 2560px) {
+    .suite-module-cards {
+        grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
+        gap: 18px;
+    }
+}
+
+.suite-card-v2 {
+    background: #0e141d;
+    border: 1px solid #1d2632;
+    border-radius: 7px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    text-align: left;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.suite-card-v2:hover {
+    border-color: #263241;
+}
+
+.suite-card-v2-fail {
+    border-color: color-mix(in oklab, #ff7a7a 55%, #1d2632);
+    box-shadow: 0 0 0 1px rgba(255, 106, 106, 0.18) inset;
+}
+
+.suite-card-thumb {
+    /* 16/10 matches the iframe's natural 1024x640, so the no-scope
+       fit-to-width branch fills the thumb without letterboxing. */
+    aspect-ratio: 16 / 10;
+    position: relative;
+    background: #000;
+    overflow: hidden;
+}
+
+.suite-card-thumb-source {
+    /* Hidden source for the thumb iframe. The dev-server poll mirrors
+       this body's innerHTML + data-highlight into the matching iframe. */
+    display: none;
+}
+
+.suite-card-thumb-frame {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+}
+
+.suite-card-thumb-iframe {
+    /* Render the iframe at a desktop viewport size so pages designed
+       for desktop fit horizontally — anything past the iframe's
+       internal width ends up in the iframe's hidden scroll area and
+       crops in the thumb. Aspect 16:10 matches the .suite-card-thumb
+       container so fit-to-width fills the thumb with no letterbox. */
+    width: 1280px;
+    height: 800px;
+    border: 0;
+    background: #fff;
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: 0 0;
+}
+
+.suite-card-thumb-empty {
+    width: 100%;
+    height: 100%;
+    background: #0b1018;
+}
+
+.suite-card-thumb-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #c2cbd6;
+    font-family: "JetBrains Mono", "SF Mono", monospace;
+    font-size: 9.5px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.suite-card-meta {
+    padding: 8px 10px 9px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.suite-card-title-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.suite-card-status {
+    margin-top: 1px;
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.1;
+    width: 12px;
+    text-align: center;
+}
+
+.suite-card-status-ok {
+    color: #7cd47a;
+}
+
+.suite-card-status-fail {
+    color: #ff7a7a;
+}
+
+.suite-card-name {
+    color: #e6edf6;
+    font-size: 12.5px;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.suite-card-subtitle {
+    color: #5b6573;
+    font-size: 10.5px;
+    font-family: "JetBrains Mono", "SF Mono", monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-left: 18px;
+}
+
+.suite-card-subtitle-fail {
+    color: #ff7a7a;
+}
+
+.suite-card-meta-row {
+    color: #5b6573;
+    font-size: 9.5px;
+    font-family: "JetBrains Mono", "SF Mono", monospace;
+    padding-left: 18px;
+    margin-top: 1px;
 }
 
 .suite-sidebar {

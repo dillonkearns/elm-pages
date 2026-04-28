@@ -345,11 +345,21 @@ export async function start(options) {
   async function handleTestViewerPreview(request, response) {
     try {
       const userHeadTags = config.headTagsTemplate({ cliVersion: packageVersion });
+      // Allow the embedding iframe to pin a fixed layout viewport via
+      // ?vp=N. Browsers can otherwise compute a transformed iframe's
+      // effective viewport from its post-transform display size — for
+      // thumbnails (scaled down ~25%) that means the page lays out at
+      // mobile-ish widths even though the iframe is CSS-sized at
+      // desktop. Pinning the viewport keeps the layout faithful.
+      const vpMatch = request.url && request.url.match(/[?&]vp=(\d+)/);
+      const viewportContent = vpMatch
+        ? `width=${vpMatch[1]}, initial-scale=1.0`
+        : "width=device-width, initial-scale=1.0";
       const previewHtml = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="${viewportContent}">
   ${userHeadTags}
 </head>
 <body>
@@ -565,10 +575,9 @@ main =
       }
     };
 
-    // Sync Elm's hidden .page-body into the preview iframe via polling.
+    // Sync Elm's hidden .page-body into the preview iframe(s) via polling.
     // innerHTML doesn't capture DOM properties (like input.value, checkbox.checked),
     // so we copy those separately after syncing HTML.
-    var lastSynced = "";
     function syncProperties(source, target) {
       var sourceInputs = source.querySelectorAll('input, textarea, select');
       var targetInputs = target.querySelectorAll('input, textarea, select');
@@ -581,8 +590,20 @@ main =
         }
       }
     }
-    var lastHighlightJson = "";
-    var lastScrolledHighlight = "";
+
+    // Per-iframe sync state. The detail view has a single iframe, the
+    // suite overview can have many (one per card), so we stash state on
+    // each iframe element rather than in module-scope vars.
+    function getSyncState(iframe) {
+      if (!iframe.__elmPagesSync) {
+        iframe.__elmPagesSync = {
+          lastSynced: "",
+          lastHighlightJson: "",
+          lastScrolledHighlight: "",
+        };
+      }
+      return iframe.__elmPagesSync;
+    }
 
     function findHighlightTarget(doc, selector) {
       if (!selector) return null;
@@ -821,15 +842,16 @@ main =
       }
     }
 
-    function updateHighlight(iframeDoc, pageBody) {
+    function updateHighlight(iframeDoc, pageBody, state, opts) {
+      opts = opts || {};
       var highlightJson = pageBody ? pageBody.getAttribute("data-highlight") : null;
 
       // Remove old highlights (both target and scope) if selector changed
-      if (highlightJson !== lastHighlightJson) {
+      if (highlightJson !== state.lastHighlightJson) {
         var old = iframeDoc.querySelectorAll(".__elm-pages-highlight, .__elm-pages-highlight-scope");
         for (var i = 0; i < old.length; i++) old[i].remove();
         unpinHoverStyles(iframeDoc);
-        lastHighlightJson = highlightJson;
+        state.lastHighlightJson = highlightJson;
       }
 
       if (!highlightJson) return;
@@ -856,10 +878,11 @@ main =
         pinHoverStyles(iframeDoc, el);
       }
 
-      // Scroll element into view when highlight target changes
-      if (highlightJson !== lastScrolledHighlight) {
+      // Scroll element into view when highlight target changes (skipped for
+      // thumbnails, where the zoom transform handles framing instead).
+      if (!opts.skipScroll && highlightJson !== state.lastScrolledHighlight) {
         el.scrollIntoView({ block: "nearest", behavior: "smooth" });
-        lastScrolledHighlight = highlightJson;
+        state.lastScrolledHighlight = highlightJson;
       }
 
       var scrollX = iframeDoc.defaultView.scrollX || 0;
@@ -920,25 +943,127 @@ main =
       iframeDoc.__interactionsDisabled = true;
     }
 
-    setInterval(function() {
-      var iframe = document.getElementById('preview-iframe');
-      if (!iframe) return;
-      try {
-        var target = iframe.contentDocument && iframe.contentDocument.getElementById('preview-root');
-        if (!target) return;
-        disableIframeInteractions(iframe.contentDocument);
-        var pageBody = document.querySelector('.page-body');
-        var html = pageBody ? pageBody.innerHTML : "";
-        if (html !== lastSynced) {
-          target.innerHTML = html;
-          lastSynced = html;
+    // For thumbnails, scale the rendered iframe content so the within
+    // scope (or, when no scope, the page top) fills the visible area.
+    // The iframe element itself is rendered at a fixed natural size so
+    // the page lays out as if it had real viewport room; we then apply
+    // a CSS transform on the iframe element to shrink it into the card.
+    function applyThumbZoom(iframe, iframeDoc, pageBody) {
+      var thumbW = iframe.parentElement ? iframe.parentElement.clientWidth : iframe.clientWidth;
+      var thumbH = iframe.parentElement ? iframe.parentElement.clientHeight : iframe.clientHeight;
+      if (!thumbW || !thumbH) return;
+
+      // Use the actual rendered content width — pages may overflow the
+      // iframe's CSS viewport (e.g., a hero with a wide layout). Falling
+      // back to the iframe's CSS width if the page hasn't laid out yet.
+      var naturalW = parseFloat(iframe.dataset.thumbNaturalW || "1280");
+      var naturalH = parseFloat(iframe.dataset.thumbNaturalH || "800");
+      var docElem = iframeDoc.documentElement;
+      var bodyElem = iframeDoc.body;
+      var contentW =
+        Math.max(
+          docElem ? docElem.scrollWidth || 0 : 0,
+          bodyElem ? bodyElem.scrollWidth || 0 : 0,
+          naturalW
+        );
+      var contentH =
+        Math.max(
+          docElem ? docElem.scrollHeight || 0 : 0,
+          bodyElem ? bodyElem.scrollHeight || 0 : 0,
+          naturalH
+        );
+      naturalW = contentW;
+      naturalH = contentH;
+      var fitToWidth = thumbW / naturalW;
+
+      var scale, tx, ty;
+
+      // Always render at fit-to-width: full page width is visible at
+      // the same scale across all cards, so the user can compare them
+      // at a glance. The within scope (if any) is communicated by the
+      // highlight overlay, not by zooming in — zooming in here cropped
+      // the right edge of the page off the thumb.
+      scale = fitToWidth;
+      var visibleH = thumbH / scale;
+
+      var scopeRect = computeScopeRect(iframeDoc, pageBody);
+      if (scopeRect && scopeRect.height > 4) {
+        // Center vertically on the scope, clamped to page bounds, so
+        // a scope deep in the page scrolls into the thumb's window.
+        var cy = scopeRect.top + scopeRect.height / 2;
+        if (visibleH < naturalH) {
+          cy = Math.max(visibleH / 2, Math.min(naturalH - visibleH / 2, cy));
+        } else {
+          cy = naturalH / 2;
         }
-        // Always sync properties (value can change without innerHTML changing)
+        tx = 0;
+        ty = thumbH / 2 - cy * scale;
+      } else {
+        // No scope — fit the page width and align to top.
+        tx = 0;
+        ty = 0;
+      }
+
+      iframe.style.transformOrigin = "0 0";
+      iframe.style.transform = "translate(" + tx + "px, " + ty + "px) scale(" + scale + ")";
+    }
+
+    function computeScopeRect(iframeDoc, pageBody) {
+      var json = pageBody ? pageBody.getAttribute("data-highlight") : null;
+      if (!json) return null;
+      var sel;
+      try { sel = JSON.parse(json); } catch (e) { return null; }
+      if (!sel.scopes || sel.scopes.length === 0) return null;
+      var searchRoot = iframeDoc;
+      var lastEl = null;
+      for (var i = 0; i < sel.scopes.length; i++) {
+        var scopeEl = findAssertionTarget(searchRoot, sel.scopes[i]);
+        if (!scopeEl) break;
+        lastEl = scopeEl;
+        searchRoot = scopeEl;
+      }
+      return lastEl ? lastEl.getBoundingClientRect() : null;
+    }
+
+    function syncIframe(iframe, pageBody, isThumb) {
+      try {
+        var doc = iframe.contentDocument;
+        if (!doc) return;
+        var target = doc.getElementById("preview-root");
+        if (!target) return;
+        disableIframeInteractions(doc);
+        var state = getSyncState(iframe);
+        var html = pageBody ? pageBody.innerHTML : "";
+        if (html !== state.lastSynced) {
+          target.innerHTML = html;
+          state.lastSynced = html;
+        }
         if (pageBody) syncProperties(pageBody, target);
-        // Update element highlight overlay
-        updateHighlight(iframe.contentDocument, pageBody);
-      } catch(e) {
+        updateHighlight(doc, pageBody, state, { skipScroll: isThumb });
+        if (isThumb) {
+          applyThumbZoom(iframe, doc, pageBody);
+        }
+      } catch (e) {
         // contentDocument may not be accessible yet
+      }
+    }
+
+    setInterval(function() {
+      // Detail view: a single #preview-iframe paired with the .page-body
+      // that has no data-thumb-id attribute.
+      var detailIframe = document.getElementById("preview-iframe");
+      if (detailIframe) {
+        var detailBody = document.querySelector(".page-body:not([data-thumb-id])");
+        syncIframe(detailIframe, detailBody, false);
+      }
+      // Suite overview: each card has its own iframe + hidden body
+      // sharing a data-thumb-id.
+      var thumbs = document.querySelectorAll("iframe[data-thumb-id]");
+      for (var i = 0; i < thumbs.length; i++) {
+        var thumb = thumbs[i];
+        var thumbId = thumb.getAttribute("data-thumb-id");
+        var thumbBody = document.querySelector('.page-body[data-thumb-id="' + thumbId + '"]');
+        syncIframe(thumb, thumbBody, true);
       }
     }, 50);
   </script>

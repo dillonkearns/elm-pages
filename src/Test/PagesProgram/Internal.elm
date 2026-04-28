@@ -79,6 +79,7 @@ type alias Snapshot =
     , fetcherLog : List FetcherEntry
     , cookieLog : List ( String, CookieEntry )
     , groupLabel : Maybe String
+    , representative : Bool
     }
 
 
@@ -315,6 +316,7 @@ initialProgramTest config =
                       , fetcherLog = []
                       , cookieLog = []
                       , groupLabel = Nothing
+                      , representative = False
                       }
                     ]
 
@@ -336,6 +338,7 @@ initialProgramTest config =
                       , fetcherLog = []
                       , cookieLog = []
                       , groupLabel = Nothing
+                      , representative = False
                       }
                     ]
     in
@@ -679,42 +682,60 @@ done (ProgramTest state) =
                                     )
 
 
-{-| Internal: extract recorded snapshots from a `ProgramTest`. Appends
-an error snapshot if the pipeline encountered an error.
+{-| Internal: extract recorded snapshots from a `ProgramTest`. If the
+pipeline encountered an error that wasn't already captured inline on a
+recorded snapshot (e.g., a framework-level error during data
+resolution), append a synthetic error snapshot so the viewer has
+something to display. Assertion failures are recorded inline by their
+own impls (see `recordFailedAssertionSnapshot`) so we don't double-up.
 -}
 toSnapshots : ProgramTest model msg -> List Snapshot
 toSnapshots (ProgramTest state) =
     case state.error of
         Just errorMsg ->
             let
-                latestCookieLog : List ( String, CookieJar.CookieEntry )
-                latestCookieLog =
+                lastHasError : Bool
+                lastHasError =
                     state.snapshots
                         |> List.reverse
                         |> List.head
-                        |> Maybe.map .cookieLog
-                        |> Maybe.withDefault []
+                        |> Maybe.map (\s -> s.errorMessage /= Nothing)
+                        |> Maybe.withDefault False
             in
-            state.snapshots
-                ++ [ { label = "ERROR"
-                     , title = "Error"
-                     , body = [ Html.text errorMsg ]
-                     , rerender = \() -> { title = "Error", body = [ Html.text errorMsg ] }
-                     , hasPendingEffects = False
-                     , modelState = Nothing
-                     , stepKind = Error
-                     , browserUrl = Nothing
-                     , errorMessage = Just errorMsg
-                     , pendingEffects = []
-                     , networkLog = state.networkLog
-                     , targetElement = Nothing
-                     , assertionSelectors = []
-                     , scopeSelectors = []
-                     , fetcherLog = []
-                     , cookieLog = latestCookieLog
-                     , groupLabel = Nothing
-                     }
-                   ]
+            if lastHasError then
+                state.snapshots
+
+            else
+                let
+                    latestCookieLog : List ( String, CookieJar.CookieEntry )
+                    latestCookieLog =
+                        state.snapshots
+                            |> List.reverse
+                            |> List.head
+                            |> Maybe.map .cookieLog
+                            |> Maybe.withDefault []
+                in
+                state.snapshots
+                    ++ [ { label = "ERROR"
+                         , title = "Error"
+                         , body = [ Html.text errorMsg ]
+                         , rerender = \() -> { title = "Error", body = [ Html.text errorMsg ] }
+                         , hasPendingEffects = False
+                         , modelState = Nothing
+                         , stepKind = Error
+                         , browserUrl = Nothing
+                         , errorMessage = Just errorMsg
+                         , pendingEffects = []
+                         , networkLog = state.networkLog
+                         , targetElement = Nothing
+                         , assertionSelectors = []
+                         , scopeSelectors = []
+                         , fetcherLog = []
+                         , cookieLog = latestCookieLog
+                         , groupLabel = Nothing
+                         , representative = False
+                         }
+                       ]
 
         Nothing ->
             state.snapshots

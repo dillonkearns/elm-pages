@@ -34,9 +34,12 @@ suite =
                 (CoffeeSteps.login
                     ++ CoffeeSteps.simulateLogin
                     ++ CoffeeSteps.simulateIndexData
-                    ++ [ PagesProgram.ensureViewHas [ Selector.text "Café Latte" ]
+                    ++ [ PagesProgram.withinFind [ Selector.tag "header" ]
+                            [ PagesProgram.ensureViewHas [ Selector.text "hi, Alice" ]
+                            , PagesProgram.represent
+                            ]
+                       , PagesProgram.ensureViewHas [ Selector.text "Café Latte" ]
                        , PagesProgram.ensureViewHas [ Selector.text "Espresso" ]
-                       , PagesProgram.ensureViewHas [ Selector.text "hi, Alice" ]
                        ]
                 )
             , PagesProgram.test "signs out and is redirected to /login"
@@ -64,7 +67,10 @@ suite =
                 , PagesProgram.simulateHttpPost CoffeeFixtures.hasuraUrl CoffeeFixtures.bobIndexResponse
                 , PagesProgram.ensureBrowserUrl
                     (\url -> url |> Expect.equal "https://localhost:1234/")
-                , PagesProgram.ensureViewHas [ Selector.text "hi, Bob" ]
+                , PagesProgram.withinFind [ Selector.tag "header" ]
+                    [ PagesProgram.ensureViewHas [ Selector.text "hi, Bob" ]
+                    , PagesProgram.represent
+                    ]
                 ]
             ]
         , PagesProgram.describe "Cart"
@@ -76,7 +82,11 @@ suite =
                     ++ [ PagesProgram.ensureViewHas (cartButtonShowing 0) ]
                     ++ CoffeeSteps.addToCart "Café Latte"
                     ++ CoffeeSteps.simulateIndexDataWithCart CoffeeFixtures.aliceWithLatte
-                    ++ [ PagesProgram.ensureViewHas (cartButtonShowing 1) ]
+                    ++ [ PagesProgram.withinFind [ Selector.class "bh-cart-btn" ]
+                            [ PagesProgram.ensureViewHas [ Selector.text "1" ]
+                            , PagesProgram.represent
+                            ]
+                       ]
                 )
             , PagesProgram.test "shows optimistic Bag count on each click"
                 (TestApp.start "/login" CoffeeFixtures.baseSetup)
@@ -89,7 +99,11 @@ suite =
                     ++ [ PagesProgram.ensureViewHas (cartButtonShowing 1) ]
                     ++ CoffeeSteps.addToCart "Café Latte"
                     ++ CoffeeSteps.simulateIndexDataWithCart CoffeeFixtures.aliceWithTwoLattes
-                    ++ [ PagesProgram.ensureViewHas (cartButtonShowing 2) ]
+                    ++ [ PagesProgram.withinFind [ Selector.class "bh-cart-btn" ]
+                            [ PagesProgram.ensureViewHas [ Selector.text "2" ]
+                            , PagesProgram.represent
+                            ]
+                       ]
                 )
             , PagesProgram.test "renders Bag · 2 immediately on two rapid clicks"
                 (TestApp.start "/login" CoffeeFixtures.baseSetup)
@@ -118,7 +132,8 @@ suite =
                     ++ CoffeeSteps.simulateLogin
                     ++ CoffeeSteps.simulateIndexData
                     ++ [ PagesProgram.navigateTo "/no-such-page"
-                       , PagesProgram.ensureViewHas [ Selector.text "Page not found" ]
+                       , PagesProgram.ensureViewHas [ Selector.text "Page not found!!!" ]
+                       , PagesProgram.represent
                        ]
                 )
             ]

@@ -9,6 +9,7 @@ module Test.PagesProgram exposing
     , ensureViewHas, ensureViewHasNot, ensureView
     , withinFind
     , group
+    , represent
     , navigateTo, ensureBrowserUrl
     , ensureBrowserHistory
     , simulateHttpGet, simulateHttpPost, simulateHttpError
@@ -175,6 +176,11 @@ making our apps accessible and usable.
 ## Grouping
 
 @docs group
+
+
+## Suite overview thumbnails
+
+@docs represent
 
 
 ## Navigation
@@ -1227,6 +1233,7 @@ start simulateEffect config initialPath testSetup =
                               , fetcherLog = []
                               , cookieLog = CookieJar.entries readyState.model.cookieJar
                               , groupLabel = Nothing
+                              , representative = False
                               }
                             ]
 
@@ -3122,11 +3129,10 @@ ensureBrowserUrlImpl assertion (ProgramTest state) =
                             in
                             case getFailureMessage result of
                                 Just failMsg ->
-                                    ProgramTest
-                                        { state
-                                            | error =
-                                                Just ("ensureBrowserUrl failed:\n\n" ++ failMsg)
-                                        }
+                                    ProgramTest state
+                                        |> recordFailedAssertionSnapshot ("ensureBrowserUrl " ++ currentUrl)
+                                            []
+                                            ("ensureBrowserUrl failed:\n\n" ++ failMsg)
 
                                 Nothing ->
                                     ProgramTest state
@@ -3183,11 +3189,10 @@ ensureBrowserHistoryImpl assertion (ProgramTest state) =
                             in
                             case getFailureMessage result of
                                 Just failMsg ->
-                                    ProgramTest
-                                        { state
-                                            | error =
-                                                Just ("ensureBrowserHistory failed:\n\n" ++ failMsg)
-                                        }
+                                    ProgramTest state
+                                        |> recordFailedAssertionSnapshot "ensureBrowserHistory"
+                                            []
+                                            ("ensureBrowserHistory failed:\n\n" ++ failMsg)
 
                                 Nothing ->
                                     ProgramTest state
@@ -3581,25 +3586,26 @@ ensureViewHasImpl selectors (ProgramTest state) =
                                 result : Expectation
                                 result =
                                     renderScopedView ready |> Query.has selectors
+
+                                labelList =
+                                    SelectorLabel.extractLabels selectors
+
+                                stepLabel =
+                                    "ensureViewHas " ++ String.join ", " labelList
+
+                                assertionSels =
+                                    List.map SelectorLabel.parseLabelToAssertion labelList
                             in
                             case getFailureMessage result of
                                 Just failMsg ->
-                                    ProgramTest
-                                        { state
-                                            | error =
-                                                Just
-                                                    ("ensureViewHas failed:\n\n"
-                                                        ++ failMsg
-                                                    )
-                                        }
+                                    ProgramTest state
+                                        |> recordFailedAssertionSnapshot stepLabel
+                                            assertionSels
+                                            ("ensureViewHas failed:\n\n" ++ failMsg)
 
                                 Nothing ->
-                                    let
-                                        labelList =
-                                            SelectorLabel.extractLabels selectors
-                                    in
                                     ProgramTest state
-                                        |> recordAssertionSnapshot ("ensureViewHas " ++ String.join ", " labelList) (List.map SelectorLabel.parseLabelToAssertion labelList)
+                                        |> recordAssertionSnapshot stepLabel assertionSels
 
 
 {-| Assert that the rendered view does NOT contain elements matching the
@@ -3635,25 +3641,26 @@ ensureViewHasNotImpl selectors (ProgramTest state) =
                                 result : Expectation
                                 result =
                                     renderScopedView ready |> Query.hasNot selectors
+
+                                labelList =
+                                    SelectorLabel.extractLabels selectors
+
+                                stepLabel =
+                                    "ensureViewHasNot " ++ String.join ", " labelList
+
+                                assertionSels =
+                                    List.map SelectorLabel.parseLabelToAssertion labelList
                             in
                             case getFailureMessage result of
                                 Just failMsg ->
-                                    ProgramTest
-                                        { state
-                                            | error =
-                                                Just
-                                                    ("ensureViewHasNot failed:\n\n"
-                                                        ++ failMsg
-                                                    )
-                                        }
+                                    ProgramTest state
+                                        |> recordFailedAssertionSnapshot stepLabel
+                                            assertionSels
+                                            ("ensureViewHasNot failed:\n\n" ++ failMsg)
 
                                 Nothing ->
-                                    let
-                                        labelList =
-                                            SelectorLabel.extractLabels selectors
-                                    in
                                     ProgramTest state
-                                        |> recordAssertionSnapshot ("ensureViewHasNot " ++ String.join ", " labelList) (List.map SelectorLabel.parseLabelToAssertion labelList)
+                                        |> recordAssertionSnapshot stepLabel assertionSels
 
 
 {-| Assert on the rendered view using a custom assertion function.
@@ -3697,14 +3704,10 @@ ensureViewImpl assertion (ProgramTest state) =
                             in
                             case getFailureMessage result of
                                 Just failMsg ->
-                                    ProgramTest
-                                        { state
-                                            | error =
-                                                Just
-                                                    ("ensureView failed:\n\n"
-                                                        ++ failMsg
-                                                    )
-                                        }
+                                    ProgramTest state
+                                        |> recordFailedAssertionSnapshot "ensureView"
+                                            []
+                                            ("ensureView failed:\n\n" ++ failMsg)
 
                                 Nothing ->
                                     ProgramTest state
@@ -3771,6 +3774,41 @@ runner renders groups as collapsible sections in the command log sidebar.
 group : String -> List (Step model msg) -> Step model msg
 group name steps =
     Internal.Step (Internal.groupImpl name (composeSteps steps))
+
+
+{-| Mark the most recent snapshot as the representative thumbnail for
+this test in the suite overview. By default the overview picks the
+last snapshot (or the failing snapshot if the test fails); use
+`represent` after the assertion you want featured.
+
+    PagesProgram.test "adds a Café Latte to the bag"
+        (TestApp.start "/menu" BackendTaskTest.init)
+        [ PagesProgram.clickButton "Add to bag"
+        , PagesProgram.ensureViewHas [ Selector.class "bag-count", Selector.text "1" ]
+        , PagesProgram.represent
+        ]
+
+If the test fails, the failing step always wins regardless of any
+`represent` calls — failures are forced visible.
+
+-}
+represent : Step model msg
+represent =
+    Internal.Step representImpl
+
+
+representImpl : ProgramTest model msg -> ProgramTest model msg
+representImpl (ProgramTest state) =
+    let
+        markedSnapshots =
+            case List.reverse state.snapshots of
+                latest :: earlier ->
+                    List.reverse ({ latest | representative = True } :: earlier)
+
+                [] ->
+                    state.snapshots
+    in
+    ProgramTest { state | snapshots = markedSnapshots }
 
 
 {-| Render the view and apply the current viewScope for querying.
@@ -4437,6 +4475,39 @@ recordAssertionSnapshot label assertionSels (ProgramTest state) =
             ProgramTest state
 
 
+{-| Like `recordAssertionSnapshot`, but records the failing assertion
+inline rather than synthesising a separate "ERROR" snapshot afterward.
+The snapshot keeps `stepKind = Assertion` (semantically the assertion
+itself is what failed) and carries the error in `errorMessage` so the
+viewer can render the page state where the check ran with the error
+overlaid. Also sets `state.error` so subsequent steps short-circuit.
+-}
+recordFailedAssertionSnapshot : String -> List AssertionSelector -> String -> ProgramTest model msg -> ProgramTest model msg
+recordFailedAssertionSnapshot label assertionSels errorMsg (ProgramTest state) =
+    case state.phase of
+        Ready ready ->
+            let
+                labelWithScope =
+                    case ready.scopeLabels of
+                        [] ->
+                            label
+
+                        scopes ->
+                            label ++ " (within " ++ String.join " > " scopes ++ ")"
+
+                base =
+                    makeSnapshot labelWithScope Assertion Nothing assertionSels ready state.modelToString state.fetcherExtractor state.cookieExtractor state.networkLog
+            in
+            ProgramTest
+                { state
+                    | snapshots = state.snapshots ++ [ { base | errorMessage = Just errorMsg } ]
+                    , error = Just errorMsg
+                }
+
+        _ ->
+            ProgramTest { state | error = Just errorMsg }
+
+
 {-| Apply a message through update, record a snapshot, and re-render.
 -}
 applyMsgWithLabel : String -> StepKind -> Maybe TargetSelector -> msg -> ProgramTest model msg -> ProgramTest model msg
@@ -4588,6 +4659,7 @@ makeSnapshot label kind target assertionSels ready modelToString fetcherExtracto
     , fetcherLog = fetcherLog
     , cookieLog = cookieLog
     , groupLabel = Nothing
+    , representative = False
     }
 
 
