@@ -15,20 +15,21 @@ import Tui.Sub
 tuiTests : TuiTest.Test
 tuiTests =
     TuiTest.test "layout stepper demo"
-        (TuiTest.start BackendTaskTest.init appConfig
-            |> LayoutTest.ensureFocusedPane "left"
-            |> LayoutTest.ensureSelectedIndex "left" 0
-            |> TuiTest.pressKeyN 3 'j'
-            |> LayoutTest.ensureSelectedIndex "left" 3
-            |> LayoutTest.ensurePaneHas "Left" "delta"
-            |> TuiTest.pressKeyWith { key = Tui.Sub.Tab, modifiers = [] }
-            |> LayoutTest.ensureFocusedPane "right"
-            |> LayoutTest.ensurePaneHas "Right" "details"
-            |> LayoutTest.ensurePaneDoesNotHave "Right" "alpha"
-            |> TuiTest.pressKeyWith { key = Tui.Sub.Tab, modifiers = [] }
-            |> LayoutTest.ensureFocusedPane "left"
-            |> TuiTest.ensureViewHasStyled [ TuiTest.bold ] "delta"
-            |> TuiTest.expectRunning
+        (TuiTest.start BackendTaskTest.init appConfig)
+        (LayoutTest.ensureFocusedPane "left"
+            ++ LayoutTest.ensureSelectedIndex "left" 0
+            ++ [ TuiTest.pressKeyN 3 'j' ]
+            ++ LayoutTest.ensureSelectedIndex "left" 3
+            ++ LayoutTest.ensurePaneHas "Left" "delta"
+            ++ [ TuiTest.pressKeyWith { key = Tui.Sub.Tab, modifiers = [] } ]
+            ++ LayoutTest.ensureFocusedPane "right"
+            ++ LayoutTest.ensurePaneHas "Right" "details"
+            ++ LayoutTest.ensurePaneDoesNotHave "Right" "alpha"
+            ++ [ TuiTest.pressKeyWith { key = Tui.Sub.Tab, modifiers = [] } ]
+            ++ LayoutTest.ensureFocusedPane "left"
+            ++ [ TuiTest.ensureViewHasStyled [ TuiTest.bold ] "delta"
+               , TuiTest.expectRunning
+               ]
         )
 
 

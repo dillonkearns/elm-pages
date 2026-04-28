@@ -20,172 +20,184 @@ suite =
         [ describe "clickText"
             [ test "clickText finds text in second pane correctly" <|
                 \() ->
-                    linkAppTest
-                        |> TuiTest.clickText "plain text"
+                    TuiTest.expect linkAppTest
+                        [ TuiTest.clickText "plain text"
+
                         -- The second pane has "plain text" — clicking it should
                         -- NOT select an item in the first pane (the bug was col=1
                         -- always hitting the first pane)
-                        |> TuiTest.ensureViewHas "clicked: none"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.ensureViewHas "clicked: none"
+                        , TuiTest.expectRunning
+                        ]
             ]
         , describe "withOnLinkClick"
             [ test "fires callback with URL when clicking linked text" <|
                 \() ->
-                    linkAppTest
-                        |> TuiTest.clickText "Click me"
-                        |> TuiTest.ensureViewHas "clicked: https://example.com"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                    TuiTest.expect linkAppTest
+                        [ TuiTest.clickText "Click me"
+                        , TuiTest.ensureViewHas "clicked: https://example.com"
+                        , TuiTest.expectRunning
+                        ]
             , test "does NOT fire when clicking non-linked text" <|
                 \() ->
-                    linkAppTest
-                        |> TuiTest.clickText "plain text"
-                        |> TuiTest.ensureViewHas "clicked: none"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                    TuiTest.expect linkAppTest
+                        [ TuiTest.clickText "plain text"
+                        , TuiTest.ensureViewHas "clicked: none"
+                        , TuiTest.expectRunning
+                        ]
             , test "on selectable pane: link click fires link callback without changing selection" <|
                 \() ->
-                    linkSelectableAppTest
+                    TuiTest.expect linkSelectableAppTest
                         -- Initially auto-selects index 0 (linked-item)
-                        |> TuiTest.ensureViewHas "selected: linked-item"
+                        [ TuiTest.ensureViewHas "selected: linked-item"
+
                         -- Navigate to plain-item first so we can observe selection doesn't change
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.ensureViewHas "selected: plain-item"
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.ensureViewHas "selected: plain-item"
+
                         -- Now click on the linked text — should fire link callback, NOT change selection
-                        |> TuiTest.clickText "linked-item"
-                        |> TuiTest.ensureViewHas "link: https://item.example"
-                        |> TuiTest.ensureViewHas "selected: plain-item"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.clickText "linked-item"
+                        , TuiTest.ensureViewHas "link: https://item.example"
+                        , TuiTest.ensureViewHas "selected: plain-item"
+                        , TuiTest.expectRunning
+                        ]
             , test "on selectable pane: non-link click fires onSelect" <|
                 \() ->
-                    linkSelectableAppTest
-                        |> TuiTest.clickText "plain-item"
-                        |> TuiTest.ensureViewHas "link: none"
-                        |> TuiTest.ensureViewHas "selected: plain-item"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                    TuiTest.expect linkSelectableAppTest
+                        [ TuiTest.clickText "plain-item"
+                        , TuiTest.ensureViewHas "link: none"
+                        , TuiTest.ensureViewHas "selected: plain-item"
+                        , TuiTest.expectRunning
+                        ]
             ]
         , describe "Bottom border"
             [ test "compileApp renders bottom border with ╰ and ╯" <|
                 \() ->
-                    linkAppTest
-                        |> TuiTest.ensureViewHas "╰"
-                        |> TuiTest.ensureViewHas "╯"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                    TuiTest.expect linkAppTest
+                        [ TuiTest.ensureViewHas "╰"
+                        , TuiTest.ensureViewHas "╯"
+                        , TuiTest.expectRunning
+                        ]
             ]
         , describe "j/k scrolls content panes"
             [ test "j scrolls content pane down when focused" <|
                 \() ->
-                    scrollAppTest
+                    TuiTest.expect scrollAppTest
                         -- docs pane is auto-focused, has Line 1..50
-                        |> TuiTest.ensureViewHas "scroll: 0"
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
+                        [ TuiTest.ensureViewHas "scroll: 0"
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.pressKey 'j'
+
                         -- Scroll position should have changed
-                        |> TuiTest.ensureViewHas "scroll: 3"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.ensureViewHas "scroll: 3"
+                        , TuiTest.expectRunning
+                        ]
             , test "k scrolls content pane up after scrolling down" <|
                 \() ->
-                    scrollAppTest
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.ensureViewHas "scroll: 3"
-                        |> TuiTest.pressKey 'k'
-                        |> TuiTest.pressKey 'k'
-                        |> TuiTest.pressKey 'k'
+                    TuiTest.expect scrollAppTest
+                        [ TuiTest.pressKey 'j'
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.ensureViewHas "scroll: 3"
+                        , TuiTest.pressKey 'k'
+                        , TuiTest.pressKey 'k'
+                        , TuiTest.pressKey 'k'
+
                         -- Should be back to 0
-                        |> TuiTest.ensureViewHas "scroll: 0"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.ensureViewHas "scroll: 0"
+                        , TuiTest.expectRunning
+                        ]
             ]
         , describe "Effect.setSelectedIndex auto-scrolls"
             [ test "setSelectedIndex scrolls pane to keep selection visible" <|
                 \() ->
                     -- Use a short terminal so only ~5 items are visible (height 8 = 1 top + 5 content + 1 bottom + 1 bar)
-                    setSelAppTest
-                        |> TuiTest.ensureViewHas "item-A"
+                    TuiTest.expect setSelAppTest
+                        [ TuiTest.ensureViewHas "item-A"
+
                         -- item-H should be off-screen initially
-                        |> TuiTest.ensureViewDoesNotHave "item-H"
+                        , TuiTest.ensureViewDoesNotHave "item-H"
+
                         -- Press 'd' which triggers Effect.setSelectedIndex "items" 7 (item-H)
-                        |> TuiTest.pressKey 'd'
+                        , TuiTest.pressKey 'd'
+
                         -- After setSelectedIndex, the pane should have scrolled to show item-H
-                        |> TuiTest.ensureViewHas "item-H"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.ensureViewHas "item-H"
+                        , TuiTest.expectRunning
+                        ]
             , test "setSelectedIndex to middle item scrolls correctly with many items below" <|
                 \() ->
                     -- 'e' triggers Effect.setSelectedIndex "items" 5 (item-F, index 5)
                     -- With 5 visible rows (height 8), items A-E are visible (indices 0-4)
                     -- Index 5 is below fold, pane should scroll to show it
-                    setSelAppTest
-                        |> TuiTest.ensureViewHas "item-A"
-                        |> TuiTest.ensureViewDoesNotHave "item-F"
-                        |> TuiTest.pressKey 'e'
-                        |> TuiTest.ensureViewHas "item-F"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                    TuiTest.expect setSelAppTest
+                        [ TuiTest.ensureViewHas "item-A"
+                        , TuiTest.ensureViewDoesNotHave "item-F"
+                        , TuiTest.pressKey 'e'
+                        , TuiTest.ensureViewHas "item-F"
+                        , TuiTest.expectRunning
+                        ]
             ]
         , describe "j/k keeps selection visible at bottom of long list"
             [ test "navigating to last item with j keeps it visible" <|
                 \() ->
                     -- setSelAppTest has 8 items, height 8 = 5 visible content rows
                     -- Press j 7 times to reach the last item (item-H, index 7)
-                    setSelAppTest
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
+                    TuiTest.expect setSelAppTest
+                        [ TuiTest.pressKey 'j'
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.pressKey 'j'
+
                         -- After 7 j presses, selection is at index 7 (item-H)
                         -- The pane must have scrolled so item-H is visible
-                        |> TuiTest.ensureViewHas "item-H"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.ensureViewHas "item-H"
+                        , TuiTest.expectRunning
+                        ]
             ]
         , describe "withOnScroll"
             [ test "scroll callback fires when mouse wheel scrolls a pane" <|
                 \() ->
-                    scrollAppTest
-                        |> TuiTest.ensureViewHas "scroll: 0"
-                        |> TuiTest.scrollDown { row = 1, col = 1 }
-                        |> TuiTest.ensureViewDoesNotHave "scroll: 0"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                    TuiTest.expect scrollAppTest
+                        [ TuiTest.ensureViewHas "scroll: 0"
+                        , TuiTest.scrollDown { row = 1, col = 1 }
+                        , TuiTest.ensureViewDoesNotHave "scroll: 0"
+                        , TuiTest.expectRunning
+                        ]
             ]
         , describe "Help modal"
             [ test "Esc closes help modal and stays closed on next j press" <|
                 \() ->
-                    helpAppTest
+                    TuiTest.expect helpAppTest
                         -- Open help with '?'
-                        |> TuiTest.pressKey '?'
-                        |> TuiTest.ensureViewHas "Keybindings"
+                        [ TuiTest.pressKey '?'
+                        , TuiTest.ensureViewHas "Keybindings"
+
                         -- Esc should close it
-                        |> TuiTest.pressKeyWith { key = Tui.Sub.Escape, modifiers = [] }
-                        |> TuiTest.ensureViewDoesNotHave "Keybindings"
+                        , TuiTest.pressKeyWith { key = Tui.Sub.Escape, modifiers = [] }
+                        , TuiTest.ensureViewDoesNotHave "Keybindings"
+
                         -- j should NOT re-open the help modal
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.ensureViewDoesNotHave "Keybindings"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.ensureViewDoesNotHave "Keybindings"
+                        , TuiTest.expectRunning
+                        ]
             , test "j/k scrolls through ALL help items including built-in navigation" <|
                 \() ->
-                    helpAppTest
+                    TuiTest.expect helpAppTest
                         -- Open help
-                        |> TuiTest.pressKey '?'
-                        |> TuiTest.ensureViewHas "Keybindings"
+                        [ TuiTest.pressKey '?'
+                        , TuiTest.ensureViewHas "Keybindings"
+
                         -- Should see both built-in nav and user bindings
-                        |> TuiTest.ensureViewHas "Navigate down"
-                        |> TuiTest.ensureViewHas "Do thing"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                        , TuiTest.ensureViewHas "Navigate down"
+                        , TuiTest.ensureViewHas "Do thing"
+                        , TuiTest.expectRunning
+                        ]
             , test "pressing j in help modal scrolls content without shrinking the modal" <|
                 \() ->
                     let
@@ -198,13 +210,13 @@ suite =
                                 { width = 80, height = 40, colorProfile = Tui.TrueColor }
 
                         snapshots =
-                            shortTerminal
-                                |> TuiTest.pressKey '?'
-                                |> TuiTest.pressKey 'j'
-                                |> TuiTest.pressKey 'j'
-                                |> TuiTest.pressKey 'j'
-                                |> TuiTest.pressKey 'j'
-                                |> TuiTest.toSnapshots
+                            TuiTest.snapshots shortTerminal
+                                [ TuiTest.pressKey '?'
+                                , TuiTest.pressKey 'j'
+                                , TuiTest.pressKey 'j'
+                                , TuiTest.pressKey 'j'
+                                , TuiTest.pressKey 'j'
+                                ]
 
                         -- Get modal heights, skipping snapshots before the modal is open
                         snapshotHeights =
@@ -237,38 +249,38 @@ suite =
         , describe "Picker modal"
             [ test "j keeps the selected item visible in long picker lists" <|
                 \() ->
-                    pickerAppTest
-                        |> TuiTest.pressKey 'p'
-                        |> TuiTest.ensureViewHas "Pick item"
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.ensureViewHas "▸ Item 09"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                    TuiTest.expect pickerAppTest
+                        [ TuiTest.pressKey 'p'
+                        , TuiTest.ensureViewHas "Pick item"
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.ensureViewHas "▸ Item 09"
+                        , TuiTest.expectRunning
+                        ]
             ]
         , describe "Menu modal"
             [ test "j keeps the highlighted action visible in long menus" <|
                 \() ->
-                    menuAppTest
-                        |> TuiTest.pressKey 'm'
-                        |> TuiTest.ensureViewHas "Menu"
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.pressKey 'j'
-                        |> TuiTest.ensureViewHas "Item 09"
-                        |> TuiTest.expectRunning
-                        |> TuiTest.done
+                    TuiTest.expect menuAppTest
+                        [ TuiTest.pressKey 'm'
+                        , TuiTest.ensureViewHas "Menu"
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.pressKey 'j'
+                        , TuiTest.ensureViewHas "Item 09"
+                        , TuiTest.expectRunning
+                        ]
             ]
         ]
 
