@@ -265,6 +265,69 @@ all =
                         ]
                         |> expectFailContaining "clickButton \"Submit\""
             ]
+        , describe "form submission field extraction"
+            [ test "preserves an empty string value attribute (value=\"\") instead of treating it as a bare boolean attribute" <|
+                -- Regression test: `parseHtmlAttributes` previously coerced
+                -- `value=""` to the literal string "true" because Elm's
+                -- `Regex.find` returns `Nothing` for matched-but-empty
+                -- captures, and the bare-attribute fallback fired by
+                -- mistake. This matters for `Form.hiddenField` wrapping a
+                -- `Field.checkbox` set to False, which renders as
+                -- `value=""` -- the test runner must report the field as
+                -- the empty string, not "true", so consumers see the same
+                -- payload a real browser's `FormData` would produce.
+                \() ->
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data = BackendTask.succeed ()
+                            , init = \() -> ( { capturedComplete = "(unset)" }, [] )
+                            , update =
+                                \msg model ->
+                                    case msg of
+                                        CapturedSubmittedFields fields ->
+                                            ( { model
+                                                | capturedComplete =
+                                                    fields
+                                                        |> List.filter (\( name, _ ) -> name == "complete")
+                                                        |> List.head
+                                                        |> Maybe.map Tuple.second
+                                                        |> Maybe.withDefault "(missing)"
+                                              }
+                                            , []
+                                            )
+                            , view =
+                                \_ model ->
+                                    { title = "Form"
+                                    , body =
+                                        [ Html.form
+                                            [ Html.Events.preventDefaultOn "submit"
+                                                (Decode.field "fields"
+                                                    (Decode.list
+                                                        (Decode.map2 Tuple.pair
+                                                            (Decode.index 0 Decode.string)
+                                                            (Decode.index 1 Decode.string)
+                                                        )
+                                                    )
+                                                    |> Decode.map (\fields -> ( CapturedSubmittedFields fields, True ))
+                                                )
+                                            ]
+                                            [ Html.input
+                                                [ Attr.type_ "hidden"
+                                                , Attr.name "complete"
+                                                , Attr.value ""
+                                                ]
+                                                []
+                                            , Html.button [] [ Html.text "Submit" ]
+                                            ]
+                                        , Html.text ("captured=[" ++ model.capturedComplete ++ "]")
+                                        ]
+                                    }
+                            }
+                        )
+                        [ PagesProgram.clickButton "Submit"
+                        , PagesProgram.ensureViewHas [ PSelector.text "captured=[]" ]
+                        ]
+            ]
         , describe "fillIn"
             [ test "typing into an input updates the view" <|
                 \() ->
@@ -3398,6 +3461,10 @@ type NavMsg
 type EffectTrackMsg
     = TriggerEffect
     | GotEffectResult String
+
+
+type CapturedFieldsMsg
+    = CapturedSubmittedFields (List ( String, String ))
 
 
 type MyEffect msg

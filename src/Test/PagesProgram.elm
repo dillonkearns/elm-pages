@@ -5381,7 +5381,28 @@ parseHtmlAttributes attributesChunk =
             (\match attrs ->
                 case match.submatches of
                     (Just name) :: maybeValue :: [] ->
-                        Dict.insert name (Maybe.withDefault "true" maybeValue) attrs
+                        let
+                            value : String
+                            value =
+                                case maybeValue of
+                                    Just v ->
+                                        v
+
+                                    Nothing ->
+                                        -- Elm's Regex returns Nothing for matched-but-empty
+                                        -- captures, so we distinguish here: if the full match
+                                        -- consumed more than just the name, the `="..."` part
+                                        -- was present but captured empty (value=""), so the
+                                        -- attribute value is the empty string. Otherwise the
+                                        -- attribute is bare (e.g. `<input checked>`), which we
+                                        -- represent as "true".
+                                        if String.length match.match > String.length name then
+                                            ""
+
+                                        else
+                                            "true"
+                        in
+                        Dict.insert name value attrs
 
                     _ ->
                         attrs
