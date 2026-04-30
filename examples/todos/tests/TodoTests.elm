@@ -298,9 +298,8 @@ suite =
                             , todoFixture "Walk the dog" True "todo-3"
                             ]
                         )
-                    ]
-                , PagesProgram.group "Verify server-confirmed state"
-                    [ ensureItemsLeft 0
+
+                ,  ensureItemsLeft 0
                     , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
                     , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Write tests") ]
                     , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Walk the dog") ]
@@ -338,12 +337,14 @@ suite =
 -- SETUP
 
 
+baseSetup : BackendTaskTest.TestSetup
 baseSetup =
     BackendTaskTest.init
         |> BackendTaskTest.withEnv "SESSION_SECRET" "test-secret"
         |> BackendTaskTest.withTime (Time.millisToPosix 1000)
 
 
+loginActionSetup : BackendTaskTest.TestSetup
 loginActionSetup =
     baseSetup
         |> BackendTaskTest.withEnv "TODOS_SEND_GRID_KEY" "test-send-grid-key"
@@ -372,6 +373,7 @@ startSignedInWithTodos _ =
         )
 
 
+finishMagicLinkLoginAndLoadTodos : Encode.Value -> TestApp.Step
 finishMagicLinkLoginAndLoadTodos todos =
     PagesProgram.group "Login"
         [ PagesProgram.simulateCustom "decrypt" decryptResponse
@@ -384,12 +386,14 @@ finishMagicLinkLoginAndLoadTodos todos =
 -- HELPERS
 
 
+ensureItemsLeft : Int -> TestApp.Step
 ensureItemsLeft n =
     PagesProgram.withinFind
         [ PSelector.class "todo-count" ]
         [ PagesProgram.ensureViewHas [ PSelector.text (String.fromInt n) ] ]
 
 
+toggleTodo : String -> TestApp.Step
 toggleTodo description =
     PagesProgram.withinFind
         [ PSelector.tag "li"
@@ -398,6 +402,7 @@ toggleTodo description =
         [ PagesProgram.clickButtonWith [ PSelector.class "toggle" ] ]
 
 
+deleteTodo : String -> TestApp.Step
 deleteTodo description =
     PagesProgram.withinFind
         [ PSelector.tag "li"
