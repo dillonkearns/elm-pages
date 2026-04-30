@@ -28,25 +28,23 @@ suite =
         [ PagesProgram.describe "Auth flows"
             [ PagesProgram.test "completes the magic-link login flow"
                 (TestApp.start "/login" loginActionSetup)
-                ([ PagesProgram.ensureViewHas [ PSelector.text "You aren't logged in yet." ]
-                 , PagesProgram.fillIn "login" "email" "user@example.com"
-                 , PagesProgram.clickButton "Login"
-                 , PagesProgram.ensureCustom "encrypt"
-                 , PagesProgram.simulateCustom "encrypt" (Encode.string "fake-hash")
-                 , PagesProgram.ensureHttpPost "https://api.sendgrid.com/v3/mail/send"
-                 , PagesProgram.simulateHttpPost "https://api.sendgrid.com/v3/mail/send" Encode.null
-                 , PagesProgram.ensureViewHas [ PSelector.text "Check your inbox for your login link!" ]
-                 , PagesProgram.navigateTo "/login?magic=fake-hash"
-                 ]
-                    ++ finishMagicLinkLoginAndLoadTodos todosResponse
-                    ++ [ PagesProgram.ensureViewHas [ PSelector.text "todos" ]
-                       , PagesProgram.ensureBrowserUrl (Expect.equal "https://localhost:1234/")
-                       , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
-                       , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Write tests") ]
-                       , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Walk the dog") ]
-                       , ensureItemsLeft 2
-                       ]
-                )
+                [ PagesProgram.ensureViewHas [ PSelector.text "You aren't logged in yet." ]
+                , PagesProgram.fillIn "login" "email" "user@example.com"
+                , PagesProgram.clickButton "Login"
+                , PagesProgram.ensureCustom "encrypt"
+                , PagesProgram.simulateCustom "encrypt" (Encode.string "fake-hash")
+                , PagesProgram.ensureHttpPost "https://api.sendgrid.com/v3/mail/send"
+                , PagesProgram.simulateHttpPost "https://api.sendgrid.com/v3/mail/send" Encode.null
+                , PagesProgram.ensureViewHas [ PSelector.text "Check your inbox for your login link!" ]
+                , PagesProgram.navigateTo "/login?magic=fake-hash"
+                , finishMagicLinkLoginAndLoadTodos todosResponse
+                , PagesProgram.ensureViewHas [ PSelector.text "todos" ]
+                , PagesProgram.ensureBrowserUrl (Expect.equal "https://localhost:1234/")
+                , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
+                , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Write tests") ]
+                , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Walk the dog") ]
+                , ensureItemsLeft 2
+                ]
             , PagesProgram.test "shows the already-signed-in branch when revisiting /login"
                 (TestApp.start "/login" loginActionSetup)
                 [ PagesProgram.group "Request a magic link"
@@ -58,13 +56,12 @@ suite =
                     , PagesProgram.ensureViewHas [ PSelector.text "Check your inbox for your login link!" ]
                     ]
                 , PagesProgram.group "Follow the magic link"
-                    ([ PagesProgram.navigateTo "/login?magic=fake-hash" ]
-                        ++ finishMagicLinkLoginAndLoadTodos todosResponse
-                        ++ [ PagesProgram.ensureBrowserUrl (Expect.equal "https://localhost:1234/")
-                           , PagesProgram.ensureViewHas [ PSelector.text "todos" ]
-                           , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
-                           ]
-                    )
+                    [ PagesProgram.navigateTo "/login?magic=fake-hash"
+                    , finishMagicLinkLoginAndLoadTodos todosResponse
+                    , PagesProgram.ensureBrowserUrl (Expect.equal "https://localhost:1234/")
+                    , PagesProgram.ensureViewHas [ PSelector.text "todos" ]
+                    , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
+                    ]
                 , PagesProgram.group "Revisit the login page while signed in"
                     [ PagesProgram.navigateTo "/login"
                     , PagesProgram.simulateCustom "getEmailBySessionId" (Encode.string "user@example.com")
@@ -76,17 +73,15 @@ suite =
             , PagesProgram.test "logs out and signs in as a different user"
                 (TestApp.start "/login" loginActionSetup)
                 [ PagesProgram.group "Log in as user@example.com"
-                    ([ PagesProgram.fillIn "login" "email" "user@example.com"
-                     , PagesProgram.clickButton "Login"
-                     , PagesProgram.simulateCustom "encrypt" (Encode.string "fake-hash-user")
-                     , PagesProgram.simulateHttpPost "https://api.sendgrid.com/v3/mail/send" Encode.null
-                     , PagesProgram.navigateTo "/login?magic=fake-hash-user"
-                     ]
-                        ++ finishMagicLinkLoginAndLoadTodos todosResponse
-                        ++ [ PagesProgram.ensureViewHas [ PSelector.text "todos" ]
-                           , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
-                           ]
-                    )
+                    [ PagesProgram.fillIn "login" "email" "user@example.com"
+                    , PagesProgram.clickButton "Login"
+                    , PagesProgram.simulateCustom "encrypt" (Encode.string "fake-hash-user")
+                    , PagesProgram.simulateHttpPost "https://api.sendgrid.com/v3/mail/send" Encode.null
+                    , PagesProgram.navigateTo "/login?magic=fake-hash-user"
+                    , finishMagicLinkLoginAndLoadTodos todosResponse
+                    , PagesProgram.ensureViewHas [ PSelector.text "todos" ]
+                    , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
+                    ]
                 , PagesProgram.group "Log out"
                     [ PagesProgram.navigateTo "/login"
                     , PagesProgram.simulateCustom "getEmailBySessionId" (Encode.string "user@example.com")
@@ -125,228 +120,216 @@ suite =
         , PagesProgram.describe "Todo management"
             [ PagesProgram.test "creates a new todo via Enter"
                 startAfterMagicLink
-                (finishMagicLinkLoginAndLoadTodos todosResponse
-                    ++ [ ensureItemsLeft 2
-                       , PagesProgram.fillIn "new-item-0" "description" "Buy eggs"
-                       , PagesProgram.pressEnter [ PSelector.class "new-todo" ]
-                       , PagesProgram.simulateCustom "createTodo" Encode.null
-                       , PagesProgram.simulateCustom "getTodosBySession"
-                            (Encode.list identity
-                                [ todoFixture "Buy milk" False "todo-1"
-                                , todoFixture "Write tests" True "todo-2"
-                                , todoFixture "Walk the dog" False "todo-3"
-                                , todoFixture "Buy eggs" False "todo-4"
-                                ]
-                            )
-                       , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy eggs") ]
-                       , ensureItemsLeft 3
-                       ]
-                )
+                [ finishMagicLinkLoginAndLoadTodos todosResponse
+                , ensureItemsLeft 2
+                , PagesProgram.fillIn "new-item-0" "description" "Buy eggs"
+                , PagesProgram.pressEnter [ PSelector.class "new-todo" ]
+                , PagesProgram.simulateCustom "createTodo" Encode.null
+                , PagesProgram.simulateCustom "getTodosBySession"
+                    (Encode.list identity
+                        [ todoFixture "Buy milk" False "todo-1"
+                        , todoFixture "Write tests" True "todo-2"
+                        , todoFixture "Walk the dog" False "todo-3"
+                        , todoFixture "Buy eggs" False "todo-4"
+                        ]
+                    )
+                , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy eggs") ]
+                , ensureItemsLeft 3
+                ]
             , PagesProgram.test "edits an existing todo inline"
                 startAfterMagicLink
-                (finishMagicLinkLoginAndLoadTodos todosResponse
-                    ++ [ PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
-                       , PagesProgram.fillIn "edit-todo-1" "description" "Buy oat milk"
-                       , PagesProgram.pressEnter [ PSelector.id "todo-todo-1" ]
-                       , PagesProgram.simulateCustom "updateTodo" Encode.null
-                       , PagesProgram.simulateCustom "getTodosBySession"
-                            (Encode.list identity
-                                [ todoFixture "Buy oat milk" False "todo-1"
-                                , todoFixture "Write tests" True "todo-2"
-                                , todoFixture "Walk the dog" False "todo-3"
-                                ]
-                            )
-                       , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy oat milk") ]
-                       , PagesProgram.ensureViewHasNot [ PSelector.attribute (Attr.value "Buy milk") ]
-                       ]
-                )
+                [ finishMagicLinkLoginAndLoadTodos todosResponse
+                , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
+                , PagesProgram.fillIn "edit-todo-1" "description" "Buy oat milk"
+                , PagesProgram.pressEnter [ PSelector.id "todo-todo-1" ]
+                , PagesProgram.simulateCustom "updateTodo" Encode.null
+                , PagesProgram.simulateCustom "getTodosBySession"
+                    (Encode.list identity
+                        [ todoFixture "Buy oat milk" False "todo-1"
+                        , todoFixture "Write tests" True "todo-2"
+                        , todoFixture "Walk the dog" False "todo-3"
+                        ]
+                    )
+                , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy oat milk") ]
+                , PagesProgram.ensureViewHasNot [ PSelector.attribute (Attr.value "Buy milk") ]
+                ]
             , PagesProgram.test "toggles all todos complete"
                 startAfterMagicLink
-                (finishMagicLinkLoginAndLoadTodos todosResponse
-                    ++ [ ensureItemsLeft 2
-                       , PagesProgram.clickButton "❯"
-                       , PagesProgram.simulateCustom "checkAllTodos" Encode.null
-                       , PagesProgram.simulateCustom "getTodosBySession" allCompleteTodosResponse
-                       , ensureItemsLeft 0
-                       ]
-                )
+                [ finishMagicLinkLoginAndLoadTodos todosResponse
+                , ensureItemsLeft 2
+                , PagesProgram.clickButton "❯"
+                , PagesProgram.simulateCustom "checkAllTodos" Encode.null
+                , PagesProgram.simulateCustom "getTodosBySession" allCompleteTodosResponse
+                , ensureItemsLeft 0
+                ]
             , PagesProgram.test "clears completed todos"
                 startAfterMagicLink
-                (finishMagicLinkLoginAndLoadTodos todosResponse
-                    ++ [ ensureItemsLeft 2
-                       , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Write tests") ]
-                       , PagesProgram.clickButton "Clear completed"
-                       , PagesProgram.simulateCustom "clearCompletedTodos" Encode.null
-                       , PagesProgram.simulateCustom "getTodosBySession"
-                            (Encode.list identity
-                                [ todoFixture "Buy milk" False "todo-1"
-                                , todoFixture "Walk the dog" False "todo-3"
-                                ]
-                            )
-                       , ensureItemsLeft 2
-                       , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
-                       , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Walk the dog") ]
-                       , PagesProgram.ensureViewHasNot [ PSelector.attribute (Attr.value "Write tests") ]
-                       ]
-                )
+                [ finishMagicLinkLoginAndLoadTodos todosResponse
+                , ensureItemsLeft 2
+                , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Write tests") ]
+                , PagesProgram.clickButton "Clear completed"
+                , PagesProgram.simulateCustom "clearCompletedTodos" Encode.null
+                , PagesProgram.simulateCustom "getTodosBySession"
+                    (Encode.list identity
+                        [ todoFixture "Buy milk" False "todo-1"
+                        , todoFixture "Walk the dog" False "todo-3"
+                        ]
+                    )
+                , ensureItemsLeft 2
+                , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
+                , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Walk the dog") ]
+                , PagesProgram.ensureViewHasNot [ PSelector.attribute (Attr.value "Write tests") ]
+                ]
             , PagesProgram.test "renders optimistic state during concurrent fetchers"
                 startAfterMagicLink
-                (finishMagicLinkLoginAndLoadTodos todosResponse
-                    ++ [ ensureItemsLeft 2
-                       , PagesProgram.group "Rapid-fire user actions"
-                            [ deleteTodo "Write tests"
-                            , toggleTodo "Buy milk"
-                            , toggleTodo "Walk the dog"
-                            , toggleTodo "Buy milk"
+                [ finishMagicLinkLoginAndLoadTodos todosResponse
+                , ensureItemsLeft 2
+                , PagesProgram.group "Rapid-fire user actions"
+                    [ deleteTodo "Write tests"
+                    , toggleTodo "Buy milk"
+                    , toggleTodo "Walk the dog"
+                    , toggleTodo "Buy milk"
+                    ]
+                , PagesProgram.group "Verify optimistic state"
+                    [ PagesProgram.ensureViewHasNot [ PSelector.attribute (Attr.value "Write tests") ]
+                    , PagesProgram.withinFind
+                        [ PSelector.tag "li", PSelector.containing [ PSelector.attribute (Attr.value "Buy milk") ] ]
+                        [ PagesProgram.ensureViewHasNot [ PSelector.class "completed" ] ]
+                    , PagesProgram.withinFind
+                        [ PSelector.tag "li", PSelector.containing [ PSelector.attribute (Attr.value "Walk the dog") ] ]
+                        [ PagesProgram.ensureViewHas [ PSelector.class "completed" ] ]
+                    , ensureItemsLeft 1
+                    ]
+                , PagesProgram.group "Resolve server responses"
+                    [ PagesProgram.simulateCustom "deleteTodo" Encode.null
+                    , PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+                    , PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+                    , PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+                    , PagesProgram.simulateCustom "getTodosBySession"
+                        (Encode.list identity
+                            [ todoFixture "Buy milk" False "todo-1"
+                            , todoFixture "Walk the dog" True "todo-3"
                             ]
-                       , PagesProgram.group "Verify optimistic state"
-                            [ PagesProgram.ensureViewHasNot [ PSelector.attribute (Attr.value "Write tests") ]
-                            , PagesProgram.withinFind
-                                [ PSelector.tag "li", PSelector.containing [ PSelector.attribute (Attr.value "Buy milk") ] ]
-                                [ PagesProgram.ensureViewHasNot [ PSelector.class "completed" ] ]
-                            , PagesProgram.withinFind
-                                [ PSelector.tag "li", PSelector.containing [ PSelector.attribute (Attr.value "Walk the dog") ] ]
-                                [ PagesProgram.ensureViewHas [ PSelector.class "completed" ] ]
-                            , ensureItemsLeft 1
-                            ]
-                       , PagesProgram.group "Resolve server responses"
-                            [ PagesProgram.simulateCustom "deleteTodo" Encode.null
-                            , PagesProgram.simulateCustom "setTodoCompletion" Encode.null
-                            , PagesProgram.simulateCustom "setTodoCompletion" Encode.null
-                            , PagesProgram.simulateCustom "setTodoCompletion" Encode.null
-                            , PagesProgram.simulateCustom "getTodosBySession"
-                                (Encode.list identity
-                                    [ todoFixture "Buy milk" False "todo-1"
-                                    , todoFixture "Walk the dog" True "todo-3"
-                                    ]
-                                )
-                            ]
-                       , PagesProgram.group "Verify server-confirmed state"
-                            [ PagesProgram.ensureViewHasNot [ PSelector.attribute (Attr.value "Write tests") ]
-                            , PagesProgram.withinFind
-                                [ PSelector.tag "li", PSelector.containing [ PSelector.attribute (Attr.value "Buy milk") ] ]
-                                [ PagesProgram.ensureViewHasNot [ PSelector.class "completed" ] ]
-                            , PagesProgram.withinFind
-                                [ PSelector.tag "li", PSelector.containing [ PSelector.attribute (Attr.value "Walk the dog") ] ]
-                                [ PagesProgram.ensureViewHas [ PSelector.class "completed" ] ]
-                            , ensureItemsLeft 1
-                            ]
-                       ]
-                )
+                        )
+                    ]
+                , PagesProgram.group "Verify server-confirmed state"
+                    [ PagesProgram.ensureViewHasNot [ PSelector.attribute (Attr.value "Write tests") ]
+                    , PagesProgram.withinFind
+                        [ PSelector.tag "li", PSelector.containing [ PSelector.attribute (Attr.value "Buy milk") ] ]
+                        [ PagesProgram.ensureViewHasNot [ PSelector.class "completed" ] ]
+                    , PagesProgram.withinFind
+                        [ PSelector.tag "li", PSelector.containing [ PSelector.attribute (Attr.value "Walk the dog") ] ]
+                        [ PagesProgram.ensureViewHas [ PSelector.class "completed" ] ]
+                    , ensureItemsLeft 1
+                    ]
+                ]
             , PagesProgram.test "repeats toggles on a single item"
                 startAfterMagicLink
-                (finishMagicLinkLoginAndLoadTodos todosResponse
-                    ++ [ ensureItemsLeft 2
-                       , PagesProgram.group "Toggle Buy milk three times"
-                            [ toggleTodo "Buy milk"
-                            , ensureItemsLeft 1
-                            , toggleTodo "Buy milk"
-                            , ensureItemsLeft 2
-                            , toggleTodo "Buy milk"
-                            , ensureItemsLeft 1
+                [ finishMagicLinkLoginAndLoadTodos todosResponse
+                , ensureItemsLeft 2
+                , PagesProgram.group "Toggle todo 3x (optimistic)"
+                    [ toggleTodo "Buy milk"
+                    , ensureItemsLeft 1
+                    , toggleTodo "Buy milk"
+                    , ensureItemsLeft 2
+                    , toggleTodo "Buy milk"
+                    , ensureItemsLeft 1
+                    , PagesProgram.withinFind
+                        [ PSelector.tag "li", PSelector.containing [ PSelector.attribute (Attr.value "Buy milk") ] ]
+                        [ PagesProgram.ensureViewHas [ PSelector.class "completed" ] ]
+                    ]
+                , PagesProgram.group "Resolve three fetchers + reload"
+                    [ PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+                    , PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+                    , PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+                    , PagesProgram.simulateCustom "getTodosBySession"
+                        (Encode.list identity
+                            [ todoFixture "Buy milk" True "todo-1"
+                            , todoFixture "Write tests" True "todo-2"
+                            , todoFixture "Walk the dog" False "todo-3"
                             ]
-                       , PagesProgram.group "Verify optimistic state"
-                            [ PagesProgram.withinFind
-                                [ PSelector.tag "li", PSelector.containing [ PSelector.attribute (Attr.value "Buy milk") ] ]
-                                [ PagesProgram.ensureViewHas [ PSelector.class "completed" ] ]
-                            ]
-                       , PagesProgram.group "Resolve three fetchers + reload"
-                            [ PagesProgram.simulateCustom "setTodoCompletion" Encode.null
-                            , PagesProgram.simulateCustom "setTodoCompletion" Encode.null
-                            , PagesProgram.simulateCustom "setTodoCompletion" Encode.null
-                            , PagesProgram.simulateCustom "getTodosBySession"
-                                (Encode.list identity
-                                    [ todoFixture "Buy milk" True "todo-1"
-                                    , todoFixture "Write tests" True "todo-2"
-                                    , todoFixture "Walk the dog" False "todo-3"
-                                    ]
-                                )
-                            ]
-                       , PagesProgram.group "Verify server-confirmed state"
-                            [ ensureItemsLeft 1
-                            , PagesProgram.withinFind
-                                [ PSelector.tag "li", PSelector.containing [ PSelector.attribute (Attr.value "Buy milk") ] ]
-                                [ PagesProgram.ensureViewHas [ PSelector.class "completed" ] ]
-                            ]
-                       ]
-                )
+                        )
+                    , ensureItemsLeft 1
+                    , PagesProgram.withinFind
+                        [ PSelector.tag "li", PSelector.containing [ PSelector.attribute (Attr.value "Buy milk") ] ]
+                        [ PagesProgram.ensureViewHas [ PSelector.class "completed" ] ]
+                    ]
+                ]
             , PagesProgram.test "stress-tests stacked toggle fetchers per item"
                 startAfterMagicLink
-                (finishMagicLinkLoginAndLoadTodos todosResponse
-                    ++ [ ensureItemsLeft 2
-                       , PagesProgram.group "Toggle storm: 6 concurrent fetchers"
-                            [ toggleTodo "Buy milk"
-                            , ensureItemsLeft 1
-                            , toggleTodo "Write tests"
-                            , ensureItemsLeft 2
-                            , toggleTodo "Buy milk"
-                            , ensureItemsLeft 3
-                            , toggleTodo "Walk the dog"
-                            , ensureItemsLeft 2
-                            , toggleTodo "Write tests"
-                            , ensureItemsLeft 1
-                            , toggleTodo "Buy milk"
-                            , ensureItemsLeft 0
+                [ finishMagicLinkLoginAndLoadTodos todosResponse
+                , ensureItemsLeft 2
+                , PagesProgram.group "Toggle storm: 6 concurrent fetchers"
+                    [ toggleTodo "Buy milk"
+                    , ensureItemsLeft 1
+                    , toggleTodo "Write tests"
+                    , ensureItemsLeft 2
+                    , toggleTodo "Buy milk"
+                    , ensureItemsLeft 3
+                    , toggleTodo "Walk the dog"
+                    , ensureItemsLeft 2
+                    , toggleTodo "Write tests"
+                    , ensureItemsLeft 1
+                    , toggleTodo "Buy milk"
+                    , ensureItemsLeft 0
+                    ]
+                , PagesProgram.group "Verify optimistic state (latest target per item)"
+                    [ PagesProgram.withinFind
+                        [ PSelector.tag "li", PSelector.containing [ PSelector.attribute (Attr.value "Buy milk") ] ]
+                        [ PagesProgram.ensureViewHas [ PSelector.class "completed" ] ]
+                    , PagesProgram.withinFind
+                        [ PSelector.tag "li", PSelector.containing [ PSelector.attribute (Attr.value "Write tests") ] ]
+                        [ PagesProgram.ensureViewHas [ PSelector.class "completed" ] ]
+                    , PagesProgram.withinFind
+                        [ PSelector.tag "li", PSelector.containing [ PSelector.attribute (Attr.value "Walk the dog") ] ]
+                        [ PagesProgram.ensureViewHas [ PSelector.class "completed" ] ]
+                    ]
+                , PagesProgram.group "Resolve all six fetchers + reload"
+                    [ PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+                    , PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+                    , PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+                    , PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+                    , PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+                    , PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+                    , PagesProgram.simulateCustom "getTodosBySession"
+                        (Encode.list identity
+                            [ todoFixture "Buy milk" True "todo-1"
+                            , todoFixture "Write tests" True "todo-2"
+                            , todoFixture "Walk the dog" True "todo-3"
                             ]
-                       , PagesProgram.group "Verify optimistic state (latest target per item)"
-                            [ PagesProgram.withinFind
-                                [ PSelector.tag "li", PSelector.containing [ PSelector.attribute (Attr.value "Buy milk") ] ]
-                                [ PagesProgram.ensureViewHas [ PSelector.class "completed" ] ]
-                            , PagesProgram.withinFind
-                                [ PSelector.tag "li", PSelector.containing [ PSelector.attribute (Attr.value "Write tests") ] ]
-                                [ PagesProgram.ensureViewHas [ PSelector.class "completed" ] ]
-                            , PagesProgram.withinFind
-                                [ PSelector.tag "li", PSelector.containing [ PSelector.attribute (Attr.value "Walk the dog") ] ]
-                                [ PagesProgram.ensureViewHas [ PSelector.class "completed" ] ]
-                            ]
-                       , PagesProgram.group "Resolve all six fetchers + reload"
-                            [ PagesProgram.simulateCustom "setTodoCompletion" Encode.null
-                            , PagesProgram.simulateCustom "setTodoCompletion" Encode.null
-                            , PagesProgram.simulateCustom "setTodoCompletion" Encode.null
-                            , PagesProgram.simulateCustom "setTodoCompletion" Encode.null
-                            , PagesProgram.simulateCustom "setTodoCompletion" Encode.null
-                            , PagesProgram.simulateCustom "setTodoCompletion" Encode.null
-                            , PagesProgram.simulateCustom "getTodosBySession"
-                                (Encode.list identity
-                                    [ todoFixture "Buy milk" True "todo-1"
-                                    , todoFixture "Write tests" True "todo-2"
-                                    , todoFixture "Walk the dog" True "todo-3"
-                                    ]
-                                )
-                            ]
-                       , PagesProgram.group "Verify server-confirmed state"
-                            [ ensureItemsLeft 0
-                            , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
-                            , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Write tests") ]
-                            , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Walk the dog") ]
-                            ]
-                       ]
-                )
+                        )
+                    ]
+                , PagesProgram.group "Verify server-confirmed state"
+                    [ ensureItemsLeft 0
+                    , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
+                    , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Write tests") ]
+                    , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Walk the dog") ]
+                    ]
+                ]
             ]
         , PagesProgram.describe "Filtering"
             [ PagesProgram.test "switches All / Active / Completed filter views"
                 startAfterMagicLink
-                (finishMagicLinkLoginAndLoadTodos todosResponse
-                    ++ [ PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
-                       , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Write tests") ]
-                       , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Walk the dog") ]
-                       , PagesProgram.clickLink "Active"
-                       , PagesProgram.simulateCustom "getTodosBySession" todosResponse
-                       , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
-                       , PagesProgram.ensureViewHasNot [ PSelector.attribute (Attr.value "Write tests") ]
-                       , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Walk the dog") ]
-                       , PagesProgram.clickLink "Completed"
-                       , PagesProgram.simulateCustom "getTodosBySession" todosResponse
-                       , PagesProgram.ensureViewHasNot [ PSelector.attribute (Attr.value "Buy milk") ]
-                       , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Write tests") ]
-                       , PagesProgram.ensureViewHasNot [ PSelector.attribute (Attr.value "Walk the dog") ]
-                       , PagesProgram.clickLink "All"
-                       , PagesProgram.simulateCustom "getTodosBySession" todosResponse
-                       , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
-                       , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Write tests") ]
-                       , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Walk the dog") ]
-                       ]
-                )
+                [ finishMagicLinkLoginAndLoadTodos todosResponse
+                , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
+                , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Write tests") ]
+                , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Walk the dog") ]
+                , PagesProgram.clickLink "Active"
+                , PagesProgram.simulateCustom "getTodosBySession" todosResponse
+                , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
+                , PagesProgram.ensureViewHasNot [ PSelector.attribute (Attr.value "Write tests") ]
+                , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Walk the dog") ]
+                , PagesProgram.clickLink "Completed"
+                , PagesProgram.simulateCustom "getTodosBySession" todosResponse
+                , PagesProgram.ensureViewHasNot [ PSelector.attribute (Attr.value "Buy milk") ]
+                , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Write tests") ]
+                , PagesProgram.ensureViewHasNot [ PSelector.attribute (Attr.value "Walk the dog") ]
+                , PagesProgram.clickLink "All"
+                , PagesProgram.simulateCustom "getTodosBySession" todosResponse
+                , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Buy milk") ]
+                , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Write tests") ]
+                , PagesProgram.ensureViewHas [ PSelector.attribute (Attr.value "Walk the dog") ]
+                ]
             ]
         ]
 
@@ -390,10 +373,11 @@ startSignedInWithTodos _ =
 
 
 finishMagicLinkLoginAndLoadTodos todos =
-    [ PagesProgram.simulateCustom "decrypt" decryptResponse
-    , PagesProgram.simulateCustom "findOrCreateUserAndSession" sessionIdResponse
-    , PagesProgram.simulateCustom "getTodosBySession" todos
-    ]
+    PagesProgram.group "Login"
+        [ PagesProgram.simulateCustom "decrypt" decryptResponse
+        , PagesProgram.simulateCustom "findOrCreateUserAndSession" sessionIdResponse
+        , PagesProgram.simulateCustom "getTodosBySession" todos
+        ]
 
 
 
