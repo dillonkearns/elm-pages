@@ -4021,12 +4021,15 @@ viewFetcherInspector currentStep allSnapshots =
 
                                           else
                                             Html.span [ Attr.class "fetcher-field-sep" ]
-                                                [ Html.text " · " ]
+                                                [ Html.text "·" ]
                                         , Html.span [ Attr.class "fetcher-field-key" ]
                                             [ Html.text k ]
-                                        , Html.text " "
+                                        , Html.span [ Attr.class "fetcher-field-punct" ]
+                                            [ Html.text "=\"" ]
                                         , Html.span [ Attr.class "fetcher-field-value" ]
                                             [ Html.text v ]
+                                        , Html.span [ Attr.class "fetcher-field-punct" ]
+                                            [ Html.text "\"" ]
                                         ]
                                 )
                         )
@@ -8454,21 +8457,33 @@ body {
     font-family: "JetBrains Mono", monospace;
     font-size: 11.5px;
     font-weight: 400;
-    margin-top: 4px;
+    margin-top: 6px;
     padding-left: 22px;
+    line-height: 1.55;
 }
 
+/* Render each field as an HTML attribute literal (key="value") so the
+   pane reads like the wire format the form actually submits, and
+   harmonizes with the Data tab's syntax-highlighted palette: field
+   names share `dv-field-name`'s blue, string contents share
+   `dv-string`'s green, and the surrounding chrome (=, ", separator
+   dot) shares `dv-punct`'s muted gray. Empty values render as `""`,
+   which is clearly distinct from a missing/bare attribute. */
 .fetcher-field-key {
-    color: #5c6a7e;
+    color: #79c0ff;
 }
 
 .fetcher-field-value {
-    color: #8896a6;
+    color: #7ee787;
+}
+
+.fetcher-field-punct {
+    color: #6e7681;
 }
 
 .fetcher-field-sep {
-    color: #4a5568;
-    margin: 0 4px;
+    color: #6e7681;
+    margin: 0 8px;
 }
 
 .effect-inspector {
