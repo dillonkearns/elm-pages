@@ -2116,6 +2116,9 @@ viewStepRow index stepLabel snapshot currentIndex isHovering isHovered containsE
 
         isPast =
             index < currentIndex
+
+        inNamedGroup =
+            snapshot.groupLabel /= Nothing
     in
     Html.div
         [ Attr.classList
@@ -2126,6 +2129,7 @@ viewStepRow index stepLabel snapshot currentIndex isHovering isHovered containsE
             , ( "step-row-error", snapshot.errorMessage /= Nothing )
             , ( "step-row-contains-error", containsError )
             , ( "step-row-child", isChild )
+            , ( "step-row-in-named-group", inNamedGroup )
             ]
         , Attr.id ("step-" ++ String.fromInt index)
         , Html.Events.onClick (GoToStep index)
@@ -6299,6 +6303,16 @@ body {
     color: #7a8597;
 }
 
+/* Rows whose snapshot carries a `groupLabel` (i.e. created inside a
+   `PagesProgram.group "..."` block). Faint left-edge stripe makes the
+   group's vertical extent visible, so a row whose `groupLabel` is
+   `Nothing` and lands right after a group's last visible step doesn't
+   visually pretend to be inside it. The stripe is overridden by hover
+   / active / error states (which paint stronger left-border-colors). */
+.step-row-in-named-group {
+    border-left-color: rgba(255, 255, 255, 0.10);
+}
+
 .step-row-child .step-label {
     font-size: 13px;
     color: #8a9aaa;
@@ -7264,7 +7278,7 @@ body {
     padding: 16px 12px 8px 5px;
     cursor: pointer;
     background: transparent;
-    border-left: 2px solid transparent;
+    border-left: 2px solid rgba(255, 255, 255, 0.10);
     font-size: 11.5px;
     color: #8896a6;
     text-transform: uppercase;
