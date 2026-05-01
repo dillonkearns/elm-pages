@@ -37,7 +37,7 @@ The key ingredients are:
 - Form submissions (fetchers, all in-flight form submissions are in `app.concurrentSubmissions` - after a successful form submission, the `data` function reloads the page's data)
 - Cookies and signed sessions
 - Redirect responses
-- [Error Page](/docs/error-pages/)s
+- [`ErrorPage`](/docs/error-pages/)s
 
 ### Confidence
 
@@ -182,9 +182,9 @@ Note that `complete="on"` and `complete=""` may seem like odd choices to seriali
 
 ![Cookies Tab](/cookies-tab.png)
 
-I'm showing a different example ehre that has more interesting cookie states, it does a does a full log in flow with to different accounts (with a log out in between).
+I'm showing a different example here that has more interesting cookie states, it does a does a full log in flow with two different accounts (with a log out in between).
 
-There is a git-style diff shown. Here we can inspect what the `sessionId` field has changed from/to (it was removed) comparecd to the previous state it had (Step 6 since that is the previous Step Chip).
+There is a git-style diff shown. Here we can inspect what the `sessionId` field has changed from/to (it was removed) compared to the previous state it had (Step 6 since that is the previous Step Chip).
 
 ### Data Tab
 
