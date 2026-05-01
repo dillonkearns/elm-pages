@@ -31,9 +31,9 @@ suite =
                 [ PagesProgram.ensureViewHas [ PSelector.text "You aren't logged in yet." ]
                 , PagesProgram.fillIn "login" "email" "user@example.com"
                 , PagesProgram.clickButton "Login"
-                , PagesProgram.ensureCustom "encrypt"
+                , PagesProgram.ensureCustom "encrypt" (\_ -> Expect.pass)
                 , PagesProgram.simulateCustom "encrypt" (Encode.string "fake-hash")
-                , PagesProgram.ensureHttpPost "https://api.sendgrid.com/v3/mail/send"
+                , PagesProgram.ensureHttpPost "https://api.sendgrid.com/v3/mail/send" (\_ -> Expect.pass)
                 , PagesProgram.simulateHttpPost "https://api.sendgrid.com/v3/mail/send" Encode.null
                 , PagesProgram.ensureViewHas [ PSelector.text "Check your inbox for your login link!" ]
                 , PagesProgram.navigateTo "/login?magic=fake-hash"
@@ -107,7 +107,7 @@ suite =
                 ]
             , PagesProgram.test "loads with a pre-signed session cookie"
                 (startSignedInWithTodos todosResponse)
-                [ PagesProgram.ensureCustom "getTodosBySession"
+                [ PagesProgram.ensureCustom "getTodosBySession" (\_ -> Expect.pass)
                 , PagesProgram.simulateCustom "getTodosBySession" todosResponse
                 , PagesProgram.ensureBrowserUrl (Expect.equal "https://localhost:1234/")
                 , PagesProgram.ensureViewHas [ PSelector.text "todos" ]
