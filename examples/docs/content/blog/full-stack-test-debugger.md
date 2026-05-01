@@ -10,6 +10,8 @@
 
 Between Elm's purity, the full-stack Elm in [The `elm-pages` Architecture](/docs/architecture), and the [Use the Platform philosophy](/docs/use-the-platform), the latest `elm-pages` release brings a new testing experience that is uniquely made possible with this convergence of design choices.
 
+Every framework effect (`BackendTask`s, fetchers, cookies, redirects, `ErrorPage`s) is a value your code returns rather than something it performs. That means your tests can swap any of them, and the debugger can inspect every state transition. It's the time-traveling debugger from early Elm, applied to your full-stack app.
+
 You can try it out right now:
 
 - Write a test using the new [`Test.PagesProgram`](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Test-PagesProgram) API (more info in the docs there)
@@ -222,5 +224,9 @@ While this is most powerful for server-rendered routes (you can't access cookies
 There may be fewer edge cases for pre-rendered apps, but you may as well check your app once in an automated way and keep those tests around to avoid regressions in the future! At least that's why I love testing so much.
 
 ## Try It Out
+
+Effects as Data is what makes all of this possible, and I think it's one of the most promising opportunities for Elm-based frameworks and tools.
+
+I think we can take this even further. Perhaps in the future I can explore "forking" test cases and recording new test cases with an in-browser "record" feature (alla Playwright) with features to record real Network responses. A visual `BackendTask` dependency graph viewer. Or an integration with `elm-form` to inspect parsed form data. There are so many interesting possibilities left to explore, both in `elm-pages` and in the Elm ecosystem overall.
 
 I hope you find this useful. If you give it a try, I would love to hear your thoughts on the Elm Slack or on the Incremental Elm Discord!
