@@ -227,6 +227,6 @@ There may be fewer edge cases for pre-rendered apps, but you may as well check y
 
 Effects as Data is what makes all of this possible, and I think it's one of the most promising opportunities for Elm-based frameworks and tools.
 
-I think we can take this even further. Perhaps in the future I can explore "forking" test cases and recording new test cases with an in-browser "record" feature (alla Playwright) with features to record real Network responses. A visual `BackendTask` dependency graph viewer. Or an integration with `elm-form` to inspect parsed form data. There are so many interesting possibilities left to explore, both in `elm-pages` and in the Elm ecosystem overall.
+I think we can take this even further. Perhaps in the future I can explore "forking" test cases, an in-browser "record" feature à la Playwright that captures real Network responses, a visual `BackendTask` dependency graph viewer, or an integration with `elm-form` to inspect parsed form data. There are so many interesting possibilities left to explore, both in `elm-pages` and in the Elm ecosystem overall.
 
 I hope you find this useful. If you give it a try, I would love to hear your thoughts on the Elm Slack or on the Incremental Elm Discord!
