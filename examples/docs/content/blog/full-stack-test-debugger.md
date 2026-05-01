@@ -96,9 +96,9 @@ suite =
                 [ PagesProgram.ensureViewHas [ PSelector.class "completed" ] ]
             ]
         , PagesProgram.group "Resolve three fetchers + reload"
-            [ simulateToggle
-            , simulateToggle
-            , simulateToggle
+            [ saveTodo { todoId = "todo-1", complete = True }
+            , saveTodo { todoId = "todo-1", complete = False }
+            , saveTodo { todoId = "todo-1", complete = True }
             , PagesProgram.simulateCustom "getTodosBySession" reloadedTodos
             , ensureItemsLeft 1
             , PagesProgram.withinFind
@@ -126,9 +126,19 @@ ensureItemsLeft n =
         [ PagesProgram.ensureViewHas [ PSelector.text (String.fromInt n) ] ]
 
 
-simulateToggle : TestApp.Step
-simulateToggle =
-    PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+saveTodo : { todoId : String, complete : Bool } -> TestApp.Step
+saveTodo expected =
+    PagesProgram.simulateCustomWith "setTodoCompletion"
+        (\args ->
+            Decode.decodeValue
+                (Decode.map2 (\tid c -> { todoId = tid, complete = c })
+                    (Decode.field "todoId" Decode.string)
+                    (Decode.field "complete" Decode.bool)
+                )
+                args
+                |> Expect.equal (Ok expected)
+        )
+        Encode.null
 ```
 
 
@@ -138,17 +148,21 @@ There is a lot of information to look at, so lets break down what it all means a
 
 ### The Timeline
 
+![Timeline](/timeline.png)
+
 Most importantly, the steps are presented in the left sidebar. This represents **a timeline of the states** that your app went through over the course of this test case. Every action in your tests (typing, clicking, simulating an `BackendTask` resolving a pending HTTP response) results in a new step, e.g. `4`. Any assertions within that get a letter within that state (`4a`, `4b`).
 
-Whenever there is an interaction with or assertion against a given UI element, we highlight that element in green (and purple for the item we interact with, like clicking or typing text).
+Whenever there is an interaction with or assertion against a given UI element, we highlight that element in green (and purple for the item we interact with, like clicking or typing text). Step 4 is clicking the checkmark so there is a purple box around that.
 
 ### Step Chips
 
 Throughout the other tabs you will see these little boxes with numbers in them (let's call them Step Chips for short). Anywhere you see a Step Chip, you can click on it to navigate to that step in the timeline, just as if you clicked that step in the lefthand sidebar.
 
-When a Step Chip is highlighted with a color background, that means it is the current step you are viewing. When it is highlighted with an outline, that means it is the current state but that state begin at an earlier step.
+When a Step Chip is highlighted with a color background (`4` in the screenshot from the Timeline section above), that means it is the current step you are viewing. When it is highlighted with an outline, that means it is the current state but that state begin at an earlier step.
 
 ### Network Tab
+
+![Network Tab](/network-tab.png)
 
 In the Network tab, you can see a timeline of every `BackendTask` (both [HTTP](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/BackendTask-Http) and [Custom](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/BackendTask-Custom)), with the Step Chips showing when they were triggered and when they landed.
 
@@ -156,14 +170,25 @@ You can click on a request to inspect the HTTP request and response bodies and h
 
 ### Fetchers Tab
 
+![Fetchers Tab](/fetchers-tab.png)
+
 The Fetchers are the most important state for our optimistic UI. In the case of our todo item toggling its completion status, you can see that each step where we click (2, 3, 4) has a corresponding fetcher Step Chip with an up arrow. This means that the fetcher is submitting form data at that step. You can see the payload it is submitting underneath the Step Chips, and it changes as we click.
+
+In this screenshot in Step 3, we are re-triggering the fetcher, and in our app we render a spinner for todo items that have an in-flight fetcher which we can easily inspect to ensure it is working correctly by walking through each stage of this fetcher's' lifecycle.
 
 Note that `complete="on"` and `complete=""` may seem like odd choices to serialize `complete=true` and `complete=false`. But this is just the standard format for form encoded data for checkboxes. The nice thing here is that if we turn off JavaScript in our browser this submission will still work and the server understands it!
 
-
 ### Cookies Tab
 
+![Cookies Tab](/cookies-tab.png)
+
+I'm showing a different example ehre that has more interesting cookie states, it does a does a full log in flow with to different accounts (with a log out in between).
+
+There is a git-style diff shown. Here we can inspect what the `sessionId` field has changed from/to (it was removed) comparecd to the previous state it had (Step 6 since that is the previous Step Chip).
+
 ### Data Tab
+
+![Data Tab](/data-tab.png)
 
 This lets you inspect your Route Module's resolved `BackendTask` and all other app state:
 
@@ -172,3 +197,15 @@ This lets you inspect your Route Module's resolved `BackendTask` and all other a
 - `shared`
 
 You will see all of these values with their state at the step you are currently viewing. Plus navigating between steps will automatically expand and highlight changed values between steps.
+
+In our log in/log out flow test case, you can see that our `data` changes after we log in. The auto-expanded changed values make it easy to see what is happening at each step, but you can also click and expand to dive
+in to your app's resolved `data` at any stage.
+
+## Testing Pre-Rendered Routes
+
+While this is most powerful for server-rendered routes (you can't access cookies or fetchers from pre-rendered routes, for example), the visual test debugger will still work for your pre-rendered routes and it can still be a valuable tool.
+There may be fewer edge cases for pre-rendered apps, but you may as well check your app once in an automated way and keep those tests around to avoid regressions in the future! At least that's why I love testing so much.
+
+## Try It Out
+
+I hope you find this useful. If you give it a try, I would love to hear your thoughts on the Elm Slack or on the Incremental Elm Discord!

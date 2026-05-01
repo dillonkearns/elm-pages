@@ -2,6 +2,7 @@ module PlatformTests exposing (suite)
 
 import Expect exposing (Expectation)
 import Html.Attributes as Attr
+import Json.Decode as Decode
 import Json.Encode as Encode
 import Test exposing (Test, describe, test)
 import Test.BackendTask as BackendTaskTest
@@ -9,6 +10,7 @@ import Test.Html.Selector as PSelector
 import Test.PagesProgram as PagesProgram
 import Test.Runner
 import TestApp
+import Time
 
 
 suite : Test
@@ -228,6 +230,63 @@ suite =
                         (Encode.object [ ( "count", Encode.int 1 ) ])
                     , PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
                     ]
+        , test "ensureCustomBody: asserts the next pending custom port input matches" <|
+            \() ->
+                PagesProgram.expect
+                    (TestApp.start "/hashes"
+                        (BackendTaskTest.init
+                            |> BackendTaskTest.withFile "greeting.txt" "Hi"
+                            |> BackendTaskTest.withTime (Time.millisToPosix 0)
+                            |> BackendTaskTest.withRandomSeed 0
+                        )
+                    )
+                    [ PagesProgram.ensureCustomBody "hello"
+                        (PagesProgram.expectJsonInput Decode.string
+                            (Expect.equal "Jane")
+                        )
+                    , PagesProgram.simulateCustom "hello" (Encode.string "Hello, Jane!")
+                    , PagesProgram.ensureViewHas [ PSelector.text "Hello, Jane!" ]
+                    ]
+        , test "ensureCustomBody: value mismatch produces a sharp Expect.equal failure" <|
+            \() ->
+                PagesProgram.expect
+                    (TestApp.start "/hashes"
+                        (BackendTaskTest.init
+                            |> BackendTaskTest.withFile "greeting.txt" "Hi"
+                            |> BackendTaskTest.withTime (Time.millisToPosix 0)
+                            |> BackendTaskTest.withRandomSeed 0
+                        )
+                    )
+                    [ PagesProgram.ensureCustomBody "hello"
+                        (PagesProgram.expectJsonInput Decode.string
+                            (Expect.equal "Bob")
+                        )
+                    ]
+                    |> expectFailContaining "Jane"
+        , test "ensureCustomBody: decoder shape failure produces a clear, port-named error" <|
+            \() ->
+                PagesProgram.expect
+                    (TestApp.start "/hashes"
+                        (BackendTaskTest.init
+                            |> BackendTaskTest.withFile "greeting.txt" "Hi"
+                            |> BackendTaskTest.withTime (Time.millisToPosix 0)
+                            |> BackendTaskTest.withRandomSeed 0
+                        )
+                    )
+                    [ PagesProgram.ensureCustomBody "hello"
+                        (PagesProgram.expectJsonInput Decode.int
+                            (\_ -> Expect.pass)
+                        )
+                    ]
+                    |> expectFailContaining "hello"
+        , test "ensureCustomBody: fails when no matching port is pending" <|
+            \() ->
+                PagesProgram.expect
+                    (TestApp.start "/counter" BackendTaskTest.init)
+                    [ PagesProgram.ensureCustomBody "noSuchPort"
+                        (\_ -> Expect.pass)
+                    ]
+                    |> expectFailContaining "noSuchPort"
         , test "stale fetcher reloads are canceled when a newer submission starts" <|
             \() ->
                 PagesProgram.expect (TestApp.start "/fetcher-http" BackendTaskTest.init)

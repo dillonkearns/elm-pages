@@ -12,6 +12,7 @@ View in browser: elm-pages dev, then open /\_tests
 
 import Expect
 import Html.Attributes as Attr
+import Json.Decode as Decode
 import Json.Encode as Encode
 import Test.BackendTask as BackendTaskTest
 import Test.Html.Selector as PSelector
@@ -239,9 +240,9 @@ suite =
                         [ PagesProgram.ensureViewHas [ PSelector.class "completed" ] ]
                     ]
                 , PagesProgram.group "Resolve three fetchers + reload"
-                    [ PagesProgram.simulateCustom "setTodoCompletion" Encode.null
-                    , PagesProgram.simulateCustom "setTodoCompletion" Encode.null
-                    , PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+                    [ simulateToggle { todoId = "todo-1", complete = True }
+                    , simulateToggle { todoId = "todo-1", complete = False }
+                    , simulateToggle { todoId = "todo-1", complete = True }
                     , PagesProgram.simulateCustom "getTodosBySession"
                         (Encode.list identity
                             [ todoFixture "Buy milk" True "todo-1"
@@ -409,6 +410,21 @@ deleteTodo description =
         , PSelector.containing [ PSelector.attribute (Attr.value description) ]
         ]
         [ PagesProgram.clickButtonWith [ PSelector.class "destroy" ] ]
+
+
+simulateToggle : { todoId : String, complete : Bool } -> TestApp.Step
+simulateToggle expected =
+    PagesProgram.group "setTodoCompletion"
+        [ PagesProgram.ensureCustomBody "setTodoCompletion"
+            (PagesProgram.expectJsonInput
+                (Decode.map2 (\tid c -> { todoId = tid, complete = c })
+                    (Decode.field "todoId" Decode.string)
+                    (Decode.field "complete" Decode.bool)
+                )
+                (Expect.equal expected)
+            )
+        , PagesProgram.simulateCustom "setTodoCompletion" Encode.null
+        ]
 
 
 

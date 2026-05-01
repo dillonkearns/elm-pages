@@ -1509,7 +1509,7 @@ ensurePendingRequestWith callerName predicate assertion target (ProgramTest stat
                                                 ++ " \""
                                                 ++ target
                                                 ++ "\" assertion failed.\n\n"
-                                                ++ failure.description
+                                                ++ formatFailureReason failure
                                             )
                                 }
 
@@ -1519,6 +1519,31 @@ ensurePendingRequestWith callerName predicate assertion target (ProgramTest stat
                             | error =
                                 Just (noMatchingPendingRequestError callerName target allPending)
                         }
+
+
+formatFailureReason : { given : Maybe String, description : String, reason : Test.Runner.Failure.Reason } -> String
+formatFailureReason { description, reason } =
+    case reason of
+        Test.Runner.Failure.Equality expected actual ->
+            description ++ "\n\n" ++ actual ++ "\n╷\n│ " ++ description ++ "\n╵\n" ++ expected
+
+        Test.Runner.Failure.Comparison expected actual ->
+            description ++ "\n\n" ++ actual ++ "\n╷\n│ " ++ description ++ "\n╵\n" ++ expected
+
+        Test.Runner.Failure.ListDiff expected actual ->
+            description ++ "\n\nExpected: " ++ String.join ", " expected ++ "\nActual: " ++ String.join ", " actual
+
+        Test.Runner.Failure.CollectionDiff diff ->
+            description ++ "\n\nExpected: " ++ diff.expected ++ "\nActual: " ++ diff.actual
+
+        Test.Runner.Failure.Custom ->
+            description
+
+        Test.Runner.Failure.TODO ->
+            description
+
+        Test.Runner.Failure.Invalid _ ->
+            description
 
 
 noMatchingPendingRequestError :
