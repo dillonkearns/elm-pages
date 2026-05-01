@@ -414,17 +414,17 @@ deleteTodo description =
 
 simulateToggle : { todoId : String, complete : Bool } -> TestApp.Step
 simulateToggle expected =
-    PagesProgram.group "setTodoCompletion"
-        [ PagesProgram.ensureCustomBody "setTodoCompletion"
-            (PagesProgram.expectJsonInput
+    PagesProgram.simulateCustomWith "setTodoCompletion"
+        (\args ->
+            Decode.decodeValue
                 (Decode.map2 (\tid c -> { todoId = tid, complete = c })
                     (Decode.field "todoId" Decode.string)
                     (Decode.field "complete" Decode.bool)
                 )
-                (Expect.equal expected)
-            )
-        , PagesProgram.simulateCustom "setTodoCompletion" Encode.null
-        ]
+                args
+                |> Expect.equal (Ok expected)
+        )
+        Encode.null
 
 
 

@@ -230,7 +230,7 @@ suite =
                         (Encode.object [ ( "count", Encode.int 1 ) ])
                     , PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
                     ]
-        , test "ensureCustomBody: asserts the next pending custom port input matches" <|
+        , test "simulateCustomWith: asserts input + resolves in one step" <|
             \() ->
                 PagesProgram.expect
                     (TestApp.start "/hashes"
@@ -240,14 +240,15 @@ suite =
                             |> BackendTaskTest.withRandomSeed 0
                         )
                     )
-                    [ PagesProgram.ensureCustomBody "hello"
-                        (PagesProgram.expectJsonInput Decode.string
-                            (Expect.equal "Jane")
+                    [ PagesProgram.simulateCustomWith "hello"
+                        (\args ->
+                            Decode.decodeValue Decode.string args
+                                |> Expect.equal (Ok "Jane")
                         )
-                    , PagesProgram.simulateCustom "hello" (Encode.string "Hello, Jane!")
+                        (Encode.string "Hello, Jane!")
                     , PagesProgram.ensureViewHas [ PSelector.text "Hello, Jane!" ]
                     ]
-        , test "ensureCustomBody: value mismatch produces a sharp Expect.equal failure" <|
+        , test "ensureCustom: value mismatch produces a sharp Expect.equal failure" <|
             \() ->
                 PagesProgram.expect
                     (TestApp.start "/hashes"
@@ -257,33 +258,18 @@ suite =
                             |> BackendTaskTest.withRandomSeed 0
                         )
                     )
-                    [ PagesProgram.ensureCustomBody "hello"
-                        (PagesProgram.expectJsonInput Decode.string
-                            (Expect.equal "Bob")
+                    [ PagesProgram.ensureCustom "hello"
+                        (\args ->
+                            Decode.decodeValue Decode.string args
+                                |> Expect.equal (Ok "Bob")
                         )
                     ]
                     |> expectFailContaining "Jane"
-        , test "ensureCustomBody: decoder shape failure produces a clear, port-named error" <|
-            \() ->
-                PagesProgram.expect
-                    (TestApp.start "/hashes"
-                        (BackendTaskTest.init
-                            |> BackendTaskTest.withFile "greeting.txt" "Hi"
-                            |> BackendTaskTest.withTime (Time.millisToPosix 0)
-                            |> BackendTaskTest.withRandomSeed 0
-                        )
-                    )
-                    [ PagesProgram.ensureCustomBody "hello"
-                        (PagesProgram.expectJsonInput Decode.int
-                            (\_ -> Expect.pass)
-                        )
-                    ]
-                    |> expectFailContaining "hello"
-        , test "ensureCustomBody: fails when no matching port is pending" <|
+        , test "ensureCustom: fails when no matching port is pending" <|
             \() ->
                 PagesProgram.expect
                     (TestApp.start "/counter" BackendTaskTest.init)
-                    [ PagesProgram.ensureCustomBody "noSuchPort"
+                    [ PagesProgram.ensureCustom "noSuchPort"
                         (\_ -> Expect.pass)
                     ]
                     |> expectFailContaining "noSuchPort"

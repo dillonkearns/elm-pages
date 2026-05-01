@@ -1846,6 +1846,114 @@ all =
                             , expectFailContaining "actual"
                             ]
             ]
+        , describe "simulateCustomWith"
+            [ test "asserts input and resolves with the response in one step" <|
+                \() ->
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data =
+                                BackendTask.Custom.run "hashPassword"
+                                    (Encode.string "secret123")
+                                    Decode.string
+                                    |> BackendTask.allowFatal
+                            , init = \hash -> ( { hash = hash }, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ model -> { title = "Hash", body = [ Html.text model.hash ] }
+                            }
+                        )
+                        [ PagesProgram.simulateCustomWith "hashPassword"
+                            (\args ->
+                                Decode.decodeValue Decode.string args
+                                    |> Expect.equal (Ok "secret123")
+                            )
+                            (Encode.string "hashed")
+                        ]
+            , test "fails when input assertion fails, naming the port" <|
+                \() ->
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data =
+                                BackendTask.Custom.run "hashPassword"
+                                    (Encode.string "actual-value")
+                                    Decode.string
+                                    |> BackendTask.allowFatal
+                            , init = \hash -> ( { hash = hash }, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ model -> { title = "Hash", body = [ Html.text model.hash ] }
+                            }
+                        )
+                        [ PagesProgram.simulateCustomWith "hashPassword"
+                            (\args ->
+                                Decode.decodeValue Decode.string args
+                                    |> Expect.equal (Ok "expected-value")
+                            )
+                            (Encode.string "hashed")
+                        ]
+                        |> Expect.all
+                            [ expectFailContaining "hashPassword"
+                            , expectFailContaining "expected-value"
+                            , expectFailContaining "actual-value"
+                            ]
+            ]
+        , describe "simulateHttpPostWith"
+            [ test "asserts body and resolves in one step" <|
+                \() ->
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data =
+                                BackendTask.Http.post
+                                    "https://api.example.com/items"
+                                    (BackendTask.Http.jsonBody
+                                        (Encode.object
+                                            [ ( "name", Encode.string "test-item" ) ]
+                                        )
+                                    )
+                                    (BackendTask.Http.expectJson Decode.string)
+                                    |> BackendTask.allowFatal
+                            , init = \value -> ( { value = value }, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ model -> { title = "Items", body = [ Html.text model.value ] }
+                            }
+                        )
+                        [ PagesProgram.simulateHttpPostWith "https://api.example.com/items"
+                            (\body ->
+                                Decode.decodeValue (Decode.field "name" Decode.string) body
+                                    |> Expect.equal (Ok "test-item")
+                            )
+                            (Encode.string "ok")
+                        ]
+            , test "fails when body assertion fails, naming the URL" <|
+                \() ->
+                    PagesProgram.expect
+                        (PagesProgramInternal.initialProgramTest
+                            { data =
+                                BackendTask.Http.post
+                                    "https://api.example.com/items"
+                                    (BackendTask.Http.jsonBody
+                                        (Encode.object
+                                            [ ( "name", Encode.string "actual" ) ]
+                                        )
+                                    )
+                                    (BackendTask.Http.expectJson Decode.string)
+                                    |> BackendTask.allowFatal
+                            , init = \value -> ( { value = value }, [] )
+                            , update = \_ model -> ( model, [] )
+                            , view = \_ model -> { title = "Items", body = [ Html.text model.value ] }
+                            }
+                        )
+                        [ PagesProgram.simulateHttpPostWith "https://api.example.com/items"
+                            (\body ->
+                                Decode.decodeValue (Decode.field "name" Decode.string) body
+                                    |> Expect.equal (Ok "expected")
+                            )
+                            (Encode.string "ok")
+                        ]
+                        |> Expect.all
+                            [ expectFailContaining "api.example.com/items"
+                            , expectFailContaining "expected"
+                            , expectFailContaining "actual"
+                            ]
+            ]
         , describe "simulateHttpError"
             [ test "simulates a network error on data loading" <|
                 \() ->

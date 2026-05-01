@@ -12,8 +12,8 @@ module Test.PagesProgram exposing
     , represent
     , navigateTo, ensureBrowserUrl
     , ensureBrowserHistory
-    , simulateHttpGet, simulateHttpPost, simulateHttpError
-    , simulateCustom
+    , simulateHttpGet, simulateHttpPost, simulateHttpPostWith, simulateHttpError
+    , simulateCustom, simulateCustomWith
     , ensureHttpGet, ensureHttpPost, ensureCustom
     , withSimulatedSubscriptions, simulateIncomingPort
     , Snapshot, withModelInspector
@@ -197,9 +197,9 @@ test pauses until you provide a simulated response. These functions work
 regardless of where the `BackendTask` originated -- route data loading,
 form actions, or BackendTask effects returned from `update`.
 
-@docs simulateHttpGet, simulateHttpPost, simulateHttpError
+@docs simulateHttpGet, simulateHttpPost, simulateHttpPostWith, simulateHttpError
 
-@docs simulateCustom
+@docs simulateCustom, simulateCustomWith
 
 
 ## Asserting on pending requests
@@ -1319,12 +1319,76 @@ simulateCustom portName jsonResponse =
     Internal.Step (applySimulation (SimCustom portName jsonResponse))
 
 
+{-| Assert against the input args of a pending `BackendTask.Custom.run` call,
+and resolve it with the given response - in one step. Equivalent to
+[`ensureCustom`](#ensureCustom) followed by [`simulateCustom`](#simulateCustom),
+but reads as a single intent and only names the port once.
+
+    import Expect
+    import Json.Decode as Decode
+
+    TestApp.start "/" BackendTaskTest.init
+        |> PagesProgram.simulateCustomWith "hashPassword"
+            (\args ->
+                Decode.decodeValue Decode.string args
+                    |> Expect.equal (Ok "secret123")
+            )
+            (Encode.string "hashed")
+
+If you want to assert without consuming the request (e.g. to peek at multiple
+pending calls before resolving any), use [`ensureCustom`](#ensureCustom)
+separately. If you don't care about the input, use the simpler
+[`simulateCustom`](#simulateCustom).
+
+-}
+simulateCustomWith : String -> (Encode.Value -> Expectation) -> Encode.Value -> Step model msg
+simulateCustomWith portName argsAssertion jsonResponse =
+    Internal.Step
+        (\pt ->
+            pt
+                |> applyStep (ensureCustom portName argsAssertion)
+                |> applyStep (simulateCustom portName jsonResponse)
+        )
+
+
 {-| Simulate a pending HTTP POST request resolving with the given JSON response
 body.
 -}
 simulateHttpPost : String -> Encode.Value -> Step model msg
 simulateHttpPost url jsonResponse =
     Internal.Step (applySimulation (SimHttpPost url jsonResponse))
+
+
+{-| Assert against the body of a pending HTTP POST request, and resolve it with
+the given response - in one step. Equivalent to
+[`ensureHttpPost`](#ensureHttpPost) followed by
+[`simulateHttpPost`](#simulateHttpPost), but reads as a single intent and only
+names the URL once.
+
+    import Expect
+    import Json.Decode as Decode
+
+    TestApp.start "/" BackendTaskTest.init
+        |> PagesProgram.simulateHttpPostWith "https://api.example.com/save"
+            (\body ->
+                Decode.decodeValue (Decode.field "name" Decode.string) body
+                    |> Expect.equal (Ok "Alice")
+            )
+            (Encode.string "ok")
+
+If you want to assert without consuming the request, use
+[`ensureHttpPost`](#ensureHttpPost) separately. If you don't care about the
+body, use the simpler [`simulateHttpPost`](#simulateHttpPost).
+
+-}
+simulateHttpPostWith : String -> (Encode.Value -> Expectation) -> Encode.Value -> Step model msg
+simulateHttpPostWith url bodyAssertion jsonResponse =
+    Internal.Step
+        (\pt ->
+            pt
+                |> applyStep (ensureHttpPost url bodyAssertion)
+                |> applyStep (simulateHttpPost url jsonResponse)
+        )
 
 
 {-| Simulate an HTTP error (network error or timeout) on a pending request.
