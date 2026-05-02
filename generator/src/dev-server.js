@@ -1607,10 +1607,10 @@ main =
 function timeMiddleware() {
   return (req, res, next) => {
     const start = Date.now();
-    const end = res.end;
+    const end = res.end.bind(res);
     res.end = (...args) => {
       logTime(`${timeFrom(start)} ${prettifyUrl(req.url)}`);
-      return end.call(res, ...args);
+      return end.call(...args);
     };
 
     next();
