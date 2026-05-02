@@ -7,6 +7,8 @@ import Markdown.Block as Block
 import Markdown.Html
 import Markdown.Renderer
 import Oembed
+import Svg
+import Svg.Attributes as SvgAttr
 import SyntaxHighlight
 
 
@@ -33,14 +35,7 @@ renderer =
                 ]
                 body
     , hardLineBreak = Html.br [] []
-    , image =
-        \image ->
-            case image.title of
-                Just _ ->
-                    Html.img [ Attr.src image.src, Attr.alt image.alt ] []
-
-                Nothing ->
-                    Html.img [ Attr.src image.src, Attr.alt image.alt ] []
+    , image = zoomableImage
     , unorderedList =
         \items ->
             Html.ul []
@@ -218,6 +213,50 @@ heading { level, rawText, children } =
                 [ Attr.class "font-bold text-lg mt-8 mb-4"
                 ]
                 children
+
+
+zoomableImage : { src : String, alt : String, title : Maybe String } -> Html msg
+zoomableImage image =
+    Html.a
+        [ Attr.href image.src
+        , Attr.target "_blank"
+        , Attr.rel "noopener noreferrer"
+        , Attr.class "image-zoom-trigger"
+        , Attr.attribute "data-zoom-src" image.src
+        , Attr.attribute "data-zoom-alt" image.alt
+        , Attr.attribute "aria-label" "Open zoomed image"
+        ]
+        [ Html.img
+            [ Attr.src image.src
+            , Attr.alt image.alt
+            , Attr.class "cursor-zoom-in"
+            ]
+            []
+        , Html.span
+            [ Attr.class "image-zoom-badge"
+            , Attr.attribute "aria-hidden" "true"
+            ]
+            [ expandIcon ]
+        ]
+
+
+expandIcon : Html msg
+expandIcon =
+    Svg.svg
+        [ SvgAttr.viewBox "0 0 24 24"
+        , SvgAttr.fill "none"
+        , SvgAttr.stroke "currentColor"
+        , SvgAttr.strokeWidth "2"
+        , SvgAttr.strokeLinecap "round"
+        , SvgAttr.strokeLinejoin "round"
+        , SvgAttr.width "16"
+        , SvgAttr.height "16"
+        ]
+        [ Svg.path [ SvgAttr.d "M15 3h6v6" ] []
+        , Svg.path [ SvgAttr.d "M9 21H3v-6" ] []
+        , Svg.path [ SvgAttr.d "M21 3l-7 7" ] []
+        , Svg.path [ SvgAttr.d "M3 21l7-7" ] []
+        ]
 
 
 codeBlock : { body : String, language : Maybe String } -> Html msg

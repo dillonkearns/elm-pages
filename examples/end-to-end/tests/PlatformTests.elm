@@ -2,6 +2,7 @@ module PlatformTests exposing (suite)
 
 import Expect exposing (Expectation)
 import Html.Attributes as Attr
+import Json.Decode as Decode
 import Json.Encode as Encode
 import Test exposing (Test, describe, test)
 import Test.BackendTask as BackendTaskTest
@@ -9,6 +10,7 @@ import Test.Html.Selector as PSelector
 import Test.PagesProgram as PagesProgram
 import Test.Runner
 import TestApp
+import Time
 
 
 suite : Test
@@ -228,6 +230,49 @@ suite =
                         (Encode.object [ ( "count", Encode.int 1 ) ])
                     , PagesProgram.ensureViewHas [ PSelector.text "Count: 1" ]
                     ]
+        , test "simulateCustomWith: asserts input + resolves in one step" <|
+            \() ->
+                PagesProgram.expect
+                    (TestApp.start "/hashes"
+                        (BackendTaskTest.init
+                            |> BackendTaskTest.withFile "greeting.txt" "Hi"
+                            |> BackendTaskTest.withTime (Time.millisToPosix 0)
+                            |> BackendTaskTest.withRandomSeed 0
+                        )
+                    )
+                    [ PagesProgram.simulateCustomWith "hello"
+                        (\args ->
+                            Decode.decodeValue Decode.string args
+                                |> Expect.equal (Ok "Jane")
+                        )
+                        (Encode.string "Hello, Jane!")
+                    , PagesProgram.ensureViewHas [ PSelector.text "Hello, Jane!" ]
+                    ]
+        , test "ensureCustom: value mismatch produces a sharp Expect.equal failure" <|
+            \() ->
+                PagesProgram.expect
+                    (TestApp.start "/hashes"
+                        (BackendTaskTest.init
+                            |> BackendTaskTest.withFile "greeting.txt" "Hi"
+                            |> BackendTaskTest.withTime (Time.millisToPosix 0)
+                            |> BackendTaskTest.withRandomSeed 0
+                        )
+                    )
+                    [ PagesProgram.ensureCustom "hello"
+                        (\args ->
+                            Decode.decodeValue Decode.string args
+                                |> Expect.equal (Ok "Bob")
+                        )
+                    ]
+                    |> expectFailContaining "Jane"
+        , test "ensureCustom: fails when no matching port is pending" <|
+            \() ->
+                PagesProgram.expect
+                    (TestApp.start "/counter" BackendTaskTest.init)
+                    [ PagesProgram.ensureCustom "noSuchPort"
+                        (\_ -> Expect.pass)
+                    ]
+                    |> expectFailContaining "noSuchPort"
         , test "stale fetcher reloads are canceled when a newer submission starts" <|
             \() ->
                 PagesProgram.expect (TestApp.start "/fetcher-http" BackendTaskTest.init)
