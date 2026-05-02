@@ -217,40 +217,26 @@ heading { level, rawText, children } =
 
 zoomableImage : { src : String, alt : String, title : Maybe String } -> Html msg
 zoomableImage image =
-    let
-        zoomId =
-            "zoom-" ++ srcToId image.src
-    in
-    Html.span [ Attr.class "image-zoom-wrapper" ]
-        [ Html.a
-            [ Attr.href ("#" ++ zoomId)
-            , Attr.class "image-zoom-trigger"
-            , Attr.attribute "aria-label" "Open zoomed image"
+    Html.a
+        [ Attr.href image.src
+        , Attr.target "_blank"
+        , Attr.rel "noopener noreferrer"
+        , Attr.class "image-zoom-trigger"
+        , Attr.attribute "data-zoom-src" image.src
+        , Attr.attribute "data-zoom-alt" image.alt
+        , Attr.attribute "aria-label" "Open zoomed image"
+        ]
+        [ Html.img
+            [ Attr.src image.src
+            , Attr.alt image.alt
+            , Attr.class "cursor-zoom-in"
             ]
-            [ Html.img
-                [ Attr.src image.src
-                , Attr.alt image.alt
-                , Attr.class "cursor-zoom-in"
-                ]
-                []
-            , Html.span
-                [ Attr.class "image-zoom-badge"
-                , Attr.attribute "aria-hidden" "true"
-                ]
-                [ expandIcon ]
+            []
+        , Html.span
+            [ Attr.class "image-zoom-badge"
+            , Attr.attribute "aria-hidden" "true"
             ]
-        , Html.a
-            [ Attr.href "#close-zoom"
-            , Attr.id zoomId
-            , Attr.class "image-zoom-overlay"
-            , Attr.attribute "aria-label" "Close zoomed image"
-            ]
-            [ Html.img
-                [ Attr.src image.src
-                , Attr.alt image.alt
-                ]
-                []
-            ]
+            [ expandIcon ]
         ]
 
 
@@ -271,21 +257,6 @@ expandIcon =
         , Svg.path [ SvgAttr.d "M21 3l-7 7" ] []
         , Svg.path [ SvgAttr.d "M3 21l7-7" ] []
         ]
-
-
-srcToId : String -> String
-srcToId src =
-    src
-        |> String.toList
-        |> List.map
-            (\c ->
-                if Char.isAlphaNum c then
-                    c
-
-                else
-                    '-'
-            )
-        |> String.fromList
 
 
 codeBlock : { body : String, language : Maybe String } -> Html msg

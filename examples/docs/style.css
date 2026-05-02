@@ -26,10 +26,6 @@ h2:hover .anchor-icon {
 }
 
 /* Click-to-zoom images rendered by TailwindMarkdownRenderer */
-.image-zoom-wrapper {
-  display: contents;
-}
-
 .image-zoom-trigger {
   position: relative;
   display: inline-block;
@@ -76,23 +72,31 @@ h2:hover .anchor-icon {
   transform: scale(1.05);
 }
 
-.image-zoom-overlay {
-  display: none;
-}
-
-.image-zoom-overlay:target {
+.image-zoom-dialog {
+  border: none;
+  padding: 0;
+  background: transparent;
+  max-width: none;
+  max-height: none;
+  width: 100vw;
+  height: 100vh;
   display: flex;
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  background: rgba(0, 0, 0, 0.85);
   align-items: center;
   justify-content: center;
-  padding: 1rem;
+  overflow: visible;
   cursor: zoom-out;
 }
 
-.image-zoom-overlay img {
+.image-zoom-dialog:not([open]) {
+  display: none;
+}
+
+.image-zoom-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.85);
+}
+
+.image-zoom-dialog img {
+  display: block;
   width: min(95vw, 1400px);
   height: min(95vh, 1000px);
   object-fit: contain;
