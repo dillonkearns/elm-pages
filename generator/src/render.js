@@ -14,8 +14,12 @@ import * as fs from "node:fs";
 import * as crypto from "node:crypto";
 import { restoreColorSafe } from "./error-formatter.js";
 import {
-  runTuiInit, runTuiRender, runTuiWaitEvent,
-  runTuiRenderAndWait, runTuiExit, tuiCleanup,
+  runTuiInit,
+  runTuiRender,
+  runTuiWaitEvent,
+  runTuiRenderAndWait,
+  runTuiExit,
+  tuiCleanup,
 } from "./tui-runtime.js";
 import { Spinnies } from "./spinnies/index.js";
 import { default as which } from "which";
@@ -35,7 +39,9 @@ const activeChildProcesses = new Set();
 
 function killActiveChildren() {
   for (const child of activeChildProcesses) {
-    try { child.kill("SIGTERM"); } catch (e) {}
+    try {
+      child.kill("SIGTERM");
+    } catch (e) {}
   }
   activeChildProcesses.clear();
 }
@@ -304,9 +310,8 @@ function runGeneratorAppHelp(
               requestToPerform.url !== "elm-pages-internal://port" &&
               requestToPerform.url.startsWith("elm-pages-internal://")
             ) {
-              [, result] = await runInternalJob(
+              result = await runInternalJob(
                 requestHash,
-                app,
                 requestToPerform,
                 patternsToWatch,
                 portsFile
@@ -479,9 +484,8 @@ function runElmApp(
               requestToPerform.url !== "elm-pages-internal://port" &&
               requestToPerform.url.startsWith("elm-pages-internal://")
             ) {
-              [, result] = await runInternalJob(
+              result = await runInternalJob(
                 requestHash,
-                app,
                 requestToPerform,
                 patternsToWatch,
                 portsFile
@@ -630,7 +634,7 @@ async function runHttpJob(requestHash, portsFile, mode, requestToPerform) {
  * @template J
  * @param {R} request
  * @param {J} json
- * @returns {{ request: R; response: { bodyKind: "json"; body: J; }}}
+ * @returns {JsonResponse<R, J>}
  */
 function jsonResponse(request, json) {
   return {
@@ -640,10 +644,10 @@ function jsonResponse(request, json) {
 }
 
 /**
- * @template B
- * @param {InternalJobWith<string, B>} request
+ * @template Req
+ * @param {Req} request
  * @param {Uint8Array | Int32Array} buffer
- * @returns {{ request: InternalJobWith<string, B>; response: { bodyKind: "bytes"; body: null; }; rawBytes: Buffer; }}
+ * @returns {BytesResponse<Req>}
  */
 function bytesResponse(request, buffer) {
   return {
@@ -659,6 +663,7 @@ function bytesResponse(request, buffer) {
 /**
  * Convert a Node.js Buffer to a DataView, which is what Lamdera's port
  * system expects for Bytes values.
+ * @param {{ buffer: any; byteOffset: number | undefined; byteLength: number | undefined; }} buf
  */
 function bufferToDataView(buf) {
   return new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
@@ -674,7 +679,7 @@ function dataViewToBuffer(dv) {
 /**
  * @template U
  * @template A
- * @typedef {{ url: U; body: { args: A }; dir: string[]; quiet: boolean; env: { [key:string]: string; } }} InternalJobWith<U,A>
+ * @typedef {{ url: U; body: { args: A }; dir: string[]; quiet: boolean; env: { [key:string]: string; }; headers: [string, string][]; }} InternalJobWith<U,A>
  */
 
 /**
@@ -695,22 +700,57 @@ function dataViewToBuffer(dv) {
  * @typedef {InternalJobWith<"elm-pages-internal://stream", [{ kind: string; parts: StreamPart[]}]>} InternalStreamJob
  * @typedef {InternalJobWith<"elm-pages-internal://start-spinner", [{ text: string; immediateStart: boolean; spinnerId?: string; spinner?: string; }]>} InternalStartSpinnerJob
  * @typedef {InternalJobWith<"elm-pages-internal://stop-spinner", [{ spinnerId: string; completionFn: string; completionText: string | null; }]>} InternalStopSpinnerJob
+ * @typedef {InternalJobWith<"elm-pages-internal://timezone", [{ tzId: string; sinceMs: number; untilMs: number; }]>} InternalTimezoneJob
+ * @typedef {InternalJobWith<"elm-pages-internal://resolve-path", [string]>} InternalResolvePathJob
+ * @typedef {InternalJobWith<"elm-pages-internal://file-exists", [string]>} InternalFileExistsJob
+ * @typedef {InternalJobWith<"elm-pages-internal://delete-file", [{ path: string; }]>} InternalDeleteFileJob
+ * @typedef {InternalJobWith<"elm-pages-internal://copy-file", [{ from: string; to: string; }]>} InternalCopyFileJob
+ * @typedef {InternalJobWith<"elm-pages-internal://move", [{ from: string; to: string; }]>} InternalMoveJob
+ * @typedef {InternalJobWith<"elm-pages-internal://make-directory", [{ from: string; to: string; }]>} InternalMakeDirectoryJob
+ * @typedef {InternalJobWith<"elm-pages-internal://remove-directory", [{ path: string; recursive: true; }]>} InternalRemoveDirectoryJob
+ * @typedef {InternalJobWith<"elm-pages-internal://make-temp-directory", unknown>} InternalMakeTempDirectoryJob
+ * @typedef {InternalJobWith<"elm-pages-internal://db-read-meta", [{ path?: string; }]>} InternalDbReadMetaJob
+ * @typedef {InternalJobWith<"elm-pages-internal://db-write", [{ hash: unknown; data: unknown; path?: string; }]> & { __rawBytes? : Buffer; }} InternalDbWriteJob
+ * @typedef {InternalJobWith<"elm-pages-internal://db-set-default-path", [{ path: string; }]>} InternalDbSetDefaultPathJob
+ * @typedef {InternalJobWith<"elm-pages-internal://db-lock-acquire", [{ path?: string; }]>} InternalDbLockAcquireJob
+ * @typedef {InternalJobWith<"elm-pages-internal://db-lock-release", [string | { token : string; }]> & { __rawBytes? : Buffer; }} InternalDbLockReleaseJob
+ * @typedef {InternalJobWith<"elm-pages-internal://db-migrate-read", unknown> & { __rawBytes? : Buffer; }} InternalDbMigrateReadJob
+ * @typedef {InternalJobWith<"elm-pages-internal://db-migrate-write", [{ data: string; }]> & { __rawBytes? : Buffer; }} InternalDbMigrateWriteJob
+ * @typedef {InternalJobWith<"elm-pages-internal://tui-is-interactive", unknown>} InternalTuiIsInteractiveJob
+ * @typedef {InternalJobWith<"elm-pages-internal://tui-init", unknown>} InternalTuiInitJob
+ * @typedef {InternalJobWith<"elm-pages-internal://tui-render", unknown>} InternalTuiRenderJob
+ * @typedef {InternalJobWith<"elm-pages-internal://tui-wait-event", unknown>} InternalTuiWaitEventJob
+ * @typedef {InternalJobWith<"elm-pages-internal://tui-render-and-wait", unknown>} InternalTuiRenderAndWaitJob
+ * @typedef {InternalJobWith<"elm-pages-internal://tui-exit", unknown>} InternalTuiExitJob
  *
  *
- * @typedef {InternalLogJob | InternalEnvJob | InternalReadFileJob | InternalReadFileBinaryJob | InternalGlobJob | InternalRandomSeedJob | InternalNowJob | InternalEncryptJob | InternalDecryptJob |InternalWriteFileJob | InternalSleepJob| InternalWhichJob | InternalQuestionJob | InternalReadKeyJob | InternalStreamJob | InternalStartSpinnerJob | InternalStopSpinnerJob} InternalJob
- *
+ * @typedef {InternalLogJob | InternalEnvJob | InternalReadFileJob | InternalReadFileBinaryJob | InternalGlobJob | InternalRandomSeedJob | InternalNowJob | InternalEncryptJob | InternalDecryptJob |InternalWriteFileJob | InternalSleepJob| InternalWhichJob | InternalQuestionJob | InternalReadKeyJob | InternalStreamJob | InternalStartSpinnerJob | InternalStopSpinnerJob | InternalTimezoneJob | InternalResolvePathJob | InternalFileExistsJob | InternalDeleteFileJob | InternalCopyFileJob | InternalMoveJob | InternalMakeDirectoryJob | InternalRemoveDirectoryJob | InternalMakeTempDirectoryJob | InternalDbReadMetaJob | InternalDbWriteJob | InternalDbSetDefaultPathJob | InternalDbLockAcquireJob | InternalDbLockReleaseJob | InternalDbMigrateReadJob | InternalDbMigrateWriteJob | InternalTuiIsInteractiveJob | InternalTuiInitJob | InternalTuiRenderJob | InternalTuiWaitEventJob | InternalTuiRenderAndWaitJob | InternalTuiExitJob} InternalJob
+ */
+
+/**
+ * @template Req
+ * @template Body
+ * @typedef {{ request: Req; response: { bodyKind: "json"; body: Body; }}} JsonResponse<Req,Body>
+ */
+
+/**
+ * @template Req
+ * @typedef {{ request: Req; response: { bodyKind: "bytes"; body: null; }; rawBytes: Buffer; }} BytesResponse<Req>
+ */
+
+/**
+ * @typedef {{ request: InternalJob; response: { statusCode: 500; statusText: "Internal Error"; headers: {}; url: string; bodyKind: "string"; body: string; }}} ErrorResponse
  */
 
 /**
  * @param {unknown} requestHash
- * @param {unknown} app
  * @param {Set<string>} patternsToWatch
  * @param {PortsFile} portsFile
  * @param {InternalJob} requestToPerform
+ * @return {Promise<JsonResponse<InternalJob, unknown> | BytesResponse<InternalJob> | ErrorResponse>}
  */
 async function runInternalJob(
   requestHash,
-  app,
   requestToPerform,
   patternsToWatch,
   portsFile
@@ -718,108 +758,93 @@ async function runInternalJob(
   try {
     switch (requestToPerform.url) {
       case "elm-pages-internal://log":
-        return [requestHash, await runLogJob(requestToPerform)];
+        return await runLogJob(requestToPerform);
       case "elm-pages-internal://read-file":
-        return [
-          requestHash,
-          await readFileJobNew(requestToPerform, patternsToWatch),
-        ];
+        return await readFileJobNew(requestToPerform, patternsToWatch);
       case "elm-pages-internal://read-file-binary":
-        return [
-          requestHash,
-          await readFileBinaryJobNew(requestToPerform, patternsToWatch),
-        ];
+        return await readFileBinaryJobNew(requestToPerform, patternsToWatch);
       case "elm-pages-internal://glob":
-        return [
-          requestHash,
-          await runGlobNew(requestToPerform, patternsToWatch),
-        ];
+        return await runGlobNew(requestToPerform, patternsToWatch);
       case "elm-pages-internal://randomSeed":
-        return [
-          requestHash,
-          jsonResponse(
-            requestToPerform,
-            crypto.getRandomValues(new Uint32Array(1))[0]
-          ),
-        ];
+        return jsonResponse(
+          requestToPerform,
+          crypto.getRandomValues(new Uint32Array(1))[0]
+        );
       case "elm-pages-internal://now":
-        return [requestHash, jsonResponse(requestToPerform, Date.now())];
+        return jsonResponse(requestToPerform, Date.now());
       case "elm-pages-internal://timezone":
-        return [requestHash, jsonResponse(requestToPerform, runTimezone(requestToPerform))];
+        return jsonResponse(requestToPerform, runTimezone(requestToPerform));
       case "elm-pages-internal://env":
-        return [requestHash, await runEnvJob(requestToPerform)];
+        return await runEnvJob(requestToPerform);
       case "elm-pages-internal://resolve-path":
-        return [requestHash, runResolvePath(requestToPerform)];
+        return runResolvePath(requestToPerform);
       case "elm-pages-internal://encrypt":
-        return [requestHash, await runEncryptJob(requestToPerform)];
+        return await runEncryptJob(requestToPerform);
       case "elm-pages-internal://decrypt":
-        return [requestHash, await runDecryptJob(requestToPerform)];
+        return await runDecryptJob(requestToPerform);
       case "elm-pages-internal://file-exists":
-        return [
-          requestHash,
-          await runFileExists(requestToPerform, patternsToWatch),
-        ];
+        return await runFileExists(requestToPerform, patternsToWatch);
       case "elm-pages-internal://write-file":
-        return [requestHash, await runWriteFileJob(requestToPerform)];
+        return await runWriteFileJob(requestToPerform);
       case "elm-pages-internal://delete-file":
-        return [requestHash, await runDeleteFile(requestToPerform)];
+        return await runDeleteFile(requestToPerform);
       case "elm-pages-internal://copy-file":
-        return [requestHash, await runCopyFile(requestToPerform)];
+        return await runCopyFile(requestToPerform);
       case "elm-pages-internal://move":
-        return [requestHash, await runMove(requestToPerform)];
+        return await runMove(requestToPerform);
       case "elm-pages-internal://make-directory":
-        return [requestHash, await runMakeDirectory(requestToPerform)];
+        return await runMakeDirectory(requestToPerform);
       case "elm-pages-internal://remove-directory":
-        return [requestHash, await runRemoveDirectory(requestToPerform)];
+        return await runRemoveDirectory(requestToPerform);
       case "elm-pages-internal://make-temp-directory":
-        return [requestHash, await runMakeTempDirectory(requestToPerform)];
+        return await runMakeTempDirectory(requestToPerform);
       case "elm-pages-internal://sleep":
-        return [requestHash, await runSleep(requestToPerform)];
+        return await runSleep(requestToPerform);
       case "elm-pages-internal://which":
-        return [requestHash, await runWhich(requestToPerform)];
+        return await runWhich(requestToPerform);
       case "elm-pages-internal://question":
-        return [requestHash, await runQuestion(requestToPerform)];
+        return await runQuestion(requestToPerform);
       case "elm-pages-internal://readKey":
-        return [requestHash, await runReadKey(requestToPerform)];
+        return await runReadKey(requestToPerform);
       case "elm-pages-internal://stream":
-        return [requestHash, await runStream(requestToPerform, portsFile)];
+        return await runStream(requestToPerform, portsFile);
       case "elm-pages-internal://start-spinner":
-        return [requestHash, runStartSpinner(requestToPerform)];
+        return runStartSpinner(requestToPerform);
       case "elm-pages-internal://stop-spinner":
-        return [requestHash, runStopSpinner(requestToPerform)];
+        return runStopSpinner(requestToPerform);
       case "elm-pages-internal://db-read-meta":
-        return [requestHash, await runDbReadMeta(requestToPerform)];
+        return await runDbReadMeta(requestToPerform);
       case "elm-pages-internal://db-write":
-        return [requestHash, await runDbWrite(requestToPerform)];
+        return await runDbWrite(requestToPerform);
       case "elm-pages-internal://db-set-default-path":
-        return [requestHash, await runDbSetDefaultPath(requestToPerform)];
+        return await runDbSetDefaultPath(requestToPerform);
       case "elm-pages-internal://db-lock-acquire":
-        return [requestHash, await runDbLockAcquire(requestToPerform)];
+        return await runDbLockAcquire(requestToPerform);
       case "elm-pages-internal://db-lock-release":
-        return [requestHash, await runDbLockRelease(requestToPerform)];
+        return await runDbLockRelease(requestToPerform);
       case "elm-pages-internal://db-migrate-read":
-        return [requestHash, await runDbMigrateRead(requestToPerform)];
+        return await runDbMigrateRead(requestToPerform);
       case "elm-pages-internal://db-migrate-write":
-        return [requestHash, await runDbMigrateWrite(requestToPerform)];
+        return await runDbMigrateWrite(requestToPerform);
       case "elm-pages-internal://tui-is-interactive":
-        return [requestHash, jsonResponse(requestToPerform, isInteractiveTerminal())];
+        return jsonResponse(requestToPerform, isInteractiveTerminal());
       case "elm-pages-internal://tui-init":
-        return [requestHash, await runTuiInit(requestToPerform)];
+        return await runTuiInit(requestToPerform);
       case "elm-pages-internal://tui-render":
-        return [requestHash, await runTuiRender(requestToPerform)];
+        return await runTuiRender(requestToPerform);
       case "elm-pages-internal://tui-wait-event":
-        return [requestHash, await runTuiWaitEvent(requestToPerform)];
+        return await runTuiWaitEvent(requestToPerform);
       case "elm-pages-internal://tui-render-and-wait":
-        return [requestHash, await runTuiRenderAndWait(requestToPerform)];
+        return await runTuiRenderAndWait(requestToPerform);
       case "elm-pages-internal://tui-exit":
-        return [requestHash, await runTuiExit(requestToPerform)];
+        return await runTuiExit(requestToPerform);
       default:
         throw `Unexpected internal BackendTask request format: ${kleur.yellow(
           JSON.stringify(2, null, requestToPerform)
         )}`;
     }
   } catch (error) {
-    // Format error message from structured {title, message} or plain strings
+    // Format error message from structured {title, gmessage} or plain strings
     const errorMessage =
       error.title && error.message
         ? `-- ${error.title.toUpperCase()} --\n\n${error.message}`
@@ -830,20 +855,17 @@ async function runInternalJob(
     // Return a proper [requestHash, response] pair so Object.fromEntries
     // doesn't crash. The non-200 status causes BackendTask.Http to treat
     // this as a BadStatus error, which becomes a FatalError in Elm.
-    return [
-      requestHash,
-      {
-        request: requestToPerform,
-        response: {
-          statusCode: 500,
-          statusText: "Internal Error",
-          headers: {},
-          url: requestToPerform.url,
-          bodyKind: "string",
-          body: errorMessage,
-        },
+    return {
+      request: requestToPerform,
+      response: {
+        statusCode: 500,
+        statusText: "Internal Error",
+        headers: {},
+        url: requestToPerform.url,
+        bodyKind: "string",
+        body: errorMessage,
       },
-    ];
+    };
   }
 }
 
@@ -853,6 +875,10 @@ async function runInternalJob(
 const dbLockTokensByPath = new Map();
 let dbLockCleanupRegistered = false;
 
+/**
+ * @param {string} cwd
+ * @param {{ path?: string; } | string | null} payloadOrHeaders
+ */
 function resolveDbBinPath(cwd, payloadOrHeaders) {
   let customPath;
   if (
@@ -876,12 +902,19 @@ function resolveDbBinPath(cwd, payloadOrHeaders) {
 /**
  * Extract the x-db-path header value from request headers.
  * Headers are stored as an array of [key, value] pairs.
+ *
+ * @param {InternalJob} req
+ * @returns {string | null}
  */
 function getDbPathHeader(req) {
   const entry = req.headers.find(([k]) => k === "x-db-path");
   return entry ? entry[1] : null;
 }
 
+/**
+ * @param {string} dbBinPath
+ * @returns {string}
+ */
 function resolveDbLockPath(dbBinPath) {
   return `${dbBinPath}.lock`;
 }
@@ -889,6 +922,9 @@ function resolveDbLockPath(dbBinPath) {
 /**
  * Remove stale .tmp.{pid} files left behind by previous crashes.
  * Only removes files matching the exact tmp pattern for the given dbBinPath.
+ *
+ * @param {string} dbBinPath
+ * @returns {Promise<void>}
  */
 async function cleanStaleTmpFiles(dbBinPath) {
   const dir = path.dirname(dbBinPath);
@@ -907,6 +943,11 @@ async function cleanStaleTmpFiles(dbBinPath) {
   }
 }
 
+/**
+ * @param {string} name
+ * @param {number} fallback
+ * @returns {number}
+ */
 function readPositiveIntEnv(name, fallback) {
   const raw = process.env[name];
   if (typeof raw !== "string" || raw.trim() === "") {
@@ -917,6 +958,9 @@ function readPositiveIntEnv(name, fallback) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+/**
+ * @param {InternalDbSetDefaultPathJob} req
+ */
 async function runDbSetDefaultPath(req) {
   const payload = req.body.args[0];
 
@@ -936,6 +980,10 @@ async function runDbSetDefaultPath(req) {
   return jsonResponse(req, null);
 }
 
+/**
+ * @param {InternalDbReadMetaJob} req
+ * @returns {Promise<BytesResponse<InternalDbReadMetaJob>>}
+ */
 async function runDbReadMeta(req) {
   const cwd = path.resolve(...req.dir);
   const payload = req.body.args[0];
@@ -961,6 +1009,10 @@ async function runDbReadMeta(req) {
   }
 }
 
+/**
+ * @param {string} cwd
+ * @returns {Promise<{ path: string; source: string; } | null>}
+ */
 async function findCurrentDbElm(cwd) {
   const candidates = [
     path.resolve(cwd, "script/src/Db.elm"),
@@ -990,10 +1042,15 @@ async function findCurrentDbElm(cwd) {
   return null;
 }
 
+/**
+ * @param {InternalDbWriteJob} req
+ * @returns {Promise<JsonResponse<InternalDbWriteJob, null>>}
+ */
 async function runDbWrite(req) {
   const cwd = path.resolve(...req.dir);
 
   // Read raw bytes from port (BytesBody) or fall back to base64 in JSON body
+  /** @type {Buffer | null} */
   let wire3Data;
   let schemaHash;
   let dbBinPath;
@@ -1078,6 +1135,11 @@ async function runDbWrite(req) {
   return jsonResponse(req, null);
 }
 
+/**
+ *
+ * @param {InternalDbLockAcquireJob} req
+ * @returns {Promise<JsonResponse<InternalDbLockAcquireJob, crypto.UUID>>}
+ */
 async function runDbLockAcquire(req) {
   const cwd = path.resolve(...req.dir);
   const payload = req.body.args[0];
@@ -1201,6 +1263,10 @@ async function runDbLockAcquire(req) {
   };
 }
 
+/**
+ * @param {InternalDbLockReleaseJob} req
+ * @returns {Promise<JsonResponse<InternalDbLockReleaseJob, null>>}
+ */
 async function runDbLockRelease(req) {
   const cwd = path.resolve(...req.dir);
   const payload = req.body.args[0];
@@ -1232,6 +1298,10 @@ async function runDbLockRelease(req) {
   return jsonResponse(req, null);
 }
 
+/**
+ * @param {InternalDbMigrateReadJob} req
+ * @returns {Promise<BytesResponse<InternalDbMigrateReadJob>>}
+ */
 async function runDbMigrateRead(req) {
   const cwd = path.resolve(...req.dir);
   const payload = req.body.args[0];
@@ -1255,6 +1325,10 @@ async function runDbMigrateRead(req) {
   }
 }
 
+/**
+ * @param {InternalDbMigrateWriteJob} req
+ * @returns {Promise<JsonResponse<InternalDbMigrateWriteJob, null>>}
+ */
 async function runDbMigrateWrite(req) {
   const cwd = path.resolve(...req.dir);
 
@@ -1352,11 +1426,12 @@ function getContext(requestToPerform) {
 
   return { cwd, quiet, env };
 }
+
 /**
- *
  * @param {InternalReadFileJob} req
  * @param {Set<string>} patternsToWatch
- * @returns
+ * @returns {Promise<JsonResponse<InternalReadFileJob, { parsedFrontmatter: { [key: string]: unknown; }; withoutFrontmatter: string; rawFile: string; }> | JsonResponse<InternalReadFileJob, { errorCode: unknown; }>>}
+}
  */
 async function readFileJobNew(req, patternsToWatch) {
   const cwd = path.resolve(...req.dir);
@@ -1384,6 +1459,7 @@ async function readFileJobNew(req, patternsToWatch) {
 /**
  * @param {InternalReadFileBinaryJob} req
  * @param {Set<string>} patternsToWatch
+ * @returns {Promise<BytesResponse<InternalReadFileBinaryJob>>}
  */
 async function readFileBinaryJobNew(req, patternsToWatch) {
   const filePath = req.body.args[1];
@@ -1411,6 +1487,7 @@ async function readFileBinaryJobNew(req, patternsToWatch) {
 
 /**
  * @param {InternalSleepJob} req
+ * @returns {Promise<JsonResponse<InternalSleepJob, null>>}
  */
 function runSleep(req) {
   const { milliseconds } = req.body.args[0];
@@ -1972,6 +2049,12 @@ export async function readKey() {
   });
 }
 
+/**
+ *
+ * @param {InternalFileExistsJob} req
+ * @param {Set<string>} patternsToWatch
+ * @returns {Promise<JsonResponse<InternalFileExistsJob, boolean>>}
+ */
 async function runFileExists(req, patternsToWatch) {
   const cwd = path.resolve(...req.dir);
   const filePath = path.resolve(cwd, req.body.args[0]);
@@ -1984,6 +2067,10 @@ async function runFileExists(req, patternsToWatch) {
   }
 }
 
+/**
+ * @param {InternalDeleteFileJob} req
+ * @returns {Promise<JsonResponse<InternalDeleteFileJob, null>>}
+ */
 async function runDeleteFile(req) {
   const cwd = path.resolve(...req.dir);
   const data = req.body.args[0];
@@ -2004,6 +2091,10 @@ async function runDeleteFile(req) {
   }
 }
 
+/**
+ * @param {InternalCopyFileJob} req
+ * @returns {Promise<JsonResponse<InternalCopyFileJob, string>>}
+ */
 async function runCopyFile(req) {
   const cwd = path.resolve(...req.dir);
   const data = req.body.args[0];
@@ -2023,6 +2114,10 @@ async function runCopyFile(req) {
   }
 }
 
+/**
+ * @param {InternalMoveJob} req
+ * @returns {Promise<JsonResponse<InternalMoveJob, string>>}
+ */
 async function runMove(req) {
   const cwd = path.resolve(...req.dir);
   const data = req.body.args[0];
@@ -2082,6 +2177,10 @@ async function runMakeDirectory(req) {
   }
 }
 
+/**
+ * @param {InternalRemoveDirectoryJob} req
+ * @returns {Promise<JsonResponse<InternalRemoveDirectoryJob, null>>}
+ */
 async function runRemoveDirectory(req) {
   const cwd = path.resolve(...req.dir);
   const data = req.body.args[0];
@@ -2244,6 +2343,9 @@ async function runLogJob(req) {
   }
 }
 
+/**
+ * @param {InternalResolvePathJob} req
+ */
 function runResolvePath(req) {
   const filePath = req.body.args[0];
   const cwd = path.resolve(...req.dir);
@@ -2257,7 +2359,12 @@ function runResolvePath(req) {
 async function runEnvJob(req) {
   try {
     const expectedEnv = req.body.args[0];
-    return jsonResponse(req, expectedEnv in req.env ? req.env[expectedEnv] : process.env[expectedEnv] || null);
+    return jsonResponse(
+      req,
+      expectedEnv in req.env
+        ? req.env[expectedEnv]
+        : process.env[expectedEnv] || null
+    );
   } catch (e) {
     console.log(`Error performing env '${JSON.stringify(req.body)}'`);
     throw e;
@@ -2344,6 +2451,8 @@ const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
  * Accepts { sinceMs, untilMs } for the date range to scan for DST transitions.
  * Optionally accepts { tzId } for a named timezone; defaults to system timezone.
  * Returns { defaultOffset, eras } for Time.customZone.
+ * @param {InternalTimezoneJob} req
+ * @returns {{ defaultOffset: number; eras: { start: number; offset: number; }[]; }}
  */
 function runTimezone(req) {
   const body = req.body.args[0];
@@ -2374,8 +2483,12 @@ function runTimezone(req) {
 const tzFormatters = new Map();
 const utcFormatter = new Intl.DateTimeFormat("en-US", {
   timeZone: "UTC",
-  year: "numeric", month: "numeric", day: "numeric",
-  hour: "numeric", minute: "numeric", second: "numeric",
+  year: "numeric",
+  month: "numeric",
+  day: "numeric",
+  hour: "numeric",
+  minute: "numeric",
+  second: "numeric",
   hour12: false,
 });
 
@@ -2384,8 +2497,12 @@ function getTzFormatter(tzId) {
   if (!fmt) {
     fmt = new Intl.DateTimeFormat("en-US", {
       timeZone: tzId,
-      year: "numeric", month: "numeric", day: "numeric",
-      hour: "numeric", minute: "numeric", second: "numeric",
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      second: "numeric",
       hour12: false,
     });
     tzFormatters.set(tzId, fmt);
@@ -2427,6 +2544,10 @@ function binarySearchTransition(tzId, loMs, hiMs, offsetBefore) {
 /**
  * Get timezone transition data using the Intl API (scan + binary search).
  * Scans every 2 weeks to catch even rare mid-month transitions.
+ * @param {string} tzId
+ * @param {number} sinceMs
+ * @param {number} untilMs
+ * @returns {{ defaultOffset: number; eras: { start: number; offset: number; }[]; }}
  */
 function getTimezoneDataIntl(tzId, sinceMs, untilMs) {
   const defaultOffset = getOffsetMinutesIntl(tzId, sinceMs);
@@ -2466,7 +2587,8 @@ function getTimezoneDataTemporal(tzId, sinceMs, untilMs) {
   const startInstant = Temporal.Instant.fromEpochMilliseconds(sinceMs);
   const endInstant = Temporal.Instant.fromEpochMilliseconds(untilMs);
 
-  const defaultOffset = tz.getOffsetNanosecondsFor(startInstant) / 60_000_000_000;
+  const defaultOffset =
+    tz.getOffsetNanosecondsFor(startInstant) / 60_000_000_000;
   const eras = [];
 
   let instant = tz.getNextTransition(startInstant);
@@ -2499,4 +2621,3 @@ process.on("SIGTERM", () => {
   killActiveChildren();
   process.exit(143);
 });
-
