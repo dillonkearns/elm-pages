@@ -248,7 +248,7 @@ suite =
                         (Encode.string "Hello, Jane!")
                     , PagesProgram.ensureViewHas [ PSelector.text "Hello, Jane!" ]
                     ]
-        , test "ensureCustom: value mismatch produces a sharp Expect.equal failure" <|
+        , test "ensureCustomWith: value mismatch produces a sharp Expect.equal failure" <|
             \() ->
                 PagesProgram.expect
                     (TestApp.start "/hashes"
@@ -258,7 +258,7 @@ suite =
                             |> BackendTaskTest.withRandomSeed 0
                         )
                     )
-                    [ PagesProgram.ensureCustom "hello"
+                    [ PagesProgram.ensureCustomWith "hello"
                         (\args ->
                             Decode.decodeValue Decode.string args
                                 |> Expect.equal (Ok "Bob")
@@ -270,7 +270,6 @@ suite =
                 PagesProgram.expect
                     (TestApp.start "/counter" BackendTaskTest.init)
                     [ PagesProgram.ensureCustom "noSuchPort"
-                        (\_ -> Expect.pass)
                     ]
                     |> expectFailContaining "noSuchPort"
         , test "stale fetcher reloads are canceled when a newer submission starts" <|

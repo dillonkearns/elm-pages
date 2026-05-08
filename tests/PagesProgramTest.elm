@@ -1734,10 +1734,12 @@ all =
                             , view = \_ model -> { title = "Todos", body = [ Html.text model.todos ] }
                             }
                         )
-                        [ PagesProgram.ensureCustom "getTodos" (\_ -> Expect.pass)
+                        [ PagesProgram.ensureCustom "getTodos"
                         , PagesProgram.simulateCustom "getTodos" (Encode.string "[]")
                         ]
-            , test "asserts on custom port arguments" <|
+            ]
+        , describe "ensureCustomWith"
+            [ test "asserts on custom port arguments" <|
                 \() ->
                     PagesProgram.expect
                         (PagesProgramInternal.initialProgramTest
@@ -1751,7 +1753,7 @@ all =
                             , view = \_ model -> { title = "Hash", body = [ Html.text model.hash ] }
                             }
                         )
-                        [ PagesProgram.ensureCustom "hashPassword"
+                        [ PagesProgram.ensureCustomWith "hashPassword"
                             (\args ->
                                 Decode.decodeValue Decode.string args
                                     |> Expect.equal (Ok "secret123")
@@ -1773,20 +1775,20 @@ all =
                             , view = \_ model -> { title = "Hash", body = [ Html.text model.hash ] }
                             }
                         )
-                        [ PagesProgram.ensureCustom "hashPassword"
+                        [ PagesProgram.ensureCustomWith "hashPassword"
                             (\args ->
                                 Decode.decodeValue Decode.string args
                                     |> Expect.equal (Ok "expected-value")
                             )
                         ]
                         |> Expect.all
-                            [ expectFailContaining "ensureCustom"
+                            [ expectFailContaining "ensureCustomWith"
                             , expectFailContaining "hashPassword"
                             , expectFailContaining "expected-value"
                             , expectFailContaining "actual-value"
                             ]
             ]
-        , describe "ensureHttpPost"
+        , describe "ensureHttpPostWith"
             [ test "asserts on POST request body" <|
                 \() ->
                     PagesProgram.expect
@@ -1806,7 +1808,7 @@ all =
                             , view = \_ model -> { title = "Items", body = [ Html.text model.value ] }
                             }
                         )
-                        [ PagesProgram.ensureHttpPost "https://api.example.com/items"
+                        [ PagesProgram.ensureHttpPostWith "https://api.example.com/items"
                             (\body ->
                                 Decode.decodeValue (Decode.field "name" Decode.string) body
                                     |> Expect.equal (Ok "test-item")
@@ -1833,14 +1835,14 @@ all =
                             , view = \_ model -> { title = "Items", body = [ Html.text model.value ] }
                             }
                         )
-                        [ PagesProgram.ensureHttpPost "https://api.example.com/items"
+                        [ PagesProgram.ensureHttpPostWith "https://api.example.com/items"
                             (\body ->
                                 Decode.decodeValue (Decode.field "name" Decode.string) body
                                     |> Expect.equal (Ok "expected")
                             )
                         ]
                         |> Expect.all
-                            [ expectFailContaining "ensureHttpPost"
+                            [ expectFailContaining "ensureHttpPostWith"
                             , expectFailContaining "api.example.com/items"
                             , expectFailContaining "expected"
                             , expectFailContaining "actual"

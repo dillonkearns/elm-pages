@@ -14,7 +14,7 @@ module Test.PagesProgram exposing
     , ensureBrowserHistory
     , simulateHttpGet, simulateHttpPost, simulateHttpPostWith, simulateHttpError
     , simulateCustom, simulateCustomWith
-    , ensureHttpGet, ensureHttpPost, ensureCustom
+    , ensureHttpGet, ensureHttpPost, ensureHttpPostWith, ensureCustom, ensureCustomWith
     , withSimulatedSubscriptions, simulateIncomingPort
     , Snapshot, withModelInspector
     , start, fromConfig
@@ -204,7 +204,7 @@ form actions, or BackendTask effects returned from `update`.
 
 ## Asserting on pending requests
 
-@docs ensureHttpGet, ensureHttpPost, ensureCustom
+@docs ensureHttpGet, ensureHttpPost, ensureHttpPostWith, ensureCustom, ensureCustomWith
 
 
 ## Subscriptions and incoming ports
@@ -1336,7 +1336,7 @@ but reads as a single intent and only names the port once.
             (Encode.string "hashed")
 
 If you want to assert without consuming the request (e.g. to peek at multiple
-pending calls before resolving any), use [`ensureCustom`](#ensureCustom)
+pending calls before resolving any), use [`ensureCustomWith`](#ensureCustomWith)
 separately. If you don't care about the input, use the simpler
 [`simulateCustom`](#simulateCustom).
 
@@ -1346,7 +1346,7 @@ simulateCustomWith portName argsAssertion jsonResponse =
     Internal.Step
         (\pt ->
             pt
-                |> applyStep (ensureCustom portName argsAssertion)
+                |> applyStep (ensureCustomWith portName argsAssertion)
                 |> applyStep (simulateCustom portName jsonResponse)
         )
 
@@ -1377,8 +1377,8 @@ names the URL once.
             (Encode.string "ok")
 
 If you want to assert without consuming the request, use
-[`ensureHttpPost`](#ensureHttpPost) separately. If you don't care about the
-body, use the simpler [`simulateHttpPost`](#simulateHttpPost).
+[`ensureHttpPostWith`](#ensureHttpPostWith) separately. If you don't care about
+the body, use the simpler [`simulateHttpPost`](#simulateHttpPost).
 
 -}
 simulateHttpPostWith : String -> (Encode.Value -> Expectation) -> Encode.Value -> Step model msg
@@ -1386,7 +1386,7 @@ simulateHttpPostWith url bodyAssertion jsonResponse =
     Internal.Step
         (\pt ->
             pt
-                |> applyStep (ensureHttpPost url bodyAssertion)
+                |> applyStep (ensureHttpPostWith url bodyAssertion)
                 |> applyStep (simulateHttpPost url jsonResponse)
         )
 
@@ -1431,6 +1431,21 @@ ensureHttpGet url =
     Internal.Step (ensurePendingRequest "ensureHttpGet" (\r -> r.method == "GET" && r.url == url) url)
 
 
+{-| Assert that a POST request to the given URL is currently pending.
+
+    TestApp.start "/" BackendTaskTest.init
+        |> PagesProgram.ensureHttpPost "https://api.example.com/submit"
+        |> PagesProgram.simulateHttpPost "https://api.example.com/submit" response
+
+To also assert on the request body, use [`ensureHttpPostWith`](#ensureHttpPostWith)
+or the combined [`simulateHttpPostWith`](#simulateHttpPostWith).
+
+-}
+ensureHttpPost : String -> Step model msg
+ensureHttpPost url =
+    Internal.Step (ensurePendingRequest "ensureHttpPost" (\r -> r.method == "POST" && r.url == url) url)
+
+
 {-| Assert that a POST request to the given URL is currently pending, and run an
 assertion on the request body. Does not resolve the request.
 
@@ -1438,28 +1453,47 @@ assertion on the request body. Does not resolve the request.
     import Json.Decode as Decode
 
     TestApp.start "/" BackendTaskTest.init
-        |> PagesProgram.ensureHttpPost "https://api.example.com/submit"
+        |> PagesProgram.ensureHttpPostWith "https://api.example.com/submit"
             (\body ->
                 Decode.decodeValue (Decode.field "name" Decode.string) body
                     |> Expect.equal (Ok "Alice")
             )
         |> PagesProgram.simulateHttpPost "https://api.example.com/submit" response
 
-If you don't need to inspect the body, use `(\_ -> Expect.pass)`.
-
 The body is presented as a `Json.Encode.Value`. JSON request bodies decode
 faithfully; non-JSON bodies (binary, multipart) are passed through as
 `Encode.null`.
 
 -}
-ensureHttpPost : String -> (Encode.Value -> Expectation) -> Step model msg
-ensureHttpPost url bodyAssertion =
+ensureHttpPostWith : String -> (Encode.Value -> Expectation) -> Step model msg
+ensureHttpPostWith url bodyAssertion =
     Internal.Step
         (ensurePendingRequestWith
-            "ensureHttpPost"
+            "ensureHttpPostWith"
             (\r -> r.method == "POST" && r.url == url)
             (\r -> bodyAssertion (decodePendingBody r.body))
             url
+        )
+
+
+{-| Assert that a `BackendTask.Custom.run` call with the given port name
+is currently pending.
+
+    TestApp.start "/" BackendTaskTest.init
+        |> PagesProgram.ensureCustom "getTodos"
+        |> PagesProgram.simulateCustom "getTodos" response
+
+To also assert on the input arguments, use [`ensureCustomWith`](#ensureCustomWith)
+or the combined [`simulateCustomWith`](#simulateCustomWith).
+
+-}
+ensureCustom : String -> Step model msg
+ensureCustom portName =
+    Internal.Step
+        (ensurePendingRequest
+            "ensureCustom"
+            (\r -> r.url == "elm-pages-internal://port" && pendingPortName r == Just portName)
+            portName
         )
 
 
@@ -1471,21 +1505,19 @@ resolve the request.
     import Json.Decode as Decode
 
     TestApp.start "/" BackendTaskTest.init
-        |> PagesProgram.ensureCustom "hashPassword"
+        |> PagesProgram.ensureCustomWith "hashPassword"
             (\args ->
                 Decode.decodeValue Decode.string args
                     |> Expect.equal (Ok "secret123")
             )
         |> PagesProgram.simulateCustom "hashPassword" (Encode.string "hashed")
 
-If you don't need to check the arguments, use `(\_ -> Expect.pass)`.
-
 -}
-ensureCustom : String -> (Encode.Value -> Expectation) -> Step model msg
-ensureCustom portName argsAssertion =
+ensureCustomWith : String -> (Encode.Value -> Expectation) -> Step model msg
+ensureCustomWith portName argsAssertion =
     Internal.Step
         (ensurePendingRequestWith
-            "ensureCustom"
+            "ensureCustomWith"
             (\r -> r.url == "elm-pages-internal://port" && pendingPortName r == Just portName)
             (\r -> argsAssertion (decodePendingPortInput r.body))
             portName
