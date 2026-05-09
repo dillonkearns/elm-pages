@@ -24,7 +24,6 @@ test-scripts/db/schema-history/
 **/tests/viewer-preview.html
 **/tests/viewer.js
 tests/viewer-app/elm-stuff/
-.tmp-tui-widgets-tests*/
 
 # elm-wrap artifacts
 artifacts.dat
