@@ -4,7 +4,7 @@
   "title": "A time-traveling full-stack test debugger",
   "description": "Test.PagesProgram introduces end-to-end testing for elm-pages Route Modules",
   "published": "2026-05-11",
-  "unsplash": "1447069387593-a5de0862481e"
+  "image": "repeat-toggle_hsyqmy"
 }
 ---
 
