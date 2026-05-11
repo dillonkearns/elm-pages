@@ -2116,6 +2116,9 @@ viewStepRow index stepLabel snapshot currentIndex isHovering isHovered containsE
 
         isPast =
             index < currentIndex
+
+        inNamedGroup =
+            snapshot.groupLabel /= Nothing
     in
     Html.div
         [ Attr.classList
@@ -2126,6 +2129,7 @@ viewStepRow index stepLabel snapshot currentIndex isHovering isHovered containsE
             , ( "step-row-error", snapshot.errorMessage /= Nothing )
             , ( "step-row-contains-error", containsError )
             , ( "step-row-child", isChild )
+            , ( "step-row-in-named-group", inNamedGroup )
             ]
         , Attr.id ("step-" ++ String.fromInt index)
         , Html.Events.onClick (GoToStep index)
@@ -4021,12 +4025,15 @@ viewFetcherInspector currentStep allSnapshots =
 
                                           else
                                             Html.span [ Attr.class "fetcher-field-sep" ]
-                                                [ Html.text " · " ]
+                                                [ Html.text "·" ]
                                         , Html.span [ Attr.class "fetcher-field-key" ]
                                             [ Html.text k ]
-                                        , Html.text " "
+                                        , Html.span [ Attr.class "fetcher-field-punct" ]
+                                            [ Html.text "=\"" ]
                                         , Html.span [ Attr.class "fetcher-field-value" ]
                                             [ Html.text v ]
+                                        , Html.span [ Attr.class "fetcher-field-punct" ]
+                                            [ Html.text "\"" ]
                                         ]
                                 )
                         )
@@ -6296,6 +6303,16 @@ body {
     color: #7a8597;
 }
 
+/* Rows whose snapshot carries a `groupLabel` (i.e. created inside a
+   `PagesProgram.group "..."` block). Faint left-edge stripe makes the
+   group's vertical extent visible, so a row whose `groupLabel` is
+   `Nothing` and lands right after a group's last visible step doesn't
+   visually pretend to be inside it. The stripe is overridden by hover
+   / active / error states (which paint stronger left-border-colors). */
+.step-row-in-named-group {
+    border-left-color: rgba(255, 255, 255, 0.10);
+}
+
 .step-row-child .step-label {
     font-size: 13px;
     color: #8a9aaa;
@@ -7261,7 +7278,7 @@ body {
     padding: 16px 12px 8px 5px;
     cursor: pointer;
     background: transparent;
-    border-left: 2px solid transparent;
+    border-left: 2px solid rgba(255, 255, 255, 0.10);
     font-size: 11.5px;
     color: #8896a6;
     text-transform: uppercase;
@@ -8454,21 +8471,33 @@ body {
     font-family: "JetBrains Mono", monospace;
     font-size: 11.5px;
     font-weight: 400;
-    margin-top: 4px;
+    margin-top: 6px;
     padding-left: 22px;
+    line-height: 1.55;
 }
 
+/* Render each field as an HTML attribute literal (key="value") so the
+   pane reads like the wire format the form actually submits, and
+   harmonizes with the Data tab's syntax-highlighted palette: field
+   names share `dv-field-name`'s blue, string contents share
+   `dv-string`'s green, and the surrounding chrome (=, ", separator
+   dot) shares `dv-punct`'s muted gray. Empty values render as `""`,
+   which is clearly distinct from a missing/bare attribute. */
 .fetcher-field-key {
-    color: #5c6a7e;
+    color: #79c0ff;
 }
 
 .fetcher-field-value {
-    color: #8896a6;
+    color: #7ee787;
+}
+
+.fetcher-field-punct {
+    color: #6e7681;
 }
 
 .fetcher-field-sep {
-    color: #4a5568;
-    margin: 0 4px;
+    color: #6e7681;
+    margin: 0 8px;
 }
 
 .effect-inspector {

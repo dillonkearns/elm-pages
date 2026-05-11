@@ -3,8 +3,7 @@
     "source-directories": [
         "src",
         "../codegen",
-        "../../../src",
-        "../../../tui-widgets/src"
+        "../../../src"
     ],
     "elm-version": "0.19.1",
     "dependencies": {

@@ -12,9 +12,9 @@ module Test.PagesProgram exposing
     , represent
     , navigateTo, ensureBrowserUrl
     , ensureBrowserHistory
-    , simulateHttpGet, simulateHttpPost, simulateHttpError
-    , simulateCustom
-    , ensureHttpGet, ensureHttpPost, ensureCustom
+    , simulateHttpGet, simulateHttpPost, simulateHttpPostWith, simulateHttpError
+    , simulateCustom, simulateCustomWith
+    , ensureHttpGet, ensureHttpPost, ensureHttpPostWith, ensureCustom, ensureCustomWith
     , withSimulatedSubscriptions, simulateIncomingPort
     , Snapshot, withModelInspector
     , start, fromConfig
@@ -197,14 +197,14 @@ test pauses until you provide a simulated response. These functions work
 regardless of where the `BackendTask` originated -- route data loading,
 form actions, or BackendTask effects returned from `update`.
 
-@docs simulateHttpGet, simulateHttpPost, simulateHttpError
+@docs simulateHttpGet, simulateHttpPost, simulateHttpPostWith, simulateHttpError
 
-@docs simulateCustom
+@docs simulateCustom, simulateCustomWith
 
 
 ## Asserting on pending requests
 
-@docs ensureHttpGet, ensureHttpPost, ensureCustom
+@docs ensureHttpGet, ensureHttpPost, ensureHttpPostWith, ensureCustom, ensureCustomWith
 
 
 ## Subscriptions and incoming ports
@@ -1319,12 +1319,76 @@ simulateCustom portName jsonResponse =
     Internal.Step (applySimulation (SimCustom portName jsonResponse))
 
 
+{-| Assert against the input args of a pending `BackendTask.Custom.run` call,
+and resolve it with the given response - in one step. Equivalent to
+[`ensureCustom`](#ensureCustom) followed by [`simulateCustom`](#simulateCustom),
+but reads as a single intent and only names the port once.
+
+    import Expect
+    import Json.Decode as Decode
+
+    TestApp.start "/" BackendTaskTest.init
+        |> PagesProgram.simulateCustomWith "hashPassword"
+            (\args ->
+                Decode.decodeValue Decode.string args
+                    |> Expect.equal (Ok "secret123")
+            )
+            (Encode.string "hashed")
+
+If you want to assert without consuming the request (e.g. to peek at multiple
+pending calls before resolving any), use [`ensureCustomWith`](#ensureCustomWith)
+separately. If you don't care about the input, use the simpler
+[`simulateCustom`](#simulateCustom).
+
+-}
+simulateCustomWith : String -> (Encode.Value -> Expectation) -> Encode.Value -> Step model msg
+simulateCustomWith portName argsAssertion jsonResponse =
+    Internal.Step
+        (\pt ->
+            pt
+                |> applyStep (ensureCustomWith portName argsAssertion)
+                |> applyStep (simulateCustom portName jsonResponse)
+        )
+
+
 {-| Simulate a pending HTTP POST request resolving with the given JSON response
 body.
 -}
 simulateHttpPost : String -> Encode.Value -> Step model msg
 simulateHttpPost url jsonResponse =
     Internal.Step (applySimulation (SimHttpPost url jsonResponse))
+
+
+{-| Assert against the body of a pending HTTP POST request, and resolve it with
+the given response - in one step. Equivalent to
+[`ensureHttpPost`](#ensureHttpPost) followed by
+[`simulateHttpPost`](#simulateHttpPost), but reads as a single intent and only
+names the URL once.
+
+    import Expect
+    import Json.Decode as Decode
+
+    TestApp.start "/" BackendTaskTest.init
+        |> PagesProgram.simulateHttpPostWith "https://api.example.com/save"
+            (\body ->
+                Decode.decodeValue (Decode.field "name" Decode.string) body
+                    |> Expect.equal (Ok "Alice")
+            )
+            (Encode.string "ok")
+
+If you want to assert without consuming the request, use
+[`ensureHttpPostWith`](#ensureHttpPostWith) separately. If you don't care about
+the body, use the simpler [`simulateHttpPost`](#simulateHttpPost).
+
+-}
+simulateHttpPostWith : String -> (Encode.Value -> Expectation) -> Encode.Value -> Step model msg
+simulateHttpPostWith url bodyAssertion jsonResponse =
+    Internal.Step
+        (\pt ->
+            pt
+                |> applyStep (ensureHttpPostWith url bodyAssertion)
+                |> applyStep (simulateHttpPost url jsonResponse)
+        )
 
 
 {-| Simulate an HTTP error (network error or timeout) on a pending request.
@@ -1373,10 +1437,43 @@ ensureHttpGet url =
         |> PagesProgram.ensureHttpPost "https://api.example.com/submit"
         |> PagesProgram.simulateHttpPost "https://api.example.com/submit" response
 
+To also assert on the request body, use [`ensureHttpPostWith`](#ensureHttpPostWith)
+or the combined [`simulateHttpPostWith`](#simulateHttpPostWith).
+
 -}
 ensureHttpPost : String -> Step model msg
 ensureHttpPost url =
     Internal.Step (ensurePendingRequest "ensureHttpPost" (\r -> r.method == "POST" && r.url == url) url)
+
+
+{-| Assert that a POST request to the given URL is currently pending, and run an
+assertion on the request body. Does not resolve the request.
+
+    import Expect
+    import Json.Decode as Decode
+
+    TestApp.start "/" BackendTaskTest.init
+        |> PagesProgram.ensureHttpPostWith "https://api.example.com/submit"
+            (\body ->
+                Decode.decodeValue (Decode.field "name" Decode.string) body
+                    |> Expect.equal (Ok "Alice")
+            )
+        |> PagesProgram.simulateHttpPost "https://api.example.com/submit" response
+
+The body is presented as a `Json.Encode.Value`. JSON request bodies decode
+faithfully; non-JSON bodies (binary, multipart) are passed through as
+`Encode.null`.
+
+-}
+ensureHttpPostWith : String -> (Encode.Value -> Expectation) -> Step model msg
+ensureHttpPostWith url bodyAssertion =
+    Internal.Step
+        (ensurePendingRequestWith
+            "ensureHttpPostWith"
+            (\r -> r.method == "POST" && r.url == url)
+            (\r -> bodyAssertion (decodePendingBody r.body))
+            url
+        )
 
 
 {-| Assert that a `BackendTask.Custom.run` call with the given port name
@@ -1385,6 +1482,9 @@ is currently pending.
     TestApp.start "/" BackendTaskTest.init
         |> PagesProgram.ensureCustom "getTodos"
         |> PagesProgram.simulateCustom "getTodos" response
+
+To also assert on the input arguments, use [`ensureCustomWith`](#ensureCustomWith)
+or the combined [`simulateCustomWith`](#simulateCustomWith).
 
 -}
 ensureCustom : String -> Step model msg
@@ -1395,6 +1495,57 @@ ensureCustom portName =
             (\r -> r.url == "elm-pages-internal://port" && pendingPortName r == Just portName)
             portName
         )
+
+
+{-| Assert that a `BackendTask.Custom.run` call with the given port name
+is currently pending, and run an assertion on the input arguments. Does not
+resolve the request.
+
+    import Expect
+    import Json.Decode as Decode
+
+    TestApp.start "/" BackendTaskTest.init
+        |> PagesProgram.ensureCustomWith "hashPassword"
+            (\args ->
+                Decode.decodeValue Decode.string args
+                    |> Expect.equal (Ok "secret123")
+            )
+        |> PagesProgram.simulateCustom "hashPassword" (Encode.string "hashed")
+
+-}
+ensureCustomWith : String -> (Encode.Value -> Expectation) -> Step model msg
+ensureCustomWith portName argsAssertion =
+    Internal.Step
+        (ensurePendingRequestWith
+            "ensureCustomWith"
+            (\r -> r.url == "elm-pages-internal://port" && pendingPortName r == Just portName)
+            (\r -> argsAssertion (decodePendingPortInput r.body))
+            portName
+        )
+
+
+decodePendingBody : Maybe String -> Encode.Value
+decodePendingBody body =
+    case body of
+        Just raw ->
+            Json.Decode.decodeString Json.Decode.value raw
+                |> Result.withDefault Encode.null
+
+        Nothing ->
+            Encode.null
+
+
+decodePendingPortInput : Maybe String -> Encode.Value
+decodePendingPortInput body =
+    case body of
+        Just raw ->
+            Json.Decode.decodeString
+                (Json.Decode.field "input" Json.Decode.value)
+                raw
+                |> Result.withDefault Encode.null
+
+        Nothing ->
+            Encode.null
 
 
 ensurePendingRequest : String -> ({ url : String, method : String, headers : List ( String, String ), body : Maybe String } -> Bool) -> String -> ProgramTest model msg -> ProgramTest model msg
@@ -1415,30 +1566,106 @@ ensurePendingRequest callerName predicate target (ProgramTest state) =
                 ProgramTest state
 
             else
-                let
-                    pendingList =
-                        allPending
-                            |> List.map (\r -> "  " ++ r.method ++ " " ++ r.url)
-                            |> String.join "\n"
-
-                    pendingMsg =
-                        if List.isEmpty allPending then
-                            "No requests are currently pending."
-
-                        else
-                            "Currently pending requests:\n" ++ pendingList
-                in
                 ProgramTest
                     { state
                         | error =
-                            Just
-                                (callerName
-                                    ++ " \""
-                                    ++ target
-                                    ++ "\" failed: no matching request is pending.\n\n"
-                                    ++ pendingMsg
-                                )
+                            Just (noMatchingPendingRequestError callerName target allPending)
                     }
+
+
+ensurePendingRequestWith :
+    String
+    -> ({ url : String, method : String, headers : List ( String, String ), body : Maybe String } -> Bool)
+    -> ({ url : String, method : String, headers : List ( String, String ), body : Maybe String } -> Expectation)
+    -> String
+    -> ProgramTest model msg
+    -> ProgramTest model msg
+ensurePendingRequestWith callerName predicate assertion target (ProgramTest state) =
+    case state.error of
+        Just _ ->
+            ProgramTest state
+
+        Nothing ->
+            let
+                allPending =
+                    gatherAllPendingRequestDetails state
+            in
+            case List.filter predicate allPending |> List.head of
+                Just matched ->
+                    case Test.Runner.getFailureReason (assertion matched) of
+                        Nothing ->
+                            ProgramTest state
+
+                        Just failure ->
+                            ProgramTest
+                                { state
+                                    | error =
+                                        Just
+                                            (callerName
+                                                ++ " \""
+                                                ++ target
+                                                ++ "\" assertion failed.\n\n"
+                                                ++ formatFailureReason failure
+                                            )
+                                }
+
+                Nothing ->
+                    ProgramTest
+                        { state
+                            | error =
+                                Just (noMatchingPendingRequestError callerName target allPending)
+                        }
+
+
+formatFailureReason : { given : Maybe String, description : String, reason : Test.Runner.Failure.Reason } -> String
+formatFailureReason { description, reason } =
+    case reason of
+        Test.Runner.Failure.Equality expected actual ->
+            description ++ "\n\n" ++ actual ++ "\n╷\n│ " ++ description ++ "\n╵\n" ++ expected
+
+        Test.Runner.Failure.Comparison expected actual ->
+            description ++ "\n\n" ++ actual ++ "\n╷\n│ " ++ description ++ "\n╵\n" ++ expected
+
+        Test.Runner.Failure.ListDiff expected actual ->
+            description ++ "\n\nExpected: " ++ String.join ", " expected ++ "\nActual: " ++ String.join ", " actual
+
+        Test.Runner.Failure.CollectionDiff diff ->
+            description ++ "\n\nExpected: " ++ diff.expected ++ "\nActual: " ++ diff.actual
+
+        Test.Runner.Failure.Custom ->
+            description
+
+        Test.Runner.Failure.TODO ->
+            description
+
+        Test.Runner.Failure.Invalid _ ->
+            description
+
+
+noMatchingPendingRequestError :
+    String
+    -> String
+    -> List { url : String, method : String, headers : List ( String, String ), body : Maybe String }
+    -> String
+noMatchingPendingRequestError callerName target allPending =
+    let
+        pendingList =
+            allPending
+                |> List.map (\r -> "  " ++ r.method ++ " " ++ r.url)
+                |> String.join "\n"
+
+        pendingMsg =
+            if List.isEmpty allPending then
+                "No requests are currently pending."
+
+            else
+                "Currently pending requests:\n" ++ pendingList
+    in
+    callerName
+        ++ " \""
+        ++ target
+        ++ "\" failed: no matching request is pending.\n\n"
+        ++ pendingMsg
 
 
 {-| Render the list of currently pending requests as a hint appended to
@@ -5381,7 +5608,28 @@ parseHtmlAttributes attributesChunk =
             (\match attrs ->
                 case match.submatches of
                     (Just name) :: maybeValue :: [] ->
-                        Dict.insert name (Maybe.withDefault "true" maybeValue) attrs
+                        let
+                            value : String
+                            value =
+                                case maybeValue of
+                                    Just v ->
+                                        v
+
+                                    Nothing ->
+                                        -- Elm's Regex returns Nothing for matched-but-empty
+                                        -- captures, so we distinguish here: if the full match
+                                        -- consumed more than just the name, the `="..."` part
+                                        -- was present but captured empty (value=""), so the
+                                        -- attribute value is the empty string. Otherwise the
+                                        -- attribute is bare (e.g. `<input checked>`), which we
+                                        -- represent as "true".
+                                        if String.length match.match > String.length name then
+                                            ""
+
+                                        else
+                                            "true"
+                        in
+                        Dict.insert name value attrs
 
                     _ ->
                         attrs

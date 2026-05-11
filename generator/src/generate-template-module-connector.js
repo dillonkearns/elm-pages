@@ -358,7 +358,7 @@ function testAppModule(templates) {
     .map((p) => `        |> String.replace "${p} " ""`)
     .join("\n");
 
-  return `module TestApp exposing (start, ProgramTest)
+  return `module TestApp exposing (start, ProgramTest, Step)
 
 {-| Generated test module for elm-pages route testing.
 
@@ -414,6 +414,37 @@ it — it's tracked behind the scenes by the simulators in
 -}
 type alias ProgramTest =
     Test.PagesProgram.ProgramTest
+        { platformModel : Pages.Internal.Platform.Model Main.Model Main.PageData Main.ActionData Shared.Data
+        , virtualFs :
+            { files : Dict.Dict String String
+            , binaryFiles : Dict.Dict String Bytes.Bytes
+            , stdin : Maybe String
+            , env : Dict.Dict String String
+            , time : Maybe Time.Posix
+            , timeZone : Maybe { defaultOffset : Int, eras : List { start : Int, offset : Int } }
+            , timeZonesByName : Dict.Dict String { defaultOffset : Int, eras : List { start : Int, offset : Int } }
+            , randomSeed : Maybe Int
+            , whichCommands : Dict.Dict String String
+            , tempDirCounter : Int
+            }
+        , cookieJar : CookieJar.CookieJar
+        , pendingDataError : Maybe String
+        , pendingDataPath : Maybe String
+        , pendingActionBody : Maybe { body : String, path : String }
+        }
+        (Pages.Internal.Platform.Msg Main.Msg Main.PageData Main.ActionData Shared.Data ErrorPage.ErrorPage)
+
+
+{-| Type alias for a single test step against the framework-driven test app.
+Use this to give type signatures to your test helpers:
+
+    toggleTodo : String -> TestApp.Step
+    toggleTodo description =
+        PagesProgram.withinFind ... [ PagesProgram.clickButton "toggle" ]
+
+-}
+type alias Step =
+    Test.PagesProgram.Step
         { platformModel : Pages.Internal.Platform.Model Main.Model Main.PageData Main.ActionData Shared.Data
         , virtualFs :
             { files : Dict.Dict String String
