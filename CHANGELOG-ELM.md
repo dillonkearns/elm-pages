@@ -7,6 +7,21 @@ will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [12.3.0] - 2026-05-10
+
+### Added
+
+- `Test.PagesProgram.simulateHttpPostWith` and `ensureHttpPostWith`
+  assert against the body of a pending HTTP POST in one step. The body
+  is presented as a `Json.Encode.Value`.
+- `Test.PagesProgram.simulateCustomWith` and `ensureCustomWith` do the
+  same for `BackendTask.Custom.run` calls, exposing the input args to
+  an assertion.
+
+The `With` variants only name the URL/port once and read as a single
+intent. Their non-`With` counterparts (`ensureHttpPost`,
+`simulateHttpPost`, `ensureCustom`, `simulateCustom`) are unchanged.
+
 ## [12.2.1] - 2026-04-28
 
 ### Fixed
