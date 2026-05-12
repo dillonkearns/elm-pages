@@ -7,6 +7,19 @@ will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [3.5.1] - 2026-05-11
+
+### Changed
+
+- `elm-pages init` template refreshed to current published Elm package
+  versions: `dillonkearns/elm-pages` 12.3.0 and `dillonkearns/elm-form`
+  3.1.0 in `codegen/elm.codegen.json` (the main `elm.json` was already
+  bumped in 12.3.0), and `mdgriffith/elm-codegen` 6.0.3 in `elm.json` /
+  `script/elm.json`.
+- Generated `TestApp` module now exposes a `Step` type alias so test
+  helpers can carry meaningful signatures (e.g.
+  `toggleTodo : String -> TestApp.Step`).
+
 ## [3.5.0] - 2026-04-28
 
 ### Added
