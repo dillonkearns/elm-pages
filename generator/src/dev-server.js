@@ -1537,6 +1537,11 @@ main =
     }
   }
 
+  /**
+   * @param {import("connect").IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {import("connect").NextFunction} next
+   */
   async function awaitElmMiddleware(req, res, next) {
     if (req.url && req.url.startsWith("/elm.js")) {
       try {
@@ -1545,7 +1550,7 @@ main =
         next();
       } catch (elmCompilerError) {
         res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(elmCompilerError);
+        next(elmCompilerError);
       }
     } else {
       next();
