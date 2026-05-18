@@ -14,8 +14,12 @@ import * as fs from "node:fs";
 import * as crypto from "node:crypto";
 import { restoreColorSafe } from "./error-formatter.js";
 import {
-  runTuiInit, runTuiRender, runTuiWaitEvent,
-  runTuiRenderAndWait, runTuiExit, tuiCleanup,
+  runTuiInit,
+  runTuiRender,
+  runTuiWaitEvent,
+  runTuiRenderAndWait,
+  runTuiExit,
+  tuiCleanup,
 } from "./tui-runtime.js";
 import { Spinnies } from "./spinnies/index.js";
 import { default as which } from "which";
@@ -35,7 +39,9 @@ const activeChildProcesses = new Set();
 
 function killActiveChildren() {
   for (const child of activeChildProcesses) {
-    try { child.kill("SIGTERM"); } catch (e) {}
+    try {
+      child.kill("SIGTERM");
+    } catch (e) {}
   }
   activeChildProcesses.clear();
 }
@@ -304,7 +310,7 @@ function runGeneratorAppHelp(
               requestToPerform.url !== "elm-pages-internal://port" &&
               requestToPerform.url.startsWith("elm-pages-internal://")
             ) {
-              [, result] = await runInternalJob(
+              result = await runInternalJob(
                 requestHash,
                 app,
                 requestToPerform,
@@ -479,7 +485,7 @@ function runElmApp(
               requestToPerform.url !== "elm-pages-internal://port" &&
               requestToPerform.url.startsWith("elm-pages-internal://")
             ) {
-              [, result] = await runInternalJob(
+              result = await runInternalJob(
                 requestHash,
                 app,
                 requestToPerform,
@@ -707,6 +713,7 @@ function dataViewToBuffer(dv) {
  * @param {Set<string>} patternsToWatch
  * @param {PortsFile} portsFile
  * @param {InternalJob} requestToPerform
+ * @return {Promise<{ request: unknown; response: unknown; }>}
  */
 async function runInternalJob(
   requestHash,
@@ -718,101 +725,86 @@ async function runInternalJob(
   try {
     switch (requestToPerform.url) {
       case "elm-pages-internal://log":
-        return [requestHash, await runLogJob(requestToPerform)];
+        return await runLogJob(requestToPerform);
       case "elm-pages-internal://read-file":
-        return [
-          requestHash,
-          await readFileJobNew(requestToPerform, patternsToWatch),
-        ];
+        return await readFileJobNew(requestToPerform, patternsToWatch);
       case "elm-pages-internal://read-file-binary":
-        return [
-          requestHash,
-          await readFileBinaryJobNew(requestToPerform, patternsToWatch),
-        ];
+        return await readFileBinaryJobNew(requestToPerform, patternsToWatch);
       case "elm-pages-internal://glob":
-        return [
-          requestHash,
-          await runGlobNew(requestToPerform, patternsToWatch),
-        ];
+        return await runGlobNew(requestToPerform, patternsToWatch);
       case "elm-pages-internal://randomSeed":
-        return [
-          requestHash,
-          jsonResponse(
-            requestToPerform,
-            crypto.getRandomValues(new Uint32Array(1))[0]
-          ),
-        ];
+        return jsonResponse(
+          requestToPerform,
+          crypto.getRandomValues(new Uint32Array(1))[0]
+        );
       case "elm-pages-internal://now":
-        return [requestHash, jsonResponse(requestToPerform, Date.now())];
+        return jsonResponse(requestToPerform, Date.now());
       case "elm-pages-internal://timezone":
-        return [requestHash, jsonResponse(requestToPerform, runTimezone(requestToPerform))];
+        return jsonResponse(requestToPerform, runTimezone(requestToPerform));
       case "elm-pages-internal://env":
-        return [requestHash, await runEnvJob(requestToPerform)];
+        return await runEnvJob(requestToPerform);
       case "elm-pages-internal://resolve-path":
-        return [requestHash, runResolvePath(requestToPerform)];
+        return runResolvePath(requestToPerform);
       case "elm-pages-internal://encrypt":
-        return [requestHash, await runEncryptJob(requestToPerform)];
+        return await runEncryptJob(requestToPerform);
       case "elm-pages-internal://decrypt":
-        return [requestHash, await runDecryptJob(requestToPerform)];
+        return await runDecryptJob(requestToPerform);
       case "elm-pages-internal://file-exists":
-        return [
-          requestHash,
-          await runFileExists(requestToPerform, patternsToWatch),
-        ];
+        return await runFileExists(requestToPerform, patternsToWatch);
       case "elm-pages-internal://write-file":
-        return [requestHash, await runWriteFileJob(requestToPerform)];
+        return await runWriteFileJob(requestToPerform);
       case "elm-pages-internal://delete-file":
-        return [requestHash, await runDeleteFile(requestToPerform)];
+        return await runDeleteFile(requestToPerform);
       case "elm-pages-internal://copy-file":
-        return [requestHash, await runCopyFile(requestToPerform)];
+        return await runCopyFile(requestToPerform);
       case "elm-pages-internal://move":
-        return [requestHash, await runMove(requestToPerform)];
+        return await runMove(requestToPerform);
       case "elm-pages-internal://make-directory":
-        return [requestHash, await runMakeDirectory(requestToPerform)];
+        return await runMakeDirectory(requestToPerform);
       case "elm-pages-internal://remove-directory":
-        return [requestHash, await runRemoveDirectory(requestToPerform)];
+        return await runRemoveDirectory(requestToPerform);
       case "elm-pages-internal://make-temp-directory":
-        return [requestHash, await runMakeTempDirectory(requestToPerform)];
+        return await runMakeTempDirectory(requestToPerform);
       case "elm-pages-internal://sleep":
-        return [requestHash, await runSleep(requestToPerform)];
+        return await runSleep(requestToPerform);
       case "elm-pages-internal://which":
-        return [requestHash, await runWhich(requestToPerform)];
+        return await runWhich(requestToPerform);
       case "elm-pages-internal://question":
-        return [requestHash, await runQuestion(requestToPerform)];
+        return await runQuestion(requestToPerform);
       case "elm-pages-internal://readKey":
-        return [requestHash, await runReadKey(requestToPerform)];
+        return await runReadKey(requestToPerform);
       case "elm-pages-internal://stream":
-        return [requestHash, await runStream(requestToPerform, portsFile)];
+        return await runStream(requestToPerform, portsFile);
       case "elm-pages-internal://start-spinner":
-        return [requestHash, runStartSpinner(requestToPerform)];
+        return runStartSpinner(requestToPerform);
       case "elm-pages-internal://stop-spinner":
-        return [requestHash, runStopSpinner(requestToPerform)];
+        return runStopSpinner(requestToPerform);
       case "elm-pages-internal://db-read-meta":
-        return [requestHash, await runDbReadMeta(requestToPerform)];
+        return await runDbReadMeta(requestToPerform);
       case "elm-pages-internal://db-write":
-        return [requestHash, await runDbWrite(requestToPerform)];
+        return await runDbWrite(requestToPerform);
       case "elm-pages-internal://db-set-default-path":
-        return [requestHash, await runDbSetDefaultPath(requestToPerform)];
+        return await runDbSetDefaultPath(requestToPerform);
       case "elm-pages-internal://db-lock-acquire":
-        return [requestHash, await runDbLockAcquire(requestToPerform)];
+        return await runDbLockAcquire(requestToPerform);
       case "elm-pages-internal://db-lock-release":
-        return [requestHash, await runDbLockRelease(requestToPerform)];
+        return await runDbLockRelease(requestToPerform);
       case "elm-pages-internal://db-migrate-read":
-        return [requestHash, await runDbMigrateRead(requestToPerform)];
+        return await runDbMigrateRead(requestToPerform);
       case "elm-pages-internal://db-migrate-write":
-        return [requestHash, await runDbMigrateWrite(requestToPerform)];
+        return await runDbMigrateWrite(requestToPerform);
       case "elm-pages-internal://tui-is-interactive":
-        return [requestHash, jsonResponse(requestToPerform, isInteractiveTerminal())];
+        return jsonResponse(requestToPerform, isInteractiveTerminal());
       case "elm-pages-internal://tui-init":
-        return [requestHash, await runTuiInit(requestToPerform)];
+        return await runTuiInit(requestToPerform);
       case "elm-pages-internal://tui-render":
-        return [requestHash, await runTuiRender(requestToPerform)];
+        return await runTuiRender(requestToPerform);
       case "elm-pages-internal://tui-wait-event":
-        return [requestHash, await runTuiWaitEvent(requestToPerform)];
+        return await runTuiWaitEvent(requestToPerform);
       case "elm-pages-internal://tui-render-and-wait":
-        return [requestHash, await runTuiRenderAndWait(requestToPerform)];
+        return await runTuiRenderAndWait(requestToPerform);
       case "elm-pages-internal://tui-exit":
-        return [requestHash, await runTuiExit(requestToPerform)];
+        return await runTuiExit(requestToPerform);
       default:
         throw `Unexpected internal BackendTask request format: ${kleur.yellow(
           JSON.stringify(2, null, requestToPerform)
@@ -830,20 +822,17 @@ async function runInternalJob(
     // Return a proper [requestHash, response] pair so Object.fromEntries
     // doesn't crash. The non-200 status causes BackendTask.Http to treat
     // this as a BadStatus error, which becomes a FatalError in Elm.
-    return [
-      requestHash,
-      {
-        request: requestToPerform,
-        response: {
-          statusCode: 500,
-          statusText: "Internal Error",
-          headers: {},
-          url: requestToPerform.url,
-          bodyKind: "string",
-          body: errorMessage,
-        },
+    return {
+      request: requestToPerform,
+      response: {
+        statusCode: 500,
+        statusText: "Internal Error",
+        headers: {},
+        url: requestToPerform.url,
+        bodyKind: "string",
+        body: errorMessage,
       },
-    ];
+    };
   }
 }
 
@@ -2257,7 +2246,12 @@ function runResolvePath(req) {
 async function runEnvJob(req) {
   try {
     const expectedEnv = req.body.args[0];
-    return jsonResponse(req, expectedEnv in req.env ? req.env[expectedEnv] : process.env[expectedEnv] || null);
+    return jsonResponse(
+      req,
+      expectedEnv in req.env
+        ? req.env[expectedEnv]
+        : process.env[expectedEnv] || null
+    );
   } catch (e) {
     console.log(`Error performing env '${JSON.stringify(req.body)}'`);
     throw e;
@@ -2374,8 +2368,12 @@ function runTimezone(req) {
 const tzFormatters = new Map();
 const utcFormatter = new Intl.DateTimeFormat("en-US", {
   timeZone: "UTC",
-  year: "numeric", month: "numeric", day: "numeric",
-  hour: "numeric", minute: "numeric", second: "numeric",
+  year: "numeric",
+  month: "numeric",
+  day: "numeric",
+  hour: "numeric",
+  minute: "numeric",
+  second: "numeric",
   hour12: false,
 });
 
@@ -2384,8 +2382,12 @@ function getTzFormatter(tzId) {
   if (!fmt) {
     fmt = new Intl.DateTimeFormat("en-US", {
       timeZone: tzId,
-      year: "numeric", month: "numeric", day: "numeric",
-      hour: "numeric", minute: "numeric", second: "numeric",
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      second: "numeric",
       hour12: false,
     });
     tzFormatters.set(tzId, fmt);
@@ -2466,7 +2468,8 @@ function getTimezoneDataTemporal(tzId, sinceMs, untilMs) {
   const startInstant = Temporal.Instant.fromEpochMilliseconds(sinceMs);
   const endInstant = Temporal.Instant.fromEpochMilliseconds(untilMs);
 
-  const defaultOffset = tz.getOffsetNanosecondsFor(startInstant) / 60_000_000_000;
+  const defaultOffset =
+    tz.getOffsetNanosecondsFor(startInstant) / 60_000_000_000;
   const eras = [];
 
   let instant = tz.getNextTransition(startInstant);
@@ -2499,4 +2502,3 @@ process.on("SIGTERM", () => {
   killActiveChildren();
   process.exit(143);
 });
-
