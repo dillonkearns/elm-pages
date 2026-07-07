@@ -13,6 +13,8 @@ import { transform as eol2Transform } from "elm-optimize-level-2";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const LAMDERA_HOT_RELOAD = /^function _Platform_mergeExportsHotReload/m;
+
 export async function compileElmForBrowser(options, config = {}) {
   // TODO do I need to make sure this is run from the right cwd? Before it was run outside of this function in the global scope, need to make sure that doesn't change semantics.
   const pathToClientElm = path.join(
@@ -46,9 +48,12 @@ export async function compileElmForBrowser(options, config = {}) {
 
   // Apply transforms in sequence:
   // 1. elm-hot injection for development
+  //    Skip this if using a version of the Lamdera Compiler which ships built-in hot reloading support
   // 2. Form data stringify replacement
   // 3. Frozen view adoption patch
-  let transformedCode = inject(rawElmCode);
+  let transformedCode = LAMDERA_HOT_RELOAD.test(rawElmCode)
+    ? rawElmCode
+    : inject(rawElmCode);
 
   transformedCode = transformedCode.replace(
     /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_FORM_TO_STRING.\)/g,

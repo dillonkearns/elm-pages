@@ -218,9 +218,18 @@ async function thenApplyHmr(response) {
       location.reload();
     } else {
       response.text().then(function (value) {
-        module.hot.apply();
-        delete window.Elm;
-        eval(value);
+        if (window.Elm.hot) {
+          // If the built-in hot reloading from the Lamdera Compiler is available, use that.
+          var f = new Function(value);
+          var newScope = {};
+          f.call(newScope);
+          window.Elm.hot.reload(newScope);
+        } else {
+          // Otherwise apply elm-hot’s hot reloading.
+          module.hot.apply();
+          delete window.Elm;
+          eval(value);
+        }
       });
     }
   } else {
