@@ -7,7 +7,7 @@ npx elm-test --compiler lamdera tests/ApiRouteTests.elm tests/CookieTest.elm tes
 (cd generator/persistent-marking-agreement-test && npx elm-test --compiler lamdera)
 (cd generator/review && npx elm-test --compiler lamdera)
 npm run test:snapshot
-elm-verify-examples --run-tests --elm-test-args '--compiler=lamdera'
+npx elm-verify-examples --run-tests --elm-test-args '--compiler=lamdera'
 (cd generator && npx vitest run)
 
 # This tests for an error message until https://github.com/dillonkearns/elm-pages/issues/531 is fixed
