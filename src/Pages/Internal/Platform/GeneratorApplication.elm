@@ -29,6 +29,7 @@ import Pages.Internal.StaticHttpBody
 import Pages.StaticHttp.Request
 import RequestsAndPending
 import TerminalText as Terminal
+import TsJson.Decode as TsDecode
 
 
 {-| -}
@@ -297,7 +298,7 @@ logInternal message =
                     [ ( "message", Encode.string message )
                     ]
                 )
-        , expect = Decode.succeed ()
+        , expect = TsDecode.succeed ()
         }
 
 

@@ -1,9 +1,9 @@
 {
   "compilerOptions": {
     "types": ["node"],
-    "moduleResolution": "node",
+    "moduleResolution": "node16",
+    "module": "node16",
     "checkJs": true,
-    "allowJs": true,
     "strict": true,
     "resolveJsonModule": true,
     "lib": ["es2015", "es2017.object", "esnext", "dom"],

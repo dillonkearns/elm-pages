@@ -15,9 +15,9 @@ consumers (like `tui-widgets`) should not import this module.
 
 -}
 
-import Json.Decode as Decode
 import Json.Encode as Encode
 import Time exposing (Posix)
+import TsJson.Decode as TsDecode
 import Tui.Sub exposing (Direction(..), Key(..), KeyEvent, Modifier(..), MouseButton(..), MouseEvent(..), Sub(..))
 
 
@@ -163,199 +163,138 @@ routeEvents sub event =
                     []
 
 
-decodeRawEvent : Decode.Decoder (Maybe RawEvent)
+decodeRawEvent : TsDecode.Decoder (Maybe RawEvent)
 decodeRawEvent =
-    Decode.field "type" Decode.string
-        |> Decode.andThen
-            (\eventType ->
-                case eventType of
-                    "keypress" ->
-                        Decode.map (Just << RawKeyPress) decodeKeyEvent
-
-                    "mouse" ->
-                        Decode.map (Just << RawMouse) decodeMouseEvent
-
-                    "paste" ->
-                        Decode.map (Just << RawPaste)
-                            (Decode.field "text" Decode.string)
-
-                    "resize" ->
-                        Decode.succeed Nothing
-
-                    "tick" ->
-                        Decode.map2
-                            (\interval time ->
-                                Just (RawTick { interval = interval, time = Time.millisToPosix time })
-                            )
-                            (Decode.field "interval" Decode.int)
-                            (Decode.field "time" Decode.int)
-
-                    _ ->
-                        Decode.fail ("Unknown event type: " ++ eventType)
-            )
+    TsDecode.discriminatedUnion "type"
+        [ ( "keypress"
+          , TsDecode.map (Just << RawKeyPress) decodeKeyEvent
+          )
+        , ( "mouse"
+          , TsDecode.map (Just << RawMouse) decodeMouseEvent
+          )
+        , ( "paste"
+          , TsDecode.map (Just << RawPaste)
+                (TsDecode.field "text" TsDecode.string)
+          )
+        , ( "resize"
+          , TsDecode.succeed Nothing
+          )
+        , ( "tick"
+          , TsDecode.map2
+                (\interval time ->
+                    Just (RawTick { interval = interval, time = Time.millisToPosix time })
+                )
+                (TsDecode.field "interval" TsDecode.int)
+                (TsDecode.field "time" TsDecode.int)
+          )
+        ]
 
 
-decodeKeyEvent : Decode.Decoder KeyEvent
+decodeKeyEvent : TsDecode.Decoder KeyEvent
 decodeKeyEvent =
-    Decode.map2 KeyEvent
-        (Decode.field "key" decodeKey)
-        (Decode.field "modifiers" (Decode.list decodeModifier))
+    TsDecode.map2 KeyEvent
+        (TsDecode.field "key" decodeKey)
+        (TsDecode.field "modifiers" (TsDecode.list decodeModifier))
 
 
-decodeKey : Decode.Decoder Key
+decodeKey : TsDecode.Decoder Key
 decodeKey =
-    Decode.field "tag" Decode.string
-        |> Decode.andThen
-            (\tag ->
-                case tag of
-                    "Character" ->
-                        Decode.field "char" Decode.string
-                            |> Decode.andThen
-                                (\s ->
-                                    case String.uncons s of
-                                        Just ( c, _ ) ->
-                                            Decode.succeed (Character c)
+    TsDecode.discriminatedUnion "tag"
+        [ ( "Character", TsDecode.field "char" charDecoder )
+        , ( "Enter", TsDecode.succeed Enter )
+        , ( "Escape", TsDecode.succeed Escape )
+        , ( "Tab", TsDecode.succeed Tab )
+        , ( "Backspace", TsDecode.succeed Backspace )
+        , ( "Delete", TsDecode.succeed Delete )
+        , ( "Home", TsDecode.succeed Home )
+        , ( "End", TsDecode.succeed End )
+        , ( "PageUp", TsDecode.succeed PageUp )
+        , ( "PageDown", TsDecode.succeed PageDown )
+        , ( "Arrow"
+          , TsDecode.field "direction"
+                (TsDecode.stringUnion
+                    [ ( "Up", Arrow Up )
+                    , ( "Down", Arrow Down )
+                    , ( "Left", Arrow Left )
+                    , ( "Right", Arrow Right )
+                    ]
+                )
+          )
+        , ( "FunctionKey"
+          , TsDecode.field "number" TsDecode.int
+                |> TsDecode.map FunctionKey
+          )
+        ]
 
-                                        Nothing ->
-                                            Decode.fail "Empty character"
-                                )
 
-                    "Enter" ->
-                        Decode.succeed Enter
+charDecoder : TsDecode.Decoder Key
+charDecoder =
+    TsDecode.string
+        |> TsDecode.andThen
+            (TsDecode.andThenInit
+                (\s ->
+                    case String.uncons s of
+                        Just ( c, _ ) ->
+                            TsDecode.succeed (Character c)
 
-                    "Escape" ->
-                        Decode.succeed Escape
-
-                    "Tab" ->
-                        Decode.succeed Tab
-
-                    "Backspace" ->
-                        Decode.succeed Backspace
-
-                    "Delete" ->
-                        Decode.succeed Delete
-
-                    "Home" ->
-                        Decode.succeed Home
-
-                    "End" ->
-                        Decode.succeed End
-
-                    "PageUp" ->
-                        Decode.succeed PageUp
-
-                    "PageDown" ->
-                        Decode.succeed PageDown
-
-                    "Arrow" ->
-                        Decode.field "direction" Decode.string
-                            |> Decode.andThen
-                                (\dir ->
-                                    case dir of
-                                        "Up" ->
-                                            Decode.succeed (Arrow Up)
-
-                                        "Down" ->
-                                            Decode.succeed (Arrow Down)
-
-                                        "Left" ->
-                                            Decode.succeed (Arrow Left)
-
-                                        "Right" ->
-                                            Decode.succeed (Arrow Right)
-
-                                        _ ->
-                                            Decode.fail ("Unknown direction: " ++ dir)
-                                )
-
-                    "FunctionKey" ->
-                        Decode.field "number" Decode.int
-                            |> Decode.map FunctionKey
-
-                    _ ->
-                        Decode.fail ("Unknown key tag: " ++ tag)
+                        Nothing ->
+                            TsDecode.fail "Empty character"
+                )
             )
 
 
-decodeModifier : Decode.Decoder Modifier
+decodeModifier : TsDecode.Decoder Modifier
 decodeModifier =
-    Decode.string
-        |> Decode.andThen
-            (\s ->
-                case s of
-                    "Ctrl" ->
-                        Decode.succeed Ctrl
-
-                    "Alt" ->
-                        Decode.succeed Alt
-
-                    "Shift" ->
-                        Decode.succeed Shift
-
-                    _ ->
-                        Decode.fail ("Unknown modifier: " ++ s)
-            )
+    TsDecode.stringUnion
+        [ ( "Ctrl", Ctrl )
+        , ( "Alt", Alt )
+        , ( "Shift", Shift )
+        ]
 
 
-decodeMouseEvent : Decode.Decoder MouseEvent
+decodeMouseEvent : TsDecode.Decoder MouseEvent
 decodeMouseEvent =
-    Decode.field "action" Decode.string
-        |> Decode.andThen
-            (\action ->
-                let
-                    coords : Decode.Decoder { row : Int, col : Int }
-                    coords =
-                        Decode.map2 (\r c -> { row = r, col = c })
-                            (Decode.field "row" Decode.int)
-                            (Decode.field "col" Decode.int)
-                in
-                case action of
-                    "click" ->
-                        Decode.map2
-                            (\pos button ->
-                                Click { row = pos.row, col = pos.col, button = button }
-                            )
-                            coords
-                            (Decode.field "button" decodeMouseButton)
-
-                    "scrollUp" ->
-                        Decode.map2
-                            (\pos amt -> ScrollUp { row = pos.row, col = pos.col, amount = amt })
-                            coords
-                            (Decode.field "amount" Decode.int
-                                |> Decode.maybe
-                                |> Decode.map (Maybe.withDefault 1)
-                            )
-
-                    "scrollDown" ->
-                        Decode.map2
-                            (\pos amt -> ScrollDown { row = pos.row, col = pos.col, amount = amt })
-                            coords
-                            (Decode.field "amount" Decode.int
-                                |> Decode.maybe
-                                |> Decode.map (Maybe.withDefault 1)
-                            )
-
-                    _ ->
-                        Decode.fail ("Unknown mouse action: " ++ action)
-            )
+    let
+        coords : TsDecode.Decoder { row : Int, col : Int }
+        coords =
+            TsDecode.map2 (\r c -> { row = r, col = c })
+                (TsDecode.field "row" TsDecode.int)
+                (TsDecode.field "col" TsDecode.int)
+    in
+    TsDecode.discriminatedUnion "action"
+        [ ( "click"
+          , TsDecode.map2
+                (\pos button ->
+                    Click { row = pos.row, col = pos.col, button = button }
+                )
+                coords
+                (TsDecode.field "button" decodeMouseButton)
+          )
+        , ( "scrollUp"
+          , TsDecode.map2
+                (\pos amt -> ScrollUp { row = pos.row, col = pos.col, amount = amt })
+                coords
+                (TsDecode.field "amount" TsDecode.int
+                    |> TsDecode.maybe
+                    |> TsDecode.map (Maybe.withDefault 1)
+                )
+          )
+        , ( "scrollDown"
+          , TsDecode.map2
+                (\pos amt -> ScrollDown { row = pos.row, col = pos.col, amount = amt })
+                coords
+                (TsDecode.field "amount" TsDecode.int
+                    |> TsDecode.maybe
+                    |> TsDecode.map (Maybe.withDefault 1)
+                )
+          )
+        ]
 
 
-decodeMouseButton : Decode.Decoder MouseButton
+decodeMouseButton : TsDecode.Decoder MouseButton
 decodeMouseButton =
-    Decode.string
-        |> Decode.andThen
-            (\s ->
-                case s of
-                    "left" ->
-                        Decode.succeed LeftButton
-
-                    "middle" ->
-                        Decode.succeed MiddleButton
-
-                    "right" ->
-                        Decode.succeed RightButton
-
-                    _ ->
-                        Decode.fail ("Unknown mouse button: " ++ s)
-            )
+    TsDecode.stringUnion
+        [ ( "left", LeftButton )
+        , ( "middle", MiddleButton )
+        , ( "right", RightButton )
+        ]

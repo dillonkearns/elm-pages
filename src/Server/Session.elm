@@ -119,11 +119,11 @@ import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import BackendTask.Internal.Request
 import Dict exposing (Dict)
-import Json.Decode
 import Json.Encode
 import Server.Request exposing (Request)
 import Server.Response exposing (Response)
 import Server.SetCookie as SetCookie
+import TsJson.Decode as TsDecode
 
 
 {-| Represents a Session with key-value Strings.
@@ -382,7 +382,7 @@ encodeSessionUpdate config toRequest sessionResult =
 unsignCookie : { a | secrets : BackendTask error (List String) } -> String -> BackendTask error (Result () Session)
 unsignCookie config sessionCookie =
     sessionCookie
-        |> unsign config.secrets (Json.Decode.dict Json.Decode.string)
+        |> unsign config.secrets (TsDecode.dict TsDecode.string)
         |> BackendTask.map
             (Result.map
                 (\dict ->
@@ -426,12 +426,12 @@ sign getSecrets input =
                                 ]
                             )
                     , expect =
-                        Json.Decode.string
+                        TsDecode.string
                     }
             )
 
 
-unsign : BackendTask error (List String) -> Json.Decode.Decoder a -> String -> BackendTask error (Result () a)
+unsign : BackendTask error (List String) -> TsDecode.Decoder a -> String -> BackendTask error (Result () a)
 unsign getSecrets decoder input =
     getSecrets
         |> BackendTask.andThen
@@ -447,7 +447,7 @@ unsign getSecrets decoder input =
                             )
                     , expect =
                         decoder
-                            |> Json.Decode.nullable
-                            |> Json.Decode.map (Result.fromMaybe ())
+                            |> TsDecode.nullable
+                            |> TsDecode.map (Result.fromMaybe ())
                     }
             )

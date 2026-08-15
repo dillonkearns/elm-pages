@@ -66,8 +66,8 @@ import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import BackendTask.Internal.Request
 import FatalError exposing (FatalError)
-import Json.Decode as Decode
 import Json.Encode as Encode
+import TsJson.Decode as TsDecode
 
 
 {-| An icon used to indicate the completion status of a step. Set by using [`withOnCompletion`](#withOnCompletion).
@@ -200,9 +200,9 @@ showStep (Options options_) =
                 , spinner = options_.animation
                 }
         , expect =
-            Decode.map
+            TsDecode.map
                 (\s -> Spinner s (Options options_))
-                Decode.string
+                TsDecode.string
         }
 
 
@@ -236,7 +236,7 @@ runTaskWithOptions (Options options_) backendTask =
                                         , completionIcon = completionIcon
                                         , completionText = completionText
                                         }
-                                , expect = Decode.succeed ()
+                                , expect = TsDecode.succeed ()
                                 }
                                 |> BackendTask.andThen (\() -> BackendTask.fail error)
                         )
@@ -254,7 +254,7 @@ runTaskWithOptions (Options options_) backendTask =
                                         , completionIcon = completionIcon
                                         , completionText = completionText
                                         }
-                                , expect = Decode.succeed value
+                                , expect = TsDecode.succeed value
                                 }
                         )
             )
@@ -314,7 +314,7 @@ runSpinnerWithTask (Spinner spinnerId (Options options_)) backendTask =
                 , immediateStart = options_.immediateStart
                 , spinner = Just "line"
                 }
-        , expect = Decode.succeed ()
+        , expect = TsDecode.succeed ()
         }
         |> BackendTask.andThen (\() -> backendTask)
         |> BackendTask.andThen
@@ -331,7 +331,7 @@ runSpinnerWithTask (Spinner spinnerId (Options options_)) backendTask =
                             , completionIcon = completionIcon
                             , completionText = completionText
                             }
-                    , expect = Decode.succeed value
+                    , expect = TsDecode.succeed value
                     }
             )
         |> BackendTask.onError
@@ -348,7 +348,7 @@ runSpinnerWithTask (Spinner spinnerId (Options options_)) backendTask =
                             , completionIcon = completionIcon
                             , completionText = completionText
                             }
-                    , expect = Decode.succeed ()
+                    , expect = TsDecode.succeed ()
                     }
                     |> BackendTask.andThen (\() -> BackendTask.fail error)
             )
@@ -367,7 +367,7 @@ spinner text onCompletion task =
                 , spinner = Just "line"
                 }
         , expect =
-            Decode.string
+            TsDecode.string
         }
         |> BackendTask.andThen
             (\spinnerId ->
@@ -386,7 +386,7 @@ spinner text onCompletion task =
                                         , completionIcon = completionIcon
                                         , completionText = completionText
                                         }
-                                , expect = Decode.succeed ()
+                                , expect = TsDecode.succeed ()
                                 }
                                 |> BackendTask.andThen (\() -> BackendTask.fail error)
                         )
@@ -404,7 +404,7 @@ spinner text onCompletion task =
                                         , completionIcon = completionIcon
                                         , completionText = completionText
                                         }
-                                , expect = Decode.succeed value
+                                , expect = TsDecode.succeed value
                                 }
                         )
             )

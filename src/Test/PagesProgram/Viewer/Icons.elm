@@ -109,6 +109,7 @@ is hard-coded to `currentColor` so CSS drives the per-row state color
 
 `FillIn`, `Navigate`, and `Redirect` use the legacy I-beam / chain-link
 / boxed-301 icons (preferred over the keyboard / compass alternatives).
+
 -}
 verbIconForSnapshot : Snapshot -> Html msg
 verbIconForSnapshot snapshot =
@@ -229,7 +230,9 @@ kindColor kind =
 
 iconFlag : String -> Html msg
 iconFlag color =
-    svg "14" "14" "0 0 16 16"
+    svg "14"
+        "14"
+        "0 0 16 16"
         [ path
             [ attr "d" "M3 2v12.5"
             , attr "stroke" color
@@ -261,7 +264,11 @@ flagRect color x y =
 
 iconClick : String -> Html msg
 iconClick color =
-    strokeSvg "13" "13" "0 0 16 16" color "1.6"
+    strokeSvg "13"
+        "13"
+        "0 0 16 16"
+        color
+        "1.6"
         [ path [ attr "d" "M4 2.5l8 4.5-3.5 1L7 12z" ]
         , path [ attr "d" "M9.5 10.5l2.5 2.5" ]
         ]
@@ -269,7 +276,11 @@ iconClick color =
 
 iconFillIn : String -> Html msg
 iconFillIn color =
-    strokeSvg "13" "13" "0 0 16 16" color "1.6"
+    strokeSvg "13"
+        "13"
+        "0 0 16 16"
+        color
+        "1.6"
         [ path [ attr "d" "M6 3h4M6 13h4" ]
         , path [ attr "d" "M8 3v10" ]
         ]
@@ -277,7 +288,11 @@ iconFillIn color =
 
 iconMagnifier : String -> Html msg
 iconMagnifier color =
-    strokeSvg "13" "13" "0 0 16 16" color "1.6"
+    strokeSvg "13"
+        "13"
+        "0 0 16 16"
+        color
+        "1.6"
         [ circle [ attr "cx" "7", attr "cy" "7", attr "r" "4" ]
         , path [ attr "d" "M10 10l3 3" ]
         ]
@@ -285,13 +300,19 @@ iconMagnifier color =
 
 iconPlay : String -> Html msg
 iconPlay color =
-    svg "13" "13" "0 0 16 16"
+    svg "13"
+        "13"
+        "0 0 16 16"
         [ path [ attr "d" "M4 3l9 5-9 5z", attr "fill" color ] ]
 
 
 iconLinkChain : String -> Html msg
 iconLinkChain color =
-    strokeSvg "13" "13" "0 0 16 16" color "1.6"
+    strokeSvg "13"
+        "13"
+        "0 0 16 16"
+        color
+        "1.6"
         [ path [ attr "d" "M6.5 9.5l3-3" ]
         , path [ attr "d" "M5 11a2.2 2.2 0 0 1-3.1-3.1L3.4 6.4a2.2 2.2 0 0 1 3.1 0" ]
         , path [ attr "d" "M11 5a2.2 2.2 0 0 1 3.1 3.1L12.6 9.6a2.2 2.2 0 0 1-3.1 0" ]
@@ -300,7 +321,9 @@ iconLinkChain color =
 
 iconRedirect : String -> Html msg
 iconRedirect color =
-    svg "18" "12" "0 0 22 14"
+    svg "18"
+        "12"
+        "0 0 22 14"
         [ rect
             [ attr "x" "0.5"
             , attr "y" "0.5"
@@ -327,7 +350,11 @@ iconRedirect color =
 
 iconWarn : String -> Html msg
 iconWarn color =
-    strokeSvg "13" "13" "0 0 16 16" color "1.6"
+    strokeSvg "13"
+        "13"
+        "0 0 16 16"
+        color
+        "1.6"
         [ path [ attr "d" "M8 2 L14 13 L2 13 Z" ]
         , path [ attr "d" "M8 6v3.5" ]
         , circle
@@ -357,7 +384,11 @@ eventNetworkSized size color =
         s =
             String.fromInt size
     in
-    strokeSvg s s "0 0 12 12" color "1.4"
+    strokeSvg s
+        s
+        "0 0 12 12"
+        color
+        "1.4"
         [ circle [ attr "cx" "6", attr "cy" "6", attr "r" "4.2" ]
         , path [ attr "d" "M1.8 6h8.4M6 1.8c1.5 1.7 1.5 6.7 0 8.4M6 1.8c-1.5 1.7-1.5 6.7 0 8.4" ]
         ]
@@ -373,7 +404,11 @@ home size color =
         s =
             String.fromInt size
     in
-    strokeSvg s s "0 0 12 12" color "1.4"
+    strokeSvg s
+        s
+        "0 0 12 12"
+        color
+        "1.4"
         [ path [ attr "d" "M1.5 5.5L6 1.8l4.5 3.7" ]
         , path [ attr "d" "M2.6 5v5.4h6.8V5" ]
         , path [ attr "d" "M5 10.4V7.4h2v3" ]
@@ -391,7 +426,11 @@ eventFetcherSized size color =
         s =
             String.fromInt size
     in
-    strokeSvg s s "0 0 12 12" color "1.5"
+    strokeSvg s
+        s
+        "0 0 12 12"
+        color
+        "1.5"
         [ path [ attr "d" "M4 2v8M2.5 3.5L4 2l1.5 1.5" ]
         , path [ attr "d" "M8 10V2M6.5 8.5L8 10l1.5-1.5" ]
         ]
@@ -406,7 +445,11 @@ eventFetcherSubmit size color =
         s =
             String.fromInt size
     in
-    strokeSvg s s "0 0 12 12" color "1.5"
+    strokeSvg s
+        s
+        "0 0 12 12"
+        color
+        "1.5"
         [ path [ attr "d" "M6 2v8M4.5 3.5L6 2l1.5 1.5" ] ]
 
 
@@ -419,7 +462,11 @@ eventFetcherResolve size color =
         s =
             String.fromInt size
     in
-    strokeSvg s s "0 0 12 12" color "1.5"
+    strokeSvg s
+        s
+        "0 0 12 12"
+        color
+        "1.5"
         [ path [ attr "d" "M6 10V2M4.5 8.5L6 10l1.5-1.5" ] ]
 
 
@@ -434,7 +481,11 @@ eventCookieSized size color =
         s =
             String.fromInt size
     in
-    strokeSvg s s "0 0 12 12" color "1.2"
+    strokeSvg s
+        s
+        "0 0 12 12"
+        color
+        "1.2"
         [ path [ attr "d" "M6 1.5a4.5 4.5 0 1 0 4.5 4.5c-1 0-1.8-.8-1.8-1.8 0-.9-.8-1.7-1.7-1.7-.6 0-1-.4-1-1z" ]
         , circle [ attr "cx" "4.5", attr "cy" "6", attr "r" "0.5", attr "fill" color ]
         , circle [ attr "cx" "6.5", attr "cy" "8", attr "r" "0.5", attr "fill" color ]
@@ -453,7 +504,11 @@ eventDataSized size color =
         s =
             String.fromInt size
     in
-    strokeSvg s s "0 0 12 12" color "1.4"
+    strokeSvg s
+        s
+        "0 0 12 12"
+        color
+        "1.4"
         [ path [ attr "d" "M4 1.5Q2.5 1.5 2.5 3.5L2.5 5Q2.5 6 1.5 6Q2.5 6 2.5 7L2.5 8.5Q2.5 10.5 4 10.5" ]
         , path [ attr "d" "M8 1.5Q9.5 1.5 9.5 3.5L9.5 5Q9.5 6 10.5 6Q9.5 6 9.5 7L9.5 8.5Q9.5 10.5 8 10.5" ]
         ]
@@ -470,7 +525,9 @@ eventEffectSized size color =
         s =
             String.fromInt size
     in
-    svg s s "0 0 12 12"
+    svg s
+        s
+        "0 0 12 12"
         [ path
             [ attr "d" "M6 1.5l.9 2.6L9.5 5l-2.6.9L6 8.5l-.9-2.6L2.5 5l2.6-.9z"
             , attr "fill" color
@@ -480,6 +537,7 @@ eventEffectSized size color =
             , attr "fill" color
             ]
         ]
+
 
 
 -- EVENT-CHIP GLYPHS (9×9 default, stroke-based, used by the icon-event
@@ -494,7 +552,11 @@ eventUp size color =
         s =
             String.fromInt size
     in
-    strokeSvg s s "0 0 12 12" color "1.8"
+    strokeSvg s
+        s
+        "0 0 12 12"
+        color
+        "1.8"
         [ path [ attr "d" "M6 10V2" ]
         , path [ attr "d" "M3 5L6 2L9 5" ]
         ]
@@ -506,7 +568,11 @@ eventDown size color =
         s =
             String.fromInt size
     in
-    strokeSvg s s "0 0 12 12" color "1.8"
+    strokeSvg s
+        s
+        "0 0 12 12"
+        color
+        "1.8"
         [ path [ attr "d" "M6 2V10" ]
         , path [ attr "d" "M3 7L6 10L9 7" ]
         ]
@@ -518,7 +584,11 @@ eventUpRight size color =
         s =
             String.fromInt size
     in
-    strokeSvg s s "0 0 12 12" color "1.8"
+    strokeSvg s
+        s
+        "0 0 12 12"
+        color
+        "1.8"
         [ path [ attr "d" "M3 9L9 3" ]
         , path [ attr "d" "M4.5 3L9 3L9 7.5" ]
         ]
@@ -530,7 +600,11 @@ eventCheck size color =
         s =
             String.fromInt size
     in
-    strokeSvg s s "0 0 12 12" color "2"
+    strokeSvg s
+        s
+        "0 0 12 12"
+        color
+        "2"
         [ path [ attr "d" "M2.5 6.5L5 9L9.5 3.5" ] ]
 
 
@@ -540,7 +614,11 @@ eventCross size color =
         s =
             String.fromInt size
     in
-    strokeSvg s s "0 0 12 12" color "2"
+    strokeSvg s
+        s
+        "0 0 12 12"
+        color
+        "2"
         [ path [ attr "d" "M3 3L9 9" ]
         , path [ attr "d" "M9 3L3 9" ]
         ]

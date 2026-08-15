@@ -41,9 +41,9 @@ import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import BackendTask.Internal.Request
 import FatalError exposing (FatalError)
-import Json.Decode as Decode
 import Json.Encode as Encode
 import TerminalText
+import TsJson.Decode as TsDecode
 
 
 {-| -}
@@ -60,7 +60,7 @@ get envVariableName =
         { name = "env"
         , body = BackendTask.Http.jsonBody (Encode.string envVariableName)
         , expect =
-            Decode.nullable Decode.string
+            TsDecode.nullable TsDecode.string
         }
 
 

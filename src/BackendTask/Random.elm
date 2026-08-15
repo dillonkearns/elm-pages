@@ -14,9 +14,9 @@ module BackendTask.Random exposing
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import BackendTask.Internal.Request
-import Json.Decode as Decode
-import Json.Encode as Encode
 import Random
+import TsJson.Decode as TsDecode
+import TsJson.Encode as TsEncode
 
 
 {-| Takes an `elm/random` `Random.Generator` and runs it using a randomly generated initial seed.
@@ -74,6 +74,6 @@ int32 : BackendTask error Int
 int32 =
     BackendTask.Internal.Request.request
         { name = "randomSeed"
-        , body = BackendTask.Http.jsonBody Encode.null
-        , expect = Decode.int
+        , body = BackendTask.Http.jsonBody (TsEncode.encoder TsEncode.null ())
+        , expect = TsDecode.int
         }

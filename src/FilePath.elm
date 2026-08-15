@@ -37,8 +37,8 @@ import BackendTask.Http
 import BackendTask.Internal.Request
 import FatalError exposing (FatalError)
 import FilePath.Internal
-import Json.Decode as Decode
 import Json.Encode as Encode
+import TsJson.Decode as TsDecode
 
 
 {-| Opaque file path type.
@@ -298,7 +298,7 @@ resolve filePath =
         { name = "resolve-path"
         , body = BackendTask.Http.jsonBody (Encode.string (toString filePath))
         , expect =
-            Decode.string |> Decode.map fromString
+            TsDecode.string |> TsDecode.map fromString
         }
 
 

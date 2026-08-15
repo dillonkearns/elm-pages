@@ -218,12 +218,42 @@ styleAttributes style =
             styleToFlatStyle style
     in
     []
-        |> (if flat.strikethrough then (::) Tui.Attribute.Strikethrough else identity)
-        |> (if flat.underline then (::) Tui.Attribute.Underline else identity)
-        |> (if flat.italic then (::) Tui.Attribute.Italic else identity)
-        |> (if flat.inverse then (::) Tui.Attribute.Inverse else identity)
-        |> (if flat.dim then (::) Tui.Attribute.Dim else identity)
-        |> (if flat.bold then (::) Tui.Attribute.Bold else identity)
+        |> (if flat.strikethrough then
+                (::) Tui.Attribute.Strikethrough
+
+            else
+                identity
+           )
+        |> (if flat.underline then
+                (::) Tui.Attribute.Underline
+
+            else
+                identity
+           )
+        |> (if flat.italic then
+                (::) Tui.Attribute.Italic
+
+            else
+                identity
+           )
+        |> (if flat.inverse then
+                (::) Tui.Attribute.Inverse
+
+            else
+                identity
+           )
+        |> (if flat.dim then
+                (::) Tui.Attribute.Dim
+
+            else
+                identity
+           )
+        |> (if flat.bold then
+                (::) Tui.Attribute.Bold
+
+            else
+                identity
+           )
 
 
 {-| Read the hyperlink URL of a [`Style`](Tui-Screen#Style), if any.

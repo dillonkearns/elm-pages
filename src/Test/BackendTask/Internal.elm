@@ -9,9 +9,7 @@ module Test.BackendTask.Internal exposing
     , ensureFile, ensureFileExists, ensureNoFile
     , withVirtualEffects, writeFileEffect, removeFileEffect
     , expectSuccess, expectSuccessWith, expectDb, expectFailure, expectFailureWith, expectTestError
-    , VirtualFS, emptyVirtualFS, extractVirtualFs, resolveWithVirtualFs, resolveWithVirtualFsPartial, toResult
-    , encodeSession, mockSignValue, mockUnsignValue, sessionFlashPrefix
-    , getPortName
+    , VirtualFS, emptyVirtualFS, encodeSession, extractVirtualFs, getPortName, mockSignValue, mockUnsignValue, resolveWithVirtualFs, resolveWithVirtualFsPartial, sessionFlashPrefix, toResult
     )
 
 {-| Internal implementation for [`Test.BackendTask`](Test-BackendTask) and its sub-modules.
@@ -612,6 +610,7 @@ the test visual runner can surface which secret produced each signed cookie.
 Layout: `<JSON>.<secret>.<fnv1a-checksum>`.
 
 Test secrets must not contain `.` — the envelope splits on the last two dots.
+
 -}
 mockSignValue : String -> Encode.Value -> String
 mockSignValue secret values =
@@ -3831,8 +3830,8 @@ permanentErrorToString err =
         Pages.StaticHttpRequest.UserCalledStaticHttpFail msg ->
             msg
 
-        Pages.StaticHttpRequest.InternalFailure _ ->
-            "Internal error"
+        Pages.StaticHttpRequest.InternalFailure msg ->
+            "Internal error: " ++ fatalErrorToString msg
 
 
 fatalErrorToString : FatalError -> String

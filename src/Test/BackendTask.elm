@@ -1,8 +1,7 @@
 module Test.BackendTask exposing
-    ( TestSetup
-    , fromBackendTask, fromBackendTaskWith
+    ( fromBackendTask, fromBackendTaskWith
     , fromScript, fromScriptWith
-    , init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRandomSeed, withWhich
+    , TestSetup, init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRandomSeed, withWhich
     , withTimeZoneConfig, withTimeZoneByNameConfig
     , withDb, withDbSetTo
     , simulateHttpGet, simulateHttpPost, simulateHttp, simulateHttpError, simulateHttpStream
@@ -147,6 +146,7 @@ simulate it.
 Seed initial state before the test starts running.
 
 @docs TestSetup, init, withFile, withBinaryFile, withStdin, withEnv, withTime, withRequestTime, withRequestHeader, withRandomSeed, withWhich
+
 
 ## Companion Module Helpers
 
@@ -1182,5 +1182,3 @@ expectDb :
     -> Expectation
 expectDb config assertion =
     Internal.expectDb config assertion
-
-

@@ -64,11 +64,17 @@ import FatalError exposing (FatalError)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import TerminalText
+import TsJson.Decode as TsDecode
 
 
 frontmatter : Decoder frontmatter -> Decoder frontmatter
 frontmatter frontmatterDecoder =
     Decode.field "parsedFrontmatter" frontmatterDecoder
+
+
+tsFrontmatter : TsDecode.Decoder frontmatter -> TsDecode.Decoder frontmatter
+tsFrontmatter frontmatterDecoder =
+    TsDecode.field "parsedFrontmatter" frontmatterDecoder
 
 
 {-|
@@ -171,11 +177,11 @@ bodyWithFrontmatter frontmatterDecoder filePath =
         , body = BackendTask.Http.stringBody "" filePath
         , expect =
             body
-                |> Decode.andThen
+                |> TsDecode.unknownAndThen
                     (\bodyString ->
                         frontmatter (frontmatterDecoder bodyString)
                     )
-        , errorDecoder = Decode.field "errorCode" (errorDecoder filePath)
+        , errorDecoder = TsDecode.field "errorCode" (errorDecoder filePath)
         , onError =
             \frontmatterDecodeError ->
                 { fatal =
@@ -267,8 +273,8 @@ onlyFrontmatter frontmatterDecoder filePath =
     BackendTask.Internal.Request.request2
         { name = "read-file"
         , body = BackendTask.Http.stringBody "" filePath
-        , expect = frontmatter frontmatterDecoder
-        , errorDecoder = Decode.field "errorCode" (errorDecoder filePath)
+        , expect = tsFrontmatter (TsDecode.value |> TsDecode.unknownAndThen (\_ -> frontmatterDecoder))
+        , errorDecoder = TsDecode.field "errorCode" (errorDecoder filePath)
         , onError =
             \frontmatterDecodeError ->
                 { fatal =
@@ -317,8 +323,7 @@ bodyWithoutFrontmatter :
             }
             String
 bodyWithoutFrontmatter filePath =
-    read filePath
-        body
+    read filePath body
 
 
 {-| Get the raw file content. Unlike the frontmatter helpers in this module, this function will not strip off frontmatter if there is any.
@@ -343,7 +348,7 @@ You could read a file called `hello.txt` in your root project directory like thi
 -}
 rawFile : String -> BackendTask { fatal : FatalError, recoverable : FileReadError decoderError } String
 rawFile filePath =
-    read filePath (Decode.field "rawFile" Decode.string)
+    read filePath (TsDecode.field "rawFile" TsDecode.string)
 
 
 {-| Get the raw file content as `Bytes`.
@@ -430,29 +435,29 @@ jsonFile jsonFileDecoder filePath =
 
 {-| Gives us the file's content without stripping off frontmatter.
 -}
-body : Decoder String
+body : TsDecode.Decoder String
 body =
-    Decode.field "withoutFrontmatter" Decode.string
+    TsDecode.field "withoutFrontmatter" TsDecode.string
 
 
-read : String -> Decoder a -> BackendTask { fatal : FatalError, recoverable : FileReadError error } a
+read : String -> TsDecode.Decoder a -> BackendTask { fatal : FatalError, recoverable : FileReadError error } a
 read filePath decoder =
     BackendTask.Internal.Request.request
         { name = "read-file"
         , body = BackendTask.Http.stringBody "" filePath
         , expect =
-            Decode.oneOf
-                [ Decode.field "errorCode"
-                    (Decode.map Err (errorDecoder filePath))
-                , decoder |> Decode.map Ok
+            TsDecode.oneOf
+                [ TsDecode.field "errorCode"
+                    (TsDecode.map Err (errorDecoder filePath))
+                , decoder |> TsDecode.map Ok
                 ]
         }
         |> BackendTask.andThen BackendTask.fromResult
 
 
-errorDecoder : String -> Decoder { fatal : FatalError, recoverable : FileReadError decoding }
+errorDecoder : String -> TsDecode.Decoder { fatal : FatalError, recoverable : FileReadError decoding }
 errorDecoder filePath =
-    Decode.succeed (fileNotFound filePath)
+    TsDecode.succeed (fileNotFound filePath)
 
 
 fileNotFound :
@@ -489,7 +494,7 @@ exists filePath =
     BackendTask.Internal.Request.request
         { name = "file-exists"
         , body = BackendTask.Http.jsonBody (Encode.string filePath)
-        , expect = Decode.bool
+        , expect = TsDecode.bool
         }
 
 

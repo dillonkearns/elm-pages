@@ -2,8 +2,10 @@ module RequestsAndPending exposing (HttpError(..), RawResponse, RequestsAndPendi
 
 import Bytes exposing (Bytes)
 import Dict exposing (Dict)
-import Json.Decode as Decode exposing (Decoder)
+import Json.Decode as Decode
 import Json.Encode as Encode
+import TsJson.Decode as TsDecode exposing (Decoder)
+import TsJson.Encode as TsEncode
 
 
 type alias RequestsAndPending =
@@ -14,7 +16,7 @@ type alias RequestsAndPending =
 
 empty : RequestsAndPending
 empty =
-    { json = Encode.object []
+    { json = TsEncode.encoder (TsEncode.object []) {}
     , rawBytes = Dict.empty
     }
 
@@ -28,60 +30,72 @@ type ResponseBody
 
 decoder : Maybe Bytes -> Decoder Response
 decoder maybeBytes =
-    Decode.map2 Response
-        (Decode.maybe responseDecoder)
+    TsDecode.map2 Response
+        (TsDecode.maybe responseDecoder)
         (bodyDecoder maybeBytes)
 
 
 bodyDecoder : Maybe Bytes -> Decoder ResponseBody
 bodyDecoder maybeBytes =
-    Decode.field "bodyKind" Decode.string
-        |> Decode.andThen
-            (\bodyKind ->
-                case bodyKind of
-                    "bytes" ->
-                        case maybeBytes of
-                            Just b ->
-                                Decode.succeed (BytesBody b)
+    TsDecode.discriminatedUnion "bodyKind"
+        [ ( "bytes"
+          , case maybeBytes of
+                Just b ->
+                    TsDecode.succeed (BytesBody b)
 
-                            Nothing ->
-                                Decode.fail "Bytes responses must be sent through the port's bytes field."
-
-                    "string" ->
-                        Decode.field "body" (Decode.string |> Decode.map StringBody)
-
-                    "json" ->
-                        Decode.field "body" (Decode.value |> Decode.map JsonBody)
-
-                    "whatever" ->
-                        Decode.field "body" (Decode.succeed WhateverBody)
-
-                    _ ->
-                        Decode.fail "Unexpected bodyKind."
-            )
+                Nothing ->
+                    TsDecode.fail "Bytes responses must be sent through the port's bytes field."
+          )
+        , ( "string"
+          , TsDecode.field "body" (TsDecode.string |> TsDecode.map StringBody)
+          )
+        , ( "json"
+          , TsDecode.field "body" (TsDecode.value |> TsDecode.map JsonBody)
+          )
+        , ( "whatever"
+          , TsDecode.field "body" (TsDecode.succeed WhateverBody)
+          )
+        ]
 
 
-bodyEncoder : ResponseBody -> Encode.Value
-bodyEncoder body =
-    (case body of
-        JsonBody jsonValue ->
-            ( "json", jsonValue )
-
-        StringBody string ->
-            ( "string", Encode.string string )
-
-        BytesBody _ ->
-            ( "Unhandled", Encode.null )
-
-        WhateverBody ->
-            ( "whatever", Encode.null )
-    )
-        |> (\( bodyKind, encodedBody ) ->
-                Encode.object
-                    [ ( "bodyKind", Encode.string bodyKind )
-                    , ( "body", encodedBody )
+bodyEncoder : TsEncode.Encoder ResponseBody
+bodyEncoder =
+    let
+        variant :
+            String
+            -> TsEncode.Encoder a
+            -> TsEncode.UnionBuilder ((a -> TsEncode.UnionEncodeValue) -> match)
+            -> TsEncode.UnionBuilder match
+        variant bodyKind body =
+            TsEncode.variant
+                (TsEncode.object
+                    [ TsEncode.required "bodyKind"
+                        identity
+                        (TsEncode.literal (Encode.string bodyKind))
+                    , TsEncode.required "body" identity body
                     ]
-           )
+                )
+    in
+    TsEncode.union
+        (\fJson fString fBytes fWhatever body ->
+            case body of
+                JsonBody jsonValue ->
+                    fJson jsonValue
+
+                StringBody string ->
+                    fString string
+
+                BytesBody _ ->
+                    fBytes ()
+
+                WhateverBody ->
+                    fWhatever ()
+        )
+        |> variant "json" TsEncode.value
+        |> variant "string" TsEncode.string
+        |> variant "Unhandled" TsEncode.null
+        |> variant "whatever" TsEncode.null
+        |> TsEncode.buildUnion
 
 
 type alias RawResponse =
@@ -98,11 +112,11 @@ type Response
 
 responseDecoder : Decoder RawResponse
 responseDecoder =
-    Decode.map4 RawResponse
-        (Decode.field "statusCode" Decode.int)
-        (Decode.field "statusText" Decode.string)
-        (Decode.field "headers" (Decode.dict Decode.string))
-        (Decode.field "url" Decode.string)
+    TsDecode.map4 RawResponse
+        (TsDecode.field "statusCode" TsDecode.int)
+        (TsDecode.field "statusText" TsDecode.string)
+        (TsDecode.field "headers" (TsDecode.dict TsDecode.string))
+        (TsDecode.field "url" TsDecode.string)
 
 
 get : String -> RequestsAndPending -> Maybe (Result HttpError Response)
@@ -113,11 +127,11 @@ get key requestsAndPending =
             Dict.get key requestsAndPending.rawBytes
     in
     Decode.decodeValue
-        (Decode.field key
-            (Decode.field "response"
-                (Decode.oneOf
-                    [ Decode.field "elm-pages-internal-error" errorDecoder |> Decode.map Err
-                    , decoder maybeBytes |> Decode.map Ok
+        (TsDecode.decoder
+            (TsDecode.at [ key, "response" ]
+                (TsDecode.oneOf
+                    [ TsDecode.field "elm-pages-internal-error" errorDecoder |> TsDecode.map Err
+                    , decoder maybeBytes |> TsDecode.map Ok
                     ]
                 )
             )
@@ -133,16 +147,7 @@ type HttpError
 
 errorDecoder : Decoder HttpError
 errorDecoder =
-    Decode.string
-        |> Decode.andThen
-            (\errorCode ->
-                case errorCode of
-                    "NetworkError" ->
-                        Decode.succeed NetworkError
-
-                    "Timeout" ->
-                        Decode.succeed Timeout
-
-                    _ ->
-                        Decode.fail "Unhandled error code."
-            )
+    TsDecode.stringUnion
+        [ ( "NetworkError", NetworkError )
+        , ( "Timeout", Timeout )
+        ]

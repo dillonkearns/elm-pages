@@ -6,6 +6,7 @@ import Bytes.Decode
 import Codec exposing (Codec)
 import Json.Decode
 import Json.Encode as Encode
+import TsJson.Encode as TsEncode
 
 
 type Body
@@ -16,37 +17,55 @@ type Body
     | MultipartBody (List Encode.Value) (List ( String, Bytes ))
 
 
-encode : Body -> Encode.Value
-encode body =
-    case body of
-        EmptyBody ->
-            encodeWithType "empty" []
+encode : TsEncode.Encoder Body
+encode =
+    TsEncode.union
+        (\fEmpty fString fJson fBytes fMultipart body ->
+            case body of
+                EmptyBody ->
+                    fEmpty ()
 
-        StringBody _ content ->
-            encodeWithType "string"
-                [ ( "content", Encode.string content )
+                StringBody _ content ->
+                    fString content
+
+                JsonBody content ->
+                    fJson content
+
+                BytesBody _ content ->
+                    fBytes content
+
+                MultipartBody parts _ ->
+                    fMultipart parts
+        )
+        |> TsEncode.variant
+            (encodeWithType "empty" [])
+        |> TsEncode.variant
+            (encodeWithType "string"
+                [ TsEncode.required "content" identity TsEncode.string
                 ]
-
-        JsonBody content ->
-            encodeWithType "json"
-                [ ( "content", content )
+            )
+        |> TsEncode.variant
+            (encodeWithType "json"
+                [ TsEncode.required "content" identity TsEncode.value
                 ]
-
-        BytesBody _ content ->
-            encodeWithType "bytes"
-                [ ( "content", Encode.int (hashBytes content) )
+            )
+        |> TsEncode.variant
+            (encodeWithType "bytes"
+                [ TsEncode.required "content" hashBytes TsEncode.int
                 ]
-
-        MultipartBody parts _ ->
-            encodeWithType "multipart"
-                [ ( "parts", Encode.list identity parts )
+            )
+        |> TsEncode.variant
+            (encodeWithType "multipart"
+                [ TsEncode.required "parts" identity (TsEncode.list TsEncode.value)
                 ]
+            )
+        |> TsEncode.buildUnion
 
 
-encodeWithType : String -> List ( String, Encode.Value ) -> Encode.Value
+encodeWithType : String -> List (TsEncode.Property a) -> TsEncode.Encoder a
 encodeWithType typeName otherFields =
-    Encode.object <|
-        ( "type", Encode.string typeName )
+    TsEncode.object <|
+        TsEncode.required "type" identity (TsEncode.literal (Encode.string typeName))
             :: otherFields
 
 

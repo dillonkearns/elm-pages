@@ -50,10 +50,10 @@ import BackendTask.Stream as Stream exposing (defaultCommandOptions)
 import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
 import FatalError exposing (FatalError)
-import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.Internal.Script
-import TsJson.Encode
+import TsJson.Decode as TsDecode
+import TsJson.Encode as TsEncode
 import TsJson.Type
 
 
@@ -91,19 +91,22 @@ File paths are relative to the root of your `elm-pages` project (next to the `el
 
 -}
 writeFile : { path : String, body : String } -> BackendTask { fatal : FatalError, recoverable : Error } ()
-writeFile { path, body } =
+writeFile file =
     BackendTask.Internal.Request.request
         { name = "write-file"
         , body =
             BackendTask.Http.jsonBody
-                (Encode.object
-                    [ ( "path", Encode.string path )
-                    , ( "body", Encode.string body )
-                    ]
+                (TsEncode.encoder
+                    (TsEncode.object
+                        [ TsEncode.required "path" .path TsEncode.string
+                        , TsEncode.required "body" .body TsEncode.string
+                        ]
+                    )
+                    file
                 )
         , expect =
             -- TODO decode possible error details here
-            Decode.succeed ()
+            TsDecode.succeed ()
         }
 
 
@@ -127,11 +130,14 @@ log message =
         { name = "log"
         , body =
             BackendTask.Http.jsonBody
-                (Encode.object
-                    [ ( "message", Encode.string message )
-                    ]
+                (TsEncode.encoder
+                    (TsEncode.object
+                        [ TsEncode.required "message" identity TsEncode.string
+                        ]
+                    )
+                    message
                 )
-        , expect = Decode.succeed ()
+        , expect = TsDecode.succeed ()
         }
 
 
@@ -247,7 +253,7 @@ Example: a script that checks whether a URL is reachable.
 withSchema :
     { description : String
     , cliOptions : Program.Config cliFlags
-    , encoder : TsJson.Encode.Encoder outputType
+    , encoder : TsEncode.Encoder outputType
     , run : cliFlags -> BackendTask FatalError outputType
     }
     -> Script
@@ -263,7 +269,7 @@ withSchema ({ cliOptions, encoder, run } as config) =
                                     (\output ->
                                         log
                                             (output
-                                                |> TsJson.Encode.encoder encoder
+                                                |> TsEncode.encoder encoder
                                                 |> Encode.encode 0
                                             )
                                     )
@@ -273,7 +279,7 @@ withSchema ({ cliOptions, encoder, run } as config) =
 
 
 introspectionValue :
-    { a | description : String, cliOptions : Program.Config cliFlags, encoder : TsJson.Encode.Encoder outputType }
+    { a | description : String, cliOptions : Program.Config cliFlags, encoder : TsEncode.Encoder outputType }
     -> { moduleName : String, path : String }
     -> Encode.Value
 introspectionValue config { moduleName, path } =
@@ -287,24 +293,32 @@ introspectionValue config { moduleName, path } =
                 Program.CustomMatch _ ->
                     ""
     in
-    Encode.object
-        ([ ( "name", Encode.string moduleName )
-         , ( "description", Encode.string config.description )
-         , ( "help", Encode.string helpString )
-         , ( "inputSchema", Program.toJsonSchema moduleName config.cliOptions )
-         , ( "outputSchema"
-           , config.encoder
-                |> TsJson.Encode.tsType
-                |> TsJson.Type.toJsonSchema
-           )
-         ]
-            ++ (if String.isEmpty path then
-                    []
+    TsEncode.encoder
+        (TsEncode.object
+            ([ TsEncode.required "name" .name TsEncode.string
+             , TsEncode.required "description" .description TsEncode.string
+             , TsEncode.required "help" .help TsEncode.string
+             , TsEncode.required "inputSchema" .inputSchema TsEncode.value
+             , TsEncode.required "outputSchema" .outputSchema TsEncode.value
+             ]
+                ++ (if String.isEmpty path then
+                        []
 
-                else
-                    [ ( "path", Encode.string path ) ]
-               )
+                    else
+                        [ TsEncode.required "path" .path TsEncode.string ]
+                   )
+            )
         )
+        { name = moduleName
+        , description = config.description
+        , help = helpString
+        , path = path
+        , inputSchema = Program.toJsonSchema moduleName config.cliOptions
+        , outputSchema =
+            config.encoder
+                |> TsEncode.tsType
+                |> TsJson.Type.toJsonSchema
+        }
 
 
 {-| For internal use by generated code. Most users should not need this.
@@ -357,7 +371,7 @@ setDatabasePath dbPath =
                     [ ( "path", Encode.string dbPath )
                     ]
                 )
-        , expect = Decode.succeed ()
+        , expect = TsDecode.succeed ()
         }
 
 
@@ -389,7 +403,7 @@ sleep int =
                     ]
                 )
         , expect =
-            Decode.null ()
+            TsDecode.null ()
         }
 
 
@@ -420,7 +434,7 @@ which : String -> BackendTask error (Maybe String)
 which command_ =
     BackendTask.Internal.Request.request
         { body = BackendTask.Http.jsonBody (Encode.string command_)
-        , expect = Decode.nullable Decode.string
+        , expect = TsDecode.nullable TsDecode.string
         , name = "which"
         }
 
@@ -494,7 +508,7 @@ question prompt =
         { body =
             BackendTask.Http.jsonBody
                 (Encode.object [ ( "prompt", Encode.string prompt ) ])
-        , expect = Decode.string
+        , expect = TsDecode.string
         , name = "question"
         }
 
@@ -536,7 +550,7 @@ readKey : BackendTask error String
 readKey =
     BackendTask.Internal.Request.request
         { body = BackendTask.Http.emptyBody
-        , expect = Decode.string
+        , expect = TsDecode.string
         , name = "readKey"
         }
 
@@ -587,7 +601,7 @@ removeFile filePath =
                     [ ( "path", Encode.string filePath )
                     ]
                 )
-        , expect = Decode.succeed ()
+        , expect = TsDecode.succeed ()
         }
 
 
@@ -607,7 +621,7 @@ copyFile { from, to } =
                     , ( "to", Encode.string to )
                     ]
                 )
-        , expect = Decode.succeed ()
+        , expect = TsDecode.succeed ()
         }
 
 
@@ -627,7 +641,7 @@ move { from, to } =
                     , ( "to", Encode.string to )
                     ]
                 )
-        , expect = Decode.succeed ()
+        , expect = TsDecode.succeed ()
         }
 
 
@@ -653,7 +667,7 @@ makeDirectory { recursive } dirPath =
                     , ( "recursive", Encode.bool recursive )
                     ]
                 )
-        , expect = Decode.succeed ()
+        , expect = TsDecode.succeed ()
         }
 
 
@@ -680,7 +694,7 @@ removeDirectory { recursive } dirPath =
                     , ( "recursive", Encode.bool recursive )
                     ]
                 )
-        , expect = Decode.succeed ()
+        , expect = TsDecode.succeed ()
         }
 
 
@@ -702,7 +716,7 @@ makeTempDirectory prefix =
     BackendTask.Internal.Request.request
         { name = "make-temp-directory"
         , body = BackendTask.Http.jsonBody (Encode.string prefix)
-        , expect = Decode.string
+        , expect = TsDecode.string
         }
 
 

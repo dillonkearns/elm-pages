@@ -46,6 +46,7 @@ treated as opaque leaves and compared via their structural equality.
 
 `Removed` paths are intentionally not emitted — pass 11 renders the new
 tree only and tracks "removed" rendering for a later pass.
+
 -}
 diff : ElmValue -> ElmValue -> Dict String DiffKind
 diff previous current =
@@ -381,12 +382,11 @@ recordLiteral =
 recordField : Parser ( String, ElmValue )
 recordField =
     Parser.succeed Tuple.pair
-        |= (Parser.variable
-                { start = Char.isLower
-                , inner = \c -> Char.isAlphaNum c || c == '_'
-                , reserved = Set.empty
-                }
-           )
+        |= Parser.variable
+            { start = Char.isLower
+            , inner = \c -> Char.isAlphaNum c || c == '_'
+            , reserved = Set.empty
+            }
         |. spaces
         |. Parser.symbol "="
         |. spaces
@@ -706,7 +706,8 @@ type alias ViewConfig msg =
 
 {-| Translate a path's diff kind into the CSS classes that drive the
 persistent mark + flash animation. When no diff is present we emit
-nothing so unchanged lines render plain. -}
+nothing so unchanged lines render plain.
+-}
 diffClasses : ViewConfig msg -> String -> List ( String, Bool )
 diffClasses config path =
     case Dict.get path config.diffs of
@@ -835,10 +836,10 @@ viewToggle config path isExpanded =
         ]
         [ Html.text
             (if isExpanded then
-                "\u{25BE} "
+                "▾ "
 
              else
-                "\u{25B8} "
+                "▸ "
             )
         ]
 

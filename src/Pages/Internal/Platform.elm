@@ -38,6 +38,7 @@ import PagesMsg exposing (PagesMsg)
 import QueryParams
 import Task
 import Time
+import TsJson.Encode as TsEncode
 import Url exposing (Url)
 import UrlPath exposing (UrlPath)
 
@@ -1273,29 +1274,18 @@ perform config model effect =
         CancelRequest transitionKey ->
             Http.cancel (String.fromInt transitionKey)
 
-        FetchFrozenViews { path, query, body } ->
+        FetchFrozenViews data ->
             config.toJsPort
                 { json =
-                    Json.Encode.object
-                        [ ( "tag", Json.Encode.string "FetchFrozenViews" )
-                        , ( "path", Json.Encode.string path )
-                        , ( "query"
-                          , case query of
-                                Just q ->
-                                    Json.Encode.string q
-
-                                Nothing ->
-                                    Json.Encode.null
-                          )
-                        , ( "body"
-                          , case body of
-                                Just b ->
-                                    Json.Encode.string b
-
-                                Nothing ->
-                                    Json.Encode.null
-                          )
-                        ]
+                    TsEncode.encoder
+                        (TsEncode.object
+                            [ TsEncode.required "tag" identity (TsEncode.literal (Json.Encode.string "FetchFrozenViews"))
+                            , TsEncode.required "path" .path TsEncode.string
+                            , TsEncode.required "query" .query (TsEncode.maybe TsEncode.string)
+                            , TsEncode.required "body" .body (TsEncode.maybe TsEncode.string)
+                            ]
+                        )
+                        data
                 , bytes = []
                 }
                 |> Cmd.map never

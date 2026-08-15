@@ -23,6 +23,7 @@ import BackendTask.Internal.Request as Internal
 import Bytes.Decode
 import FatalError exposing (FatalError)
 import Json.Decode exposing (Decoder)
+import TsJson.Decode as TsDecode
 
 
 {-| Read the on-disk db.bin metadata + payload for a connection. Targets
@@ -54,7 +55,7 @@ write { headers, body, decoder } =
         { name = "db-write"
         , headers = headers
         , body = body
-        , expect = decoder
+        , expect = TsDecode.value |> TsDecode.unknownAndThen (\_ -> decoder)
         }
 
 
@@ -70,7 +71,7 @@ lockAcquire { body, decoder } =
     Internal.request
         { name = "db-lock-acquire"
         , body = body
-        , expect = decoder
+        , expect = TsDecode.value |> TsDecode.unknownAndThen (\_ -> decoder)
         }
 
 
@@ -86,7 +87,7 @@ lockRelease { body, decoder } =
     Internal.request
         { name = "db-lock-release"
         , body = body
-        , expect = decoder
+        , expect = TsDecode.value |> TsDecode.unknownAndThen (\_ -> decoder)
         }
 
 
@@ -121,5 +122,5 @@ migrateWrite { headers, body, decoder } =
         { name = "db-migrate-write"
         , headers = headers
         , body = body
-        , expect = decoder
+        , expect = TsDecode.value |> TsDecode.unknownAndThen (\_ -> decoder)
         }

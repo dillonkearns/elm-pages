@@ -248,10 +248,11 @@ import BackendTask.Http
 import BackendTask.Internal.Glob exposing (Glob(..))
 import BackendTask.Internal.Request
 import FatalError exposing (FatalError)
-import Json.Decode as Decode
-import Json.Encode as Encode
+import Json.Encode
 import List.Extra
 import Time
+import TsJson.Decode as TsDecode
+import TsJson.Encode as TsEncode
 
 
 {-| A pattern to match local files and capture parts of the path into a nice Elm data type.
@@ -1036,37 +1037,42 @@ defaultOptions =
     }
 
 
-encodeOptions : Options -> Encode.Value
-encodeOptions options =
-    [ ( "dot", Encode.bool options.includeDotFiles ) |> Just
-    , ( "followSymbolicLinks", Encode.bool options.followSymbolicLinks ) |> Just
-    , ( "caseSensitiveMatch", Encode.bool options.caseSensitiveMatch ) |> Just
-    , ( "gitignore", Encode.bool options.gitignore ) |> Just
-    , options.maxDepth |> Maybe.map (\depth -> ( "deep", Encode.int depth ))
-    , ( "onlyFiles"
-      , (if options.include == FilesAndFolders then
-            False
+encodeOptions : TsEncode.Encoder Options
+encodeOptions =
+    [ TsEncode.required "dot" .includeDotFiles TsEncode.bool
+    , TsEncode.required "followSymbolicLinks" .followSymbolicLinks TsEncode.bool
+    , TsEncode.required "caseSensitiveMatch" .caseSensitiveMatch TsEncode.bool
+    , TsEncode.required "gitignore" .gitignore TsEncode.bool
+    , TsEncode.optional "deep" .maxDepth TsEncode.int
+    , TsEncode.required "onlyFiles"
+        (\options ->
+            case options.include of
+                OnlyFiles ->
+                    True
 
-         else
-            options.include == OnlyFiles
-        )
-            |> Encode.bool
-      )
-        |> Just
-    , ( "onlyDirectories"
-      , (if options.include == FilesAndFolders then
-            False
+                FilesAndFolders ->
+                    False
 
-         else
-            options.include == OnlyFolders
+                OnlyFolders ->
+                    False
         )
-            |> Encode.bool
-      )
-        |> Just
-    , ( "stats", Encode.bool True ) |> Just
+        TsEncode.bool
+    , TsEncode.required "onlyDirectories"
+        (\options ->
+            case options.include of
+                OnlyFolders ->
+                    True
+
+                OnlyFiles ->
+                    False
+
+                FilesAndFolders ->
+                    False
+        )
+        TsEncode.bool
+    , TsEncode.required "stats" (\_ -> ()) (TsEncode.literal (Json.Encode.bool True))
     ]
-        |> List.filterMap identity
-        |> Encode.object
+        |> TsEncode.object
 
 
 {-| Same as toBackendTask, but lets you set custom glob options. For example, to list folders instead of files,
@@ -1089,49 +1095,61 @@ toBackendTaskWithOptions options glob =
     BackendTask.Internal.Request.request
         { name = "glob"
         , body =
-            Encode.object
-                [ ( "pattern"
-                  , Encode.string <|
-                        -- workaround for https://github.com/micromatch/micromatch/issues/217
-                        if String.startsWith "./" pattern then
-                            String.dropLeft 2 pattern
-
-                        else
-                            pattern
-                  )
-                , ( "options", encodeOptions options )
-                ]
+            { pattern = pattern, options = options }
+                |> TsEncode.encoder bodyEncoder
                 |> BackendTask.Http.jsonBody
         , expect =
-            Decode.map3 (\fileStats fullPath captures -> { fileStats = fileStats, fullPath = fullPath, captures = captures })
-                (Decode.field "fileStats" (Decode.maybe fileStatsDecoder))
-                (Decode.field "fullPath" Decode.string)
-                (Decode.field "captures" (Decode.list Decode.string))
-                |> Decode.list
-                |> Decode.map
-                    (\rawGlob ->
-                        rawGlob
-                            |> List.map
-                                (\{ fileStats, fullPath, captures } ->
-                                    BackendTask.Internal.Glob.run fileStats fullPath captures glob
-                                        |> .match
-                                )
-                    )
+            responseDecoder glob
         }
         |> BackendTask.onError
             (\_ -> BackendTask.succeed [])
 
 
-fileStatsDecoder : Decode.Decoder FileStats
+bodyEncoder : TsEncode.Encoder { pattern : String, options : Options }
+bodyEncoder =
+    TsEncode.object
+        [ TsEncode.required "pattern"
+            (\{ pattern } ->
+                -- workaround for https://github.com/micromatch/micromatch/issues/217
+                if String.startsWith "./" pattern then
+                    String.dropLeft 2 pattern
+
+                else
+                    pattern
+            )
+            TsEncode.string
+        , TsEncode.required "options" .options encodeOptions
+        ]
+
+
+responseDecoder : Glob a -> TsDecode.Decoder (List a)
+responseDecoder glob =
+    TsDecode.map3 (\fileStats fullPath captures -> { fileStats = fileStats, fullPath = fullPath, captures = captures })
+        (TsDecode.field "fileStats" (TsDecode.maybe fileStatsDecoder))
+        (TsDecode.field "fullPath" TsDecode.string)
+        (TsDecode.field "captures" (TsDecode.list TsDecode.string))
+        |> TsDecode.list
+        |> TsDecode.map
+            (\rawGlob ->
+                rawGlob
+                    |> List.map
+                        (\{ fileStats, fullPath, captures } ->
+                            BackendTask.Internal.Glob.run fileStats fullPath captures glob
+                                |> .match
+                        )
+            )
+
+
+fileStatsDecoder : TsDecode.Decoder FileStats
 fileStatsDecoder =
-    Decode.map7 FileStats
-        (Decode.field "fullPath" Decode.string)
-        (Decode.field "size" Decode.int)
-        (Decode.field "mtime" Decode.int |> Decode.map Time.millisToPosix)
-        (Decode.field "atime" Decode.int |> Decode.map Time.millisToPosix)
-        (Decode.field "ctime" Decode.int |> Decode.map Time.millisToPosix)
-        (Decode.field "birthtime" Decode.int |> Decode.map Time.millisToPosix)
-        (Decode.field "isDirectory" Decode.bool)
+    TsDecode.map7 FileStats
+        (TsDecode.field "fullPath" TsDecode.string)
+        (TsDecode.field "size" TsDecode.int)
+        (TsDecode.field "mtime" TsDecode.int |> TsDecode.map Time.millisToPosix)
+        (TsDecode.field "atime" TsDecode.int |> TsDecode.map Time.millisToPosix)
+        (TsDecode.field "ctime" TsDecode.int |> TsDecode.map Time.millisToPosix)
+        (TsDecode.field "birthtime" TsDecode.int |> TsDecode.map Time.millisToPosix)
+        (TsDecode.field "isDirectory" TsDecode.bool)
 
 
 {-| Sometimes you want to make sure there is a unique file matching a particular pattern.

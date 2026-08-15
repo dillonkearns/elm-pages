@@ -18,9 +18,9 @@ import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import BackendTask.Internal.Request
 import Date exposing (Date)
-import Json.Decode as Decode
 import Json.Encode as Encode
 import Time
+import TsJson.Decode as TsDecode
 
 
 {-| Gives a `Time.Posix` of when the `BackendTask` executes.
@@ -51,7 +51,7 @@ now =
         , body =
             BackendTask.Http.jsonBody Encode.null
         , expect =
-            Decode.int |> Decode.map Time.millisToPosix
+            TsDecode.int |> TsDecode.map Time.millisToPosix
         }
 
 
@@ -273,15 +273,15 @@ dateToEpochMs date =
     (Date.toRataDie date - 719163) * 86400000
 
 
-zoneDecoder : Decode.Decoder Time.Zone
+zoneDecoder : TsDecode.Decoder Time.Zone
 zoneDecoder =
-    Decode.map2 Time.customZone
-        (Decode.field "defaultOffset" Decode.int)
-        (Decode.field "eras"
-            (Decode.list
-                (Decode.map2 (\start offset -> { start = start, offset = offset })
-                    (Decode.field "start" Decode.int)
-                    (Decode.field "offset" Decode.int)
+    TsDecode.map2 Time.customZone
+        (TsDecode.field "defaultOffset" TsDecode.int)
+        (TsDecode.field "eras"
+            (TsDecode.list
+                (TsDecode.map2 (\start offset -> { start = start, offset = offset })
+                    (TsDecode.field "start" TsDecode.int)
+                    (TsDecode.field "offset" TsDecode.int)
                 )
             )
         )

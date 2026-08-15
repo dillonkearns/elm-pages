@@ -117,6 +117,7 @@ import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.Internal.Script
+import TsJson.Decode as TsDecode
 import Tui.Effect as Effect
 import Tui.Effect.Internal as EffectInternal
 import Tui.Screen exposing (Screen)
@@ -390,8 +391,8 @@ isInteractive =
         { name = "tui-is-interactive"
         , body = BackendTask.Http.emptyBody
         , expect =
-            Decode.bool
-                |> Decode.map
+            TsDecode.bool
+                |> TsDecode.map
                     (\b ->
                         if b then
                             Tui
@@ -451,10 +452,10 @@ tuiInit =
         { name = "tui-init"
         , body = BackendTask.Http.emptyBody
         , expect =
-            Decode.map3 (\w h cp -> { width = w, height = h, colorProfile = cp })
-                (Decode.field "width" Decode.int)
-                (Decode.field "height" Decode.int)
-                (Decode.field "colorProfile" decodeColorProfile)
+            TsDecode.map3 (\w h cp -> { width = w, height = h, colorProfile = cp })
+                (TsDecode.field "width" TsDecode.int)
+                (TsDecode.field "height" TsDecode.int)
+                (TsDecode.field "colorProfile" decodeColorProfile)
         }
 
 
@@ -474,15 +475,15 @@ tuiRenderAndWait screen sub =
                     ]
                 )
         , expect =
-            Decode.map2 (\evts wh -> { events = evts, width = wh.width, height = wh.height })
-                (Decode.oneOf
-                    [ Decode.field "events" (Decode.list Decode.value)
-                    , Decode.field "event" Decode.value |> Decode.map List.singleton
+            TsDecode.map2 (\evts wh -> { events = evts, width = wh.width, height = wh.height })
+                (TsDecode.oneOf
+                    [ TsDecode.field "events" (TsDecode.list TsDecode.value)
+                    , TsDecode.field "event" TsDecode.value |> TsDecode.map List.singleton
                     ]
                 )
-                (Decode.map2 (\w h -> { width = w, height = h })
-                    (Decode.field "width" Decode.int)
-                    (Decode.field "height" Decode.int)
+                (TsDecode.map2 (\w h -> { width = w, height = h })
+                    (TsDecode.field "width" TsDecode.int)
+                    (TsDecode.field "height" TsDecode.int)
                 )
         }
 
@@ -492,31 +493,18 @@ tuiExit code =
     BackendTask.Internal.Request.request
         { name = "tui-exit"
         , body = BackendTask.Http.jsonBody (Encode.int code)
-        , expect = Decode.succeed ()
+        , expect = TsDecode.succeed ()
         }
 
 
-decodeColorProfile : Decode.Decoder ColorProfile
+decodeColorProfile : TsDecode.Decoder ColorProfile
 decodeColorProfile =
-    Decode.string
-        |> Decode.andThen
-            (\s ->
-                case s of
-                    "truecolor" ->
-                        Decode.succeed TrueColor
-
-                    "256" ->
-                        Decode.succeed Color256
-
-                    "16" ->
-                        Decode.succeed Color16
-
-                    "mono" ->
-                        Decode.succeed Mono
-
-                    _ ->
-                        Decode.succeed Color16
-            )
+    TsDecode.stringUnion
+        [ ( "truecolor", TrueColor )
+        , ( "256", Color256 )
+        , ( "16", Color16 )
+        , ( "mono", Mono )
+        ]
 
 
 processEffectsThenRenderAndWait :
@@ -654,7 +642,7 @@ processBatchedEventsHelp app sub context model accEffects events =
 
 decodeRawEvent : Decode.Value -> Maybe SubInternal.RawEvent
 decodeRawEvent value =
-    case Decode.decodeValue SubInternal.decodeRawEvent value of
+    case Decode.decodeValue (TsDecode.decoder SubInternal.decodeRawEvent) value of
         Ok event ->
             event
 

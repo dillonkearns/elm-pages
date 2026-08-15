@@ -283,7 +283,7 @@ scrollToStep index =
         |> Task.attempt (\_ -> NoOp)
 
 
-{-| Extract the base path (e.g., "/_tests") from the initial URL.
+{-| Extract the base path (e.g., "/\_tests") from the initial URL.
 This is everything up to and including the viewer route prefix.
 -}
 extractBasePath : Url -> String
@@ -956,8 +956,8 @@ type TestNode
 {-| Split a slash-joined test path into its describe ancestors and the
 leaf test name.
 
-    parseTestPath "Site / Blog / lists posts"
-        = { ancestors = [ "Site", "Blog" ], leaf = "lists posts" }
+    parseTestPath "Site / Blog / lists posts" =
+        { ancestors = [ "Site", "Blog" ], leaf = "lists posts" }
 
 -}
 parseTestPath : String -> { ancestors : List String, leaf : String }
@@ -1128,6 +1128,7 @@ firstErrorAt test =
                         Nothing
             )
         |> List.head
+
 
 
 -- VIEW
@@ -1712,75 +1713,75 @@ viewCommandLogSidebar model =
                     snapshots
                         |> List.indexedMap Tuple.pair
                         |> List.concatMap
-                    (\( i, snapshot ) ->
-                        let
-                            isChild =
-                                isChildStep i snapshots
+                            (\( i, snapshot ) ->
+                                let
+                                    isChild =
+                                        isChildStep i snapshots
 
-                            stepLabel =
-                                stepLabels
-                                    |> List.drop i
-                                    |> List.head
-                                    |> Maybe.withDefault { primary = i + 1, sub = Nothing }
+                                    stepLabel =
+                                        stepLabels
+                                            |> List.drop i
+                                            |> List.head
+                                            |> Maybe.withDefault { primary = i + 1, sub = Nothing }
 
-                            numChildren =
-                                childCount i snapshots
+                                    numChildren =
+                                        childCount i snapshots
 
-                            isGroupParent =
-                                not isChild && numChildren > 0 && snapshot.stepKind /= Assertion
+                                    isGroupParent =
+                                        not isChild && numChildren > 0 && snapshot.stepKind /= Assertion
 
-                            isExpanded =
-                                Set.member i model.expandedGroups
+                                    isExpanded =
+                                        Set.member i model.expandedGroups
 
-                            isHiddenChild =
-                                isChild && not (Set.member (parentOfChild i snapshots) model.expandedGroups)
+                                    isHiddenChild =
+                                        isChild && not (Set.member (parentOfChild i snapshots) model.expandedGroups)
 
-                            isNamedGroupStart =
-                                Set.member i namedGroupStartSet
+                                    isNamedGroupStart =
+                                        Set.member i namedGroupStartSet
 
-                            namedGroupKey =
-                                -(i + 1)
+                                    namedGroupKey =
+                                        -(i + 1)
 
-                            isNamedGroupExpanded =
-                                Set.member namedGroupKey model.expandedGroups
+                                    isNamedGroupExpanded =
+                                        Set.member namedGroupKey model.expandedGroups
 
-                            hiddenByGroup =
-                                isHiddenByNamedGroup i snapshots model.expandedGroups
+                                    hiddenByGroup =
+                                        isHiddenByNamedGroup i snapshots model.expandedGroups
 
-                            groupHeader =
-                                if isNamedGroupStart then
-                                    [ viewNamedGroupHeader i
-                                        (Maybe.withDefault "" snapshot.groupLabel)
-                                        isNamedGroupExpanded
-                                        (namedGroupChildCount i snapshots)
-                                    ]
+                                    groupHeader =
+                                        if isNamedGroupStart then
+                                            [ viewNamedGroupHeader i
+                                                (Maybe.withDefault "" snapshot.groupLabel)
+                                                isNamedGroupExpanded
+                                                (namedGroupChildCount i snapshots)
+                                            ]
 
-                                else
-                                    []
+                                        else
+                                            []
 
-                            stepRow =
-                                if isHiddenChild || hiddenByGroup then
-                                    []
+                                    stepRow =
+                                        if isHiddenChild || hiddenByGroup then
+                                            []
 
-                                else
-                                    let
-                                        previousSnapshot =
-                                            if i > 0 then
-                                                snapshots |> List.drop (i - 1) |> List.head
+                                        else
+                                            let
+                                                previousSnapshot =
+                                                    if i > 0 then
+                                                        snapshots |> List.drop (i - 1) |> List.head
 
-                                            else
-                                                Nothing
+                                                    else
+                                                        Nothing
 
-                                        events =
-                                            computeStepEvents i snapshot previousSnapshot
+                                                events =
+                                                    computeStepEvents i snapshot previousSnapshot
 
-                                        eventDots =
-                                            viewStepChannelGutter model events
-                                    in
-                                    [ viewStepRow i stepLabel snapshot model.currentStepIndex isHovering (model.hoveredStepIndex == Just i) (parentOfFailureIndex == Just i) isChild isGroupParent isExpanded numChildren eventDots ]
-                        in
-                        groupHeader ++ stepRow
-                    )
+                                                eventDots =
+                                                    viewStepChannelGutter model events
+                                            in
+                                            [ viewStepRow i stepLabel snapshot model.currentStepIndex isHovering (model.hoveredStepIndex == Just i) (parentOfFailureIndex == Just i) isChild isGroupParent isExpanded numChildren eventDots ]
+                                in
+                                groupHeader ++ stepRow
+                            )
                    )
             )
         , viewStepDrawer model
@@ -2004,7 +2005,8 @@ assertionKindBadge selectors =
 
 {-| Pull the expected value + a class describing how to color it. The
 class names match the rail's argument colors so the drawer and rail
-agree on what each kind looks like. -}
+agree on what each kind looks like.
+-}
 assertionExpected : List AssertionSelector -> Maybe ( String, String )
 assertionExpected selectors =
     case List.head selectors of
@@ -2659,9 +2661,10 @@ the inner-selector forms (`text "..."`, `class "..."`, `attribute "..."`)
 that show up after `ensureViewHas`-family verbs, and strips outer quotes
 from simple quoted args.
 
-`attribute "name" "value"` is a *two-arg* form — render as `name="value"`
+`attribute "name" "value"` is a _two-arg_ form — render as `name="value"`
 (brackets are added by the renderer) so it reads like a CSS attribute
 selector instead of `[name" "value]` from naïve outer-quote stripping.
+
 -}
 inferArgKind : ArgKind -> String -> ( ArgKind, String )
 inferArgKind defaultKind detail =
@@ -2743,7 +2746,7 @@ stripOuterQuotes s =
 
 
 {-| Extract "(within ...)" suffix from a label string.
-Returns (selector part, scope inner) if found, with the outer `(within ` /
+Returns (selector part, scope inner) if found, with the outer `(within` /
 `)` wrapper stripped from the scope.
 -}
 findWithinScope : String -> Maybe ( String, String )
@@ -3528,13 +3531,12 @@ viewRenderedPageWithWidth viewportWidth snapshot =
 viewRenderedPageWithOptions : Maybe Int -> Maybe PreviewMode -> Snapshot -> Html Msg
 viewRenderedPageWithOptions viewportWidth maybePreviewMode snapshot =
     Html.div
-        ([ Attr.classList
+        [ Attr.classList
             [ ( "rendered-page", True )
             , ( "rendered-page-before", maybePreviewMode == Just Before )
             , ( "rendered-page-after", maybePreviewMode == Just After )
             ]
-         ]
-        )
+        ]
         [ Html.div
             (Attr.class "page-body"
                 :: (case ( snapshot.targetElement, snapshot.assertionSelectors ) of
@@ -3603,6 +3605,7 @@ The flash is keyed off `stepIndex` — the inspector body is wrapped in a
 keyed div whose `Html.Keyed` key includes the step number, so each step
 change remounts the body and restarts the CSS animation on each marked
 line.
+
 -}
 viewModelInspector : Set String -> Int -> Maybe Snapshot -> Snapshot -> Html Msg
 viewModelInspector expandedNodes stepIndex previousSnapshot snapshot =
@@ -3680,6 +3683,7 @@ E.g. a change at `root.app.data.entries.0.completed` returns
 `{root, root.app, root.app.data, root.app.data.entries,
 root.app.data.entries.0, root.app.data.entries.0.completed}`. The
 leaf path is harmless — leaves don't render a toggle anyway.
+
 -}
 autoExpandedFromDiffs : Dict String DebugParser.DiffKind -> Set String
 autoExpandedFromDiffs diffs =
@@ -4136,7 +4140,6 @@ viewEffectInspector snapshot =
         ]
 
 
-
 {-| Network entry with its life-span across the snapshot stream: the step at
 which it was first observed, and (if any) the step at which its status became
 `Stubbed` or `Failed`. `endStep == Nothing` at the current step means the
@@ -4152,10 +4155,10 @@ type alias NetworkLane =
 {-| Build one lane per network request by walking the cumulative snapshot
 logs.
 
-Caveat about `entry.stepIndex`: the runtime *overwrites* this field when
+Caveat about `entry.stepIndex`: the runtime _overwrites_ this field when
 a request resolves (see `resolveBackendTask` in `Test.PagesProgram` —
 `{ entry | status = Stubbed, stepIndex = List.length state.snapshots }`),
-so in later snapshots it reports the *resolution* step, not the creation
+so in later snapshots it reports the _resolution_ step, not the creation
 step. We therefore can't use `stepIndex` alone as an identity or as
 `startStep`.
 
@@ -4987,9 +4990,9 @@ viewCookieDiffCard cfg =
 
 {-| Raw-value diff rendering for unsigned cookies.
 
-* `CookieSet` → `+ value`
-* `CookieUpdated` → `- prev` then `+ new`
-* `CookieRemoved` → `- prev`
+  - `CookieSet` → `+ value`
+  - `CookieUpdated` → `- prev` then `+ new`
+  - `CookieRemoved` → `- prev`
 
 -}
 viewRawDiffRows : CookieEvent -> Maybe CookieEntry -> List (Html Msg)
@@ -5184,6 +5187,7 @@ them in a diff card.
 
 `CookieRemoved` events come in as `values = Encode.null`, producing a full
 "removed everything" diff.
+
 -}
 viewDecodedPayloadRows : Int -> Maybe Encode.Value -> Encode.Value -> List (Html Msg)
 viewDecodedPayloadRows currentStep previousValues values =
@@ -5349,10 +5353,6 @@ keyUnchangedRow key value =
         , Html.span [ Attr.class "cookie-kv-key" ] [ Html.text (key ++ ":") ]
         , Html.span [ Attr.class "cookie-kv-value" ] [ Html.text value ]
         ]
-
-
-
-
 
 
 encodeTargetSelector : TargetSelector -> Encode.Value
@@ -5656,7 +5656,6 @@ childCount parentIndex snapshots =
         |> Tuple.first
 
 
-
 {-| Check if a step is hidden because its named group is collapsed.
 -}
 isHiddenByNamedGroup : Int -> List Snapshot -> Set Int -> Bool
@@ -5667,7 +5666,7 @@ isHiddenByNamedGroup i snapshots expanded =
                 groupStart =
                     namedGroupStart i snapshots
             in
-            not (Set.member (-(groupStart + 1)) expanded)
+            not (Set.member -(groupStart + 1) expanded)
 
         Nothing ->
             False
@@ -5808,20 +5807,21 @@ viewNamedGroupHeader : Int -> String -> Bool -> Int -> Html Msg
 viewNamedGroupHeader groupStartIndex name isExpanded _ =
     Html.div
         [ Attr.class "named-group-header"
-        , Html.Events.onClick (ToggleGroup (-(groupStartIndex + 1)))
+        , Html.Events.onClick (ToggleGroup -(groupStartIndex + 1))
         ]
         [ Html.span [ Attr.class "named-group-icon" ]
             [ Html.text
                 (if isExpanded then
-                    "\u{25BE}"
+                    "▾"
 
                  else
-                    "\u{25B8}"
+                    "▸"
                 )
             ]
         , Html.span [ Attr.class "named-group-name" ]
             [ Html.text name ]
         ]
+
 
 
 -- CSS

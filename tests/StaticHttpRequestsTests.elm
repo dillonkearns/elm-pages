@@ -26,6 +26,7 @@ import Server.Response as Response
 import SimulatedEffect.Cmd
 import SimulatedEffect.Ports
 import Test exposing (Test, describe, test)
+import TsJson.Encode as TsEncode
 import UrlPath
 
 
@@ -908,7 +909,7 @@ encodeBatchEntry ( req, response ) =
                         (withInternalHeader response req)
                   )
                 , ( "response"
-                  , RequestsAndPending.bodyEncoder response
+                  , TsEncode.encoder RequestsAndPending.bodyEncoder response
                   )
                 ]
           )

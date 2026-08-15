@@ -11,8 +11,8 @@ import Bytes exposing (Bytes)
 import Bytes.Decode as BD
 import Bytes.Encode as BE
 import FatalError exposing (FatalError)
-import Json.Decode as Decode
 import Json.Encode as Encode
+import TsJson.Decode as TsDecode
 
 
 type alias Db =
@@ -266,7 +266,7 @@ acquireLock =
     BackendTask.Internal.Request.request
         { name = "db-lock-acquire"
         , body = BackendTask.Http.jsonBody (Encode.object [])
-        , expect = Decode.string
+        , expect = TsDecode.string
         }
 
 
@@ -275,7 +275,7 @@ releaseLock =
     BackendTask.Internal.Request.request
         { name = "db-lock-release"
         , body = BackendTask.Http.jsonBody (Encode.object [ ( "token", Encode.string "test-lock-token" ) ])
-        , expect = Decode.succeed ()
+        , expect = TsDecode.succeed ()
         }
 
 
@@ -285,5 +285,5 @@ write db =
         { name = "db-write"
         , headers = [ ( "x-schema-hash", schemaHash ) ]
         , body = BackendTask.Http.bytesBody "application/octet-stream" (encode db)
-        , expect = Decode.succeed ()
+        , expect = TsDecode.succeed ()
         }

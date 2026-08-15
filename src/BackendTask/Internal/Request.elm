@@ -6,7 +6,6 @@ reach the `elm-pages-internal://*` JS handlers without going through the
 public `BackendTask.Http.requestRaw` URL guard. Not exposed in the
 package — generated user-facing code routes via `Pages.Internal.DbRequest`
 instead, which restricts callers to the `db-*` runtime handlers.
-
 -}
 
 import BackendTask exposing (BackendTask)
@@ -14,11 +13,12 @@ import BackendTask.Http exposing (Body)
 import Bytes.Decode
 import Dict
 import FatalError
-import Json.Decode exposing (Decoder)
+import Json.Decode
 import Json.Encode as Encode
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest exposing (RawRequest(..))
 import RequestsAndPending
+import TsJson.Decode exposing (Decoder)
 
 
 {-| Internal JSON-decoding request used by generated modules.
@@ -68,7 +68,7 @@ requestWithHeaders { name, headers, body, expect } =
             in
             case maybeResponse of
                 Just (Ok (RequestsAndPending.Response _ (RequestsAndPending.JsonBody json))) ->
-                    case Json.Decode.decodeValue expect json of
+                    case Json.Decode.decodeValue (TsJson.Decode.decoder expect) json of
                         Ok val ->
                             ApiRoute (Ok val)
 
@@ -117,12 +117,12 @@ request2 { name, body, expect, onError, errorDecoder } =
             in
             case maybeResponse of
                 Just (Ok (RequestsAndPending.Response _ (RequestsAndPending.JsonBody json))) ->
-                    case Json.Decode.decodeValue errorDecoder json of
+                    case Json.Decode.decodeValue (TsJson.Decode.decoder errorDecoder) json of
                         Ok a ->
                             ApiRoute (Err a)
 
                         Err _ ->
-                            case Json.Decode.decodeValue expect json of
+                            case Json.Decode.decodeValue (TsJson.Decode.decoder expect) json of
                                 Ok a ->
                                     ApiRoute (Ok a)
 
@@ -134,7 +134,7 @@ request2 { name, body, expect, onError, errorDecoder } =
 
                 Just (Err _) ->
                     -- On network error, return null so error decoder can handle it
-                    case Json.Decode.decodeValue errorDecoder Encode.null of
+                    case Json.Decode.decodeValue (TsJson.Decode.decoder errorDecoder) Encode.null of
                         Ok a ->
                             ApiRoute (Err a)
 

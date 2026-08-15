@@ -5,10 +5,10 @@ module Test.PagesProgram.Internal exposing
     , resolveDataPhase, mapViewToSnapshot, describeEffects, describeHttpRequest
     , unsafeCoerceHtmlList, crashNever
     , stillRunningDescription, requestDetailsFromRequests, requestToDetails, bodyToString
-    , NetworkSource(..), fetcherToFormData, unsupportedPlatformEffectError
     , done, toSnapshots
     , Step(..)
     , withinFindImpl, groupImpl
+    , NetworkSource(..), fetcherToFormData, unsupportedPlatformEffectError
     )
 
 {-| Internal types used by the visual test runner (Viewer) and the
@@ -618,6 +618,7 @@ Public callers go through `Test.PagesProgram.test` or
 `Test.PagesProgram.expect`. Exposed here so the framework's own meta
 tests can finalize chained `ProgramTest` values directly without
 threading them through a `List Step`.
+
 -}
 done : ProgramTest model msg -> Expect.Expectation
 done (ProgramTest state) =

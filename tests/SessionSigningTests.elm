@@ -5,13 +5,13 @@ import BackendTask.Http
 import BackendTask.Internal.Request
 import Expect
 import FatalError exposing (FatalError)
-import Json.Decode as Decode
 import Json.Encode as Encode
 import Test exposing (Test, describe, test)
 import Test.BackendTask as BackendTaskTest
 import Test.BackendTask.Internal as TestInternal
 import Test.PagesProgram.CookieJar as CookieJar
 import Test.PagesProgram.Session as Session
+import TsJson.Decode as TsDecode
 
 
 all : Test
@@ -306,7 +306,7 @@ signBackendTask secret values =
                     , ( "secret", Encode.string secret )
                     ]
                 )
-        , expect = Decode.string
+        , expect = TsDecode.string
         }
 
 
@@ -321,5 +321,5 @@ unsignBackendTask secrets input =
                     , ( "secrets", Encode.list Encode.string secrets )
                     ]
                 )
-        , expect = Decode.value
+        , expect = TsDecode.value
         }

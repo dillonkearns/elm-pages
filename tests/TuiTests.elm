@@ -12,6 +12,7 @@ import Test.BackendTask as BackendTaskTest
 import Test.Runner
 import Test.Tui as TuiTest
 import Time
+import TsJson.Decode as TsDecode
 import Tui
 import Tui.Attribute as Attr
 import Tui.Effect as Effect exposing (Effect)
@@ -432,16 +433,14 @@ suite =
             [ test "initial view shows count 0" <|
                 \() ->
                     TuiTest.expect
-                        (counterTest
-                        )
+                        counterTest
                         [ TuiTest.ensureViewHas "Count: 0"
                         , TuiTest.expectRunning
                         ]
             , test "k increments" <|
                 \() ->
                     TuiTest.expect
-                        (counterTest
-                        )
+                        counterTest
                         [ TuiTest.pressKey 'k'
                         , TuiTest.ensureViewHas "Count: 1"
                         , TuiTest.expectRunning
@@ -449,8 +448,7 @@ suite =
             , test "j decrements" <|
                 \() ->
                     TuiTest.expect
-                        (counterTest
-                        )
+                        counterTest
                         [ TuiTest.pressKey 'j'
                         , TuiTest.ensureViewHas "Count: -1"
                         , TuiTest.expectRunning
@@ -458,8 +456,7 @@ suite =
             , test "multiple key presses accumulate" <|
                 \() ->
                     TuiTest.expect
-                        (counterTest
-                        )
+                        counterTest
                         [ TuiTest.pressKey 'k'
                         , TuiTest.pressKey 'k'
                         , TuiTest.pressKey 'k'
@@ -471,8 +468,7 @@ suite =
             , test "q exits" <|
                 \() ->
                     TuiTest.expect
-                        (counterTest
-                        )
+                        counterTest
                         [ TuiTest.pressKey 'k'
                         , TuiTest.pressKey 'q'
                         , TuiTest.expectExit
@@ -480,8 +476,7 @@ suite =
             , test "Escape exits" <|
                 \() ->
                     TuiTest.expect
-                        (counterTest
-                        )
+                        counterTest
                         [ TuiTest.pressKeyWith
                             { key = Tui.Sub.Escape, modifiers = [] }
                         , TuiTest.expectExit
@@ -489,8 +484,7 @@ suite =
             , test "arrow keys work" <|
                 \() ->
                     TuiTest.expect
-                        (counterTest
-                        )
+                        counterTest
                         [ TuiTest.pressKeyWith
                             { key = Tui.Sub.Arrow Tui.Sub.Up, modifiers = [] }
                         , TuiTest.ensureViewHas "Count: 1"
@@ -502,8 +496,7 @@ suite =
             , test "unsubscribed keys are ignored" <|
                 \() ->
                     TuiTest.expect
-                        (counterTest
-                        )
+                        counterTest
                         [ TuiTest.pressKey 'x'
                         , TuiTest.ensureViewHas "Count: 0"
                         , TuiTest.expectRunning
@@ -511,8 +504,7 @@ suite =
             , test "resize updates context in view (framework-managed)" <|
                 \() ->
                     TuiTest.expect
-                        (counterTest
-                        )
+                        counterTest
                         [ TuiTest.resize { width = 120, height = 40 }
                         , TuiTest.ensureViewHas "120×40"
                         , TuiTest.expectRunning
@@ -520,16 +512,14 @@ suite =
             , test "ensureViewDoesNotHave passes when text is absent" <|
                 \() ->
                     TuiTest.expect
-                        (counterTest
-                        )
+                        counterTest
                         [ TuiTest.ensureViewDoesNotHave "Error"
                         , TuiTest.expectRunning
                         ]
             , test "ensureViewDoesNotHave fails when text is present" <|
                 \() ->
                     TuiTest.expect
-                        (counterTest
-                        )
+                        counterTest
                         [ TuiTest.ensureViewDoesNotHave "Count:"
                         , TuiTest.expectRunning
                         ]
@@ -545,16 +535,14 @@ suite =
             [ test "startWithContext routes initial context through subscriptions" <|
                 \() ->
                     TuiTest.expect
-                        (contextTest False { width = 120, height = 40, colorProfile = Tui.TrueColor }
-                        )
+                        (contextTest False { width = 120, height = 40, colorProfile = Tui.TrueColor })
                         [ TuiTest.ensureViewHas "Stored: 120×40"
                         , TuiTest.expectRunning
                         ]
             , test "resize routes context through subscriptions" <|
                 \() ->
                     TuiTest.expect
-                        (contextTest False { width = 80, height = 24, colorProfile = Tui.TrueColor }
-                        )
+                        (contextTest False { width = 80, height = 24, colorProfile = Tui.TrueColor })
                         [ TuiTest.resize { width = 120, height = 40 }
                         , TuiTest.ensureViewHas "Stored: 120×40"
                         , TuiTest.expectRunning
@@ -562,8 +550,7 @@ suite =
             , test "startWithContext keeps effects returned from initial context update" <|
                 \() ->
                     TuiTest.expect
-                        (contextTest True { width = 120, height = 40, colorProfile = Tui.TrueColor }
-                        )
+                        (contextTest True { width = 120, height = 40, colorProfile = Tui.TrueColor })
                         [ TuiTest.resolveEffect
                         , TuiTest.ensureViewHas "Effect: 120×40"
                         , TuiTest.expectRunning
@@ -571,8 +558,7 @@ suite =
             , test "resize keeps effects returned from context update" <|
                 \() ->
                     TuiTest.expect
-                        (contextTest True { width = 80, height = 24, colorProfile = Tui.TrueColor }
-                        )
+                        (contextTest True { width = 80, height = 24, colorProfile = Tui.TrueColor })
                         [ TuiTest.resolveEffect
                         , TuiTest.resize { width = 120, height = 40 }
                         , TuiTest.resolveEffect
@@ -584,7 +570,7 @@ suite =
             [ test "decodes keypress events" <|
                 \() ->
                     Decode.decodeValue
-                        SubInternal.decodeRawEvent
+                        (TsDecode.decoder SubInternal.decodeRawEvent)
                         (Encode.object
                             [ ( "type", Encode.string "keypress" )
                             , ( "key"
@@ -609,7 +595,7 @@ suite =
             , test "ignores bare resize events" <|
                 \() ->
                     Decode.decodeValue
-                        SubInternal.decodeRawEvent
+                        (TsDecode.decoder SubInternal.decodeRawEvent)
                         (Encode.object
                             [ ( "type", Encode.string "resize" ) ]
                         )
@@ -619,8 +605,7 @@ suite =
             [ test "initial view shows default repo and prompt" <|
                 \() ->
                     TuiTest.expect
-                        (starsTest
-                        )
+                        starsTest
                         [ TuiTest.ensureViewHas "dillonkearns/elm-pages"
                         , TuiTest.ensureViewHas "Press Enter to fetch"
                         , TuiTest.expectRunning
@@ -628,8 +613,8 @@ suite =
             , test "typing clears results and updates input" <|
                 \() ->
                     TuiTest.expect starsTest
-                        (-- clear default input
-                         repeatN 22 (TuiTest.pressKeyWith { key = Tui.Sub.Backspace, modifiers = [] })
+                        -- clear default input
+                        (repeatN 22 (TuiTest.pressKeyWith { key = Tui.Sub.Backspace, modifiers = [] })
                             ++ [ TuiTest.pressKey 'f'
                                , TuiTest.pressKey 'o'
                                , TuiTest.pressKey 'o'
@@ -641,8 +626,7 @@ suite =
             , test "Enter triggers loading state" <|
                 \() ->
                     TuiTest.expect
-                        (starsTest
-                        )
+                        starsTest
                         [ TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         , TuiTest.ensureViewHas "Loading..."
                         , TuiTest.resolveEffectWith
@@ -655,8 +639,7 @@ suite =
             , test "simulating BackendTask result shows stars" <|
                 \() ->
                     TuiTest.expect
-                        (starsTest
-                        )
+                        starsTest
                         [ TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         , TuiTest.ensureViewHas "Loading..."
                         , TuiTest.resolveEffectWith
@@ -671,8 +654,7 @@ suite =
             , test "simulating BackendTask error shows error" <|
                 \() ->
                     TuiTest.expect
-                        (starsTest
-                        )
+                        starsTest
                         [ TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         , TuiTest.resolveEffectWith
                             (BackendTaskTest.simulateHttpError
@@ -687,8 +669,7 @@ suite =
             , test "typing after results clears them" <|
                 \() ->
                     TuiTest.expect
-                        (starsTest
-                        )
+                        starsTest
                         [ TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         , TuiTest.resolveEffectWith
                             (BackendTaskTest.simulateHttpGet
@@ -696,6 +677,7 @@ suite =
                                 (Encode.object [ ( "stargazers_count", Encode.int 999 ) ])
                             )
                         , TuiTest.ensureViewHas "Stars: 999"
+
                         -- Now type something — results should clear
                         , TuiTest.pressKey 'x'
                         , TuiTest.ensureViewDoesNotHave "Stars:"
@@ -747,8 +729,7 @@ suite =
             [ test "resolveEffect with simulateHttpGet resolves the pending BackendTask" <|
                 \() ->
                     TuiTest.expect
-                        (starsTest
-                        )
+                        starsTest
                         [ TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         , TuiTest.ensureViewHas "Loading..."
                         , TuiTest.resolveEffectWith
@@ -779,7 +760,7 @@ suite =
                 \() ->
                     TuiTest.expect
                         (starsTest
-                            -- Don't press Enter — no pending effect
+                         -- Don't press Enter — no pending effect
                         )
                         [ TuiTest.resolveEffectWith
                             (BackendTaskTest.simulateHttpGet
@@ -797,9 +778,9 @@ suite =
             [ test "expectRunning fails with helpful message when effects are pending" <|
                 \() ->
                     TuiTest.expect
-                        (starsTest
-                        )
+                        starsTest
                         [ TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
+
                         -- Don't resolve the HTTP effect
                         , TuiTest.expectRunning
                         ]
@@ -807,8 +788,7 @@ suite =
             , test "expectExit fails with helpful message when effects are pending" <|
                 \() ->
                     TuiTest.expect
-                        (starsTest
-                        )
+                        starsTest
                         [ TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         , TuiTest.expectExit
                         ]
@@ -817,7 +797,7 @@ suite =
                 \() ->
                     TuiTest.expect
                         (starsTest
-                            -- Don't press Enter — no effect triggered
+                         -- Don't press Enter — no effect triggered
                         )
                         [ TuiTest.resolveEffectWith
                             (BackendTaskTest.simulateHttpGet
@@ -830,8 +810,7 @@ suite =
             , test "expectRunning gives exact guidance for auto-resolvable effects" <|
                 \() ->
                     TuiTest.expect
-                        (contextTest True { width = 120, height = 40, colorProfile = Tui.TrueColor }
-                        )
+                        (contextTest True { width = 120, height = 40, colorProfile = Tui.TrueColor })
                         [ TuiTest.expectRunning
                         ]
                         |> expectFailureDescription
@@ -843,8 +822,7 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
             , test "pressKey after exit fails with helpful message" <|
                 \() ->
                     TuiTest.expect
-                        (counterTest
-                        )
+                        counterTest
                         [ TuiTest.pressKey 'q'
                         , TuiTest.pressKey 'k'
                         , TuiTest.expectExit
@@ -853,8 +831,7 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
             , test "resolveEffect with wrong URL surfaces Test.BackendTask error" <|
                 \() ->
                     TuiTest.expect
-                        (starsTest
-                        )
+                        starsTest
                         [ TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         , TuiTest.resolveEffectWith
                             (BackendTaskTest.simulateHttpGet
@@ -867,8 +844,7 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
             , test "ensureViewHas failure shows actual screen content" <|
                 \() ->
                     TuiTest.expect
-                        (counterTest
-                        )
+                        counterTest
                         [ TuiTest.ensureViewHas "this text is not on screen"
                         , TuiTest.expectRunning
                         ]
@@ -878,16 +854,14 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
             [ test "toSnapshots captures initial state" <|
                 \() ->
                     TuiTest.snapshots
-                        (counterTest
-                        )
+                        counterTest
                         []
                         |> List.length
                         |> Expect.equal 1
             , test "initial snapshot screen is a Screen (use Tui.Screen.toString to query)" <|
                 \() ->
                     TuiTest.snapshots
-                        (counterTest
-                        )
+                        counterTest
                         []
                         |> List.head
                         |> Maybe.map (.screen >> Tui.Screen.toString)
@@ -897,8 +871,7 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
             , test "initial snapshot label is init" <|
                 \() ->
                     TuiTest.snapshots
-                        (counterTest
-                        )
+                        counterTest
                         []
                         |> List.head
                         |> Maybe.map .label
@@ -906,8 +879,7 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
             , test "each pressKey adds a snapshot" <|
                 \() ->
                     TuiTest.snapshots
-                        (counterTest
-                        )
+                        counterTest
                         [ TuiTest.pressKey 'k'
                         , TuiTest.pressKey 'k'
                         , TuiTest.pressKey 'j'
@@ -926,8 +898,7 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
             , test "snapshots have descriptive labels" <|
                 \() ->
                     TuiTest.snapshots
-                        (counterTest
-                        )
+                        counterTest
                         [ TuiTest.pressKey 'k'
                         , TuiTest.pressKeyWith { key = Tui.Sub.Arrow Tui.Sub.Down, modifiers = [] }
                         ]
@@ -936,8 +907,7 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
             , test "snapshots track pending effects" <|
                 \() ->
                     TuiTest.snapshots
-                        (starsTest
-                        )
+                        starsTest
                         [ TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         ]
                         |> List.map .hasPendingEffects
@@ -945,8 +915,7 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
             , test "resolveEffect adds a snapshot" <|
                 \() ->
                     TuiTest.snapshots
-                        (starsTest
-                        )
+                        starsTest
                         [ TuiTest.pressKeyWith { key = Tui.Sub.Enter, modifiers = [] }
                         , TuiTest.resolveEffectWith
                             (BackendTaskTest.simulateHttpGet
@@ -959,8 +928,7 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
             , test "snapshots have no modelState by default" <|
                 \() ->
                     TuiTest.snapshots
-                        (counterTest
-                        )
+                        counterTest
                         [ TuiTest.pressKey 'k'
                         ]
                         |> List.map .modelState
@@ -968,8 +936,7 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
             , test "withModelToString captures model state at each step" <|
                 \() ->
                     TuiTest.snapshots
-                        (counterTest
-                        )
+                        counterTest
                         [ TuiTest.withModelToString Debug.toString
                         , TuiTest.pressKey 'k'
                         ]
@@ -980,8 +947,7 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
             , test "withModelToString shows changing values" <|
                 \() ->
                     TuiTest.snapshots
-                        (counterTest
-                        )
+                        counterTest
                         [ TuiTest.withModelToString Debug.toString
                         , TuiTest.pressKey 'k'
                         , TuiTest.pressKey 'k'
@@ -994,8 +960,7 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
             [ test "advanceTime 0 fires nothing" <|
                 \() ->
                     TuiTest.expect
-                        (singleIntervalTickerTest 50
-                        )
+                        (singleIntervalTickerTest 50)
                         [ TuiTest.advanceTime 0
                         , TuiTest.ensureModel
                             (\m -> m.ticks |> Expect.equal [])
@@ -1004,8 +969,7 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
             , test "advanceTime below one interval fires nothing" <|
                 \() ->
                     TuiTest.expect
-                        (singleIntervalTickerTest 50
-                        )
+                        (singleIntervalTickerTest 50)
                         [ TuiTest.advanceTime 49
                         , TuiTest.ensureModel
                             (\m -> m.ticks |> Expect.equal [])
@@ -1014,8 +978,7 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
             , test "advanceTime exactly one interval fires once at the interval boundary" <|
                 \() ->
                     TuiTest.expect
-                        (singleIntervalTickerTest 50
-                        )
+                        (singleIntervalTickerTest 50)
                         [ TuiTest.advanceTime 50
                         , TuiTest.ensureModel
                             (\m -> m.ticks |> Expect.equal [ ( 50, 50 ) ])
@@ -1024,8 +987,7 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
             , test "advanceTime three intervals fires three times at 50, 100, 150" <|
                 \() ->
                     TuiTest.expect
-                        (singleIntervalTickerTest 50
-                        )
+                        (singleIntervalTickerTest 50)
                         [ TuiTest.advanceTime 150
                         , TuiTest.ensureModel
                             (\m ->
@@ -1038,8 +1000,7 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
             , test "consecutive advanceTime calls continue the clock forward" <|
                 \() ->
                     TuiTest.expect
-                        (singleIntervalTickerTest 50
-                        )
+                        (singleIntervalTickerTest 50)
                         [ TuiTest.advanceTime 50
                         , TuiTest.advanceTime 50
                         , TuiTest.ensureModel
@@ -1052,8 +1013,7 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
             , test "Posix timestamp reaching a long elapsed window is correct" <|
                 \() ->
                     TuiTest.expect
-                        (singleIntervalTickerTest 1000
-                        )
+                        (singleIntervalTickerTest 1000)
                         [ TuiTest.advanceTime 5000
                         , TuiTest.ensureModel
                             (\m ->
@@ -1067,8 +1027,7 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
             , test "multiple intervals fire independently at their own rates" <|
                 \() ->
                     TuiTest.expect
-                        (twoIntervalTickerTest 50 1000
-                        )
+                        (twoIntervalTickerTest 50 1000)
                         [ TuiTest.advanceTime 1000
                         , TuiTest.ensureModel
                             (\m ->
@@ -1091,8 +1050,7 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
             , test "ticks across intervals arrive in chronological order" <|
                 \() ->
                     TuiTest.expect
-                        (twoIntervalTickerTest 50 100
-                        )
+                        (twoIntervalTickerTest 50 100)
                         [ TuiTest.advanceTime 200
                         , TuiTest.ensureModel
                             (\m ->
@@ -1106,8 +1064,7 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
             , test "two subscriptions at the same interval both fire" <|
                 \() ->
                     TuiTest.expect
-                        (sameIntervalDualSubTest 1000
-                        )
+                        (sameIntervalDualSubTest 1000)
                         [ TuiTest.advanceTime 1000
                         , TuiTest.ensureModel
                             (\m ->
@@ -1122,8 +1079,7 @@ Use TuiTest.resolveEffectWith when the effect needs custom simulation (for examp
             , test "conditional subscription that returns Sub.none does not fire" <|
                 \() ->
                     TuiTest.expect
-                        (conditionalTickerTest
-                        )
+                        conditionalTickerTest
                         [ TuiTest.advanceTime 500
                         , TuiTest.ensureModel
                             (\m -> m.ticks |> Expect.equal [])

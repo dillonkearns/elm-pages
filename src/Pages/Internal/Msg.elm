@@ -1,11 +1,9 @@
 module Pages.Internal.Msg exposing
-    (  Msg(..)
-       --, fetcherOnSubmit
-
-    ,  map
-       --, onSubmit
-       --, submitIfValid
-
+    ( Msg(..)
+      --, fetcherOnSubmit
+    , map
+      --, onSubmit
+      --, submitIfValid
     )
 
 --import Form.FormData exposing (FormData)
