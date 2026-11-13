@@ -213,6 +213,11 @@ staticContent frozenNote =
         , Html.p []
             [ Html.text "Frozen view code: this text must not be in the client bundle." ]
         , Html.p []
+            [ -- A link inside a frozen view still navigates without a page load.
+              -- `cypress/production/frozen-views.cy.js` checks that.
+              Html.a [ Attr.href "/links" ] [ Html.text "Links page (a link inside the frozen view)" ]
+            ]
+        , Html.p []
             [ Html.text frozenNote ]
         , Html.p []
             [ Html.em []

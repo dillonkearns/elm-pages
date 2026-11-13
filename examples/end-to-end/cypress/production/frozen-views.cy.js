@@ -63,4 +63,31 @@ context("frozen views in a production build", () => {
     cy.window().its("stillTheSamePage").should("equal", true);
     cy.window().its("pageErrors").should("deep.equal", []);
   });
+
+  it("follows a link inside a frozen view without loading a new page", () => {
+    // The link is server-rendered HTML that Elm never rendered itself, so it
+    // only navigates client-side if the virtual DOM gave it a click handler.
+    cy.visit("/static-region-test", { onBeforeLoad: watchForErrors });
+    frozenViewIsShown();
+    cy.window().then((win) => {
+      win.stillTheSamePage = true;
+    });
+
+    cy.contains('[data-static="0"] a', "Links page").click();
+    cy.location("pathname").should("include", "/links");
+    cy.contains("Links Page");
+    cy.window().its("stillTheSamePage").should("equal", true);
+
+    // Back on the page, the frozen view has been drawn again from its saved
+    // HTML. Its link must still work the same way.
+    cy.go("back");
+    cy.location("pathname").should("include", "/static-region-test");
+    frozenViewIsShown();
+    cy.contains('[data-static="0"] a', "Links page").click();
+    cy.location("pathname").should("include", "/links");
+    cy.contains("Links Page");
+
+    cy.window().its("stillTheSamePage").should("equal", true);
+    cy.window().its("pageErrors").should("deep.equal", []);
+  });
 });
