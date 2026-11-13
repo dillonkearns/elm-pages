@@ -16,8 +16,8 @@
             "stil4m/elm-syntax": "7.3.9"
         },
         "indirect": {
-            "elm/html": "1.0.0",
-            "elm/json": "1.1.3",
+            "elm/html": "1.0.1",
+            "elm/json": "1.1.4",
             "elm/parser": "1.1.0",
             "elm/random": "1.0.0",
             "elm/regex": "1.0.0",
