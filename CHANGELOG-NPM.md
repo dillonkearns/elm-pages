@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Changed
 
+- **Breaking:** Node.js 22 or later is now required: 22.22.2 or later
+  on the 22 line, 24.15.0 or later on the 24 line, or 26 and up. Node 20
+  reached its end of life in April 2026, and several dependencies
+  (`chokidar` 6, `commander` 15, `which` 7, `make-fetch-happen` 16) no
+  longer support it. `npm install` warns if your Node version is
+  outside that range.
 - **Breaking:** Lamdera 1.5.0 or later is now required. `elm-pages`
   checks the version of `lamdera` on your PATH and tells you how to
   update if it is too old (`npm install --save-dev lamdera@latest`).
