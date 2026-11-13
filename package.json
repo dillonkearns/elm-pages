@@ -68,12 +68,12 @@
     "cypress": "^16.2.1",
     "elm-codegen": "^0.6.3",
     "elm-review": "^2.13.5",
-    "elm-test": "0.19.1-revision17",
+    "elm-test": "0.19.3-0",
     "elm-tooling": "^1.21.0",
     "elm-verify-examples": "^6.0.3",
     "lamdera": "0.19.3-1.5.0",
     "prettier": "^3.9.10",
-    "typescript": "^7.0.2",
+    "typescript": "^6.0.3",
     "vitest": "^5.1.0"
   },
   "files": [
