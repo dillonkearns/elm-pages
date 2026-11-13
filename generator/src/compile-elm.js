@@ -60,7 +60,7 @@ export async function compileElmForBrowser(options, config = {}) {
         : "[...(new FormData(event.target))")
   );
 
-  // Apply frozen view adoption codemod (auto-detects standard vs elm-safe-virtual-dom)
+  // Patch the virtual DOM so it can draw frozen views
   transformedCode = patchFrozenViews(transformedCode);
 
   return fs.promises.writeFile("./.elm-pages/cache/elm.js", transformedCode);

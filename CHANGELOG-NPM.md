@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   Lamdera 1.5.0 builds into compiled code, instead of `elm-hot`. The
   running app keeps its model and ports when new code arrives. The
   `elm-hot` dependency is gone.
+- The frozen view patch for the older virtual DOM is removed, along with
+  the detection that chose between the two. If the compiled code is not
+  what elm-pages expects, the build now stops instead of shipping pages
+  whose frozen views would not show.
 - Pre-rendered HTML now has a `data-elm` attribute on each element.
   This comes from the safe virtual DOM that Lamdera 1.5.0 uses, which
   needs it to pick up server-rendered elements in the browser. The

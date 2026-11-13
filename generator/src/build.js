@@ -574,7 +574,7 @@ async function compileElm(options, config) {
     path.join(process.cwd(), "./elm-stuff/elm-pages/client")
   );
 
-  // Apply frozen view adoption codemod (auto-detects standard vs elm-safe-virtual-dom)
+  // Patch the virtual DOM so it can draw frozen views
   const elmCode = await fsPromises.readFile(fullOutputPath, "utf-8");
   const patchedCode = patchFrozenViews(elmCode);
   await fsPromises.writeFile(fullOutputPath, patchedCode);

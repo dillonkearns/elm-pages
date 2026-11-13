@@ -1,172 +1,97 @@
 /**
- * Test for the frozen view codemod
+ * The frozen view patch, applied to the real output of the installed `lamdera`
+ * compiler.
  *
- * This test verifies that the codemod correctly patches the virtual-dom
- * thunk rendering to support frozen view adoption.
+ * The patch is found by matching the text of the compiled virtual DOM code, so
+ * a new Lamdera release can change that code out from under it. These tests
+ * are what notices.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { spawnSync } from "node:child_process";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { patchFrozenViews } from "../src/frozen-view-codemod.js";
 
-// Sample compiled Elm virtual-dom code (simplified but with thunk diffing structure)
-const SAMPLE_VDOM_CODE = `
-var _VirtualDom_doc = typeof document !== 'undefined' ? document : {};
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const fixtureDir = path.join(__dirname, "fixtures/hot-reload");
 
-function _VirtualDom_virtualize(node) {
-    if (node.nodeType === 3) {
-        return _VirtualDom_text(node.textContent);
-    }
-    // ... more implementation
-    return node;
+/** @type {string} */
+let projectDir;
+/** @type {string} */
+let patched;
+
+/**
+ * @param {string} code
+ * @param {string} functionName
+ * @returns {string} the source of a top-level function in compiled Elm code
+ */
+function functionSource(code, functionName) {
+  const start = code.indexOf(`\nfunction ${functionName}(`);
+  expect(start, `${functionName} should exist`).toBeGreaterThan(-1);
+  return code.slice(start, code.indexOf("\n}\n", start));
 }
 
-function _VirtualDom_render(vNode, eventNode) {
-    var tag = vNode.$;
+beforeAll(() => {
+  projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "elm-pages-frozen-"));
+  fs.cpSync(fixtureDir, projectDir, { recursive: true });
+  const output = path.join(projectDir, "elm.js");
+  const result = spawnSync(
+    "lamdera",
+    ["make", "src/NavApp.elm", `--output=${output}`],
+    { cwd: projectDir, encoding: "utf8" }
+  );
+  if (result.status !== 0) {
+    throw new Error(`lamdera make failed:\n${result.stdout}\n${result.stderr}`);
+  }
+  patched = patchFrozenViews(fs.readFileSync(output, "utf8"));
+}, 120000);
 
-    if (tag === 5) {
-        return _VirtualDom_render(vNode.k || (vNode.k = vNode.m()), eventNode);
-    }
+afterAll(() => {
+  fs.rmSync(projectDir, { recursive: true, force: true });
+});
 
-    if (tag === 0) {
-        return _VirtualDom_doc.createTextNode(vNode.a);
-    }
+describe("frozen view patch on real lamdera output", () => {
+  it("draws a frozen view from its saved HTML when rendering from scratch", () => {
+    // The app's first render replaces the server-rendered page, so frozen
+    // views are drawn by `_VirtualDom_render`, not found by the diff.
+    const render = functionSource(patched, "_VirtualDom_render");
 
-    // ... more node types
-    return _VirtualDom_doc.createElement('div');
-}
+    expect(render).toContain("__ELM_PAGES_FROZEN_VIEWS__");
+    expect(render).toContain("__ELM_PAGES_STATIC__");
+  });
 
-function _VirtualDom_diffHelp(x, y, patches, index) {
-    if (x === y) { return; }
-    var xType = x.$;
-    var yType = y.$;
-    if (xType !== yType) {
-        _VirtualDom_pushPatch(patches, 0, index, y);
-        return;
-    }
-    switch (yType) {
-        case 5:
-            var xRefs = x.l;
-            var yRefs = y.l;
-            var i = xRefs.length;
-            var same = i === yRefs.length;
-            while (same && i--) {
-                same = xRefs[i] === yRefs[i];
-            }
-            if (same) { y.k = x.k; return; }
-            _VirtualDom_pushPatch(patches, 0, index, y);
-            return;
-    }
+  it("keeps or swaps a frozen view when diffing", () => {
+    const diff = functionSource(patched, "_VirtualDom_diffHelp");
+
+    expect(diff).toContain("data-static");
+    expect(diff).toContain("__ELM_PAGES_STATIC__");
+  });
+
+  it("is still valid JavaScript", () => {
+    expect(() => new Function(patched)).not.toThrow();
+  });
+
+  it("refuses code it does not recognize instead of leaving it unpatched", () => {
+    // For example the output of an older compiler, with the virtual DOM that
+    // elm-pages no longer supports. Shipping it unpatched would break frozen
+    // views in the browser with no warning at build time.
+    const olderVirtualDom = `
+function _VirtualDom_render(vNode, eventNode)
+{
+	var tag = vNode.$;
+
+	if (tag === 5)
+	{
+		return _VirtualDom_render(vNode.k || (vNode.k = vNode.m()), eventNode);
+	}
 }
 `;
 
-describe("Frozen View Codemod", () => {
-  it("injects frozen view code", () => {
-    const patched = patchFrozenViews(SAMPLE_VDOM_CODE);
-
-    // The new approach inlines the check directly
-    const hasFrozenRefsVar = patched.includes('__frozenRefs') || patched.includes('__isFrozenView');
-    const hasDataStaticSelector = patched.includes('data-static');
-    const hasFrozenIdCheck = patched.includes("FrozenId") || patched.includes("=== 0");
-
-    expect(hasFrozenRefsVar).toBe(true);
-    expect(hasDataStaticSelector).toBe(true);
-    expect(hasFrozenIdCheck).toBe(true);
-  });
-
-  it("patches the thunk case", () => {
-    const patched = patchFrozenViews(SAMPLE_VDOM_CODE);
-
-    // The patched code should have the frozen view check in the tag === 5 block
-    const hasTag5Block = patched.includes('tag === 5');
-
-    // Check for the virtualize call (used to convert adopted DOM to virtual-dom)
-    const hasVirtualize = patched.includes('_VirtualDom_virtualize');
-
-    // Verify the original thunk rendering is still there as fallback
-    const hasOriginalThunk = patched.includes('vNode.k || (vNode.k = vNode.m())');
-
-    expect(hasTag5Block).toBe(true);
-    expect(hasVirtualize).toBe(true);
-    expect(hasOriginalThunk).toBe(true);
-  });
-
-  it("uses magic string prefix detection", () => {
-    const patched = patchFrozenViews(SAMPLE_VDOM_CODE);
-
-    // The patched code should detect magic string prefix "__ELM_PAGES_STATIC__"
-    const hasMagicPrefixCheck = patched.includes('__ELM_PAGES_STATIC__');
-    const hasStringTypeCheck = patched.includes("typeof") && patched.includes("=== 'string'");
-
-    expect(hasMagicPrefixCheck).toBe(true);
-    expect(hasStringTypeCheck).toBe(true);
-  });
-
-  it("includes global fallback mechanism", () => {
-    const patched = patchFrozenViews(SAMPLE_VDOM_CODE);
-
-    // Check for window.__ELM_PAGES_FROZEN_VIEWS__ fallback
-    const hasGlobalFallback = patched.includes('__ELM_PAGES_FROZEN_VIEWS__');
-
-    expect(hasGlobalFallback).toBe(true);
-  });
-
-  it("patches elm-safe-virtual-dom code with tNode parameter", () => {
-    // elm-safe-virtual-dom (lydell/virtual-dom) has an extra tNode parameter
-    // and different patterns for thunk handling in diffHelp
-    const SAFE_VDOM_CODE = `
-function _VirtualDom_render(vNode, eventNode, tNode) {
-    var tag = vNode.$;
-
-    if (tag === 5) {
-        return _VirtualDom_render(vNode.k || (vNode.k = vNode.m()), eventNode, tNode);
-    }
-
-    if (tag === 0) {
-        return _VirtualDom_doc.createTextNode(vNode.a);
-    }
-
-    return _VirtualDom_doc.createElement('div');
-}
-
-function _VirtualDom_diffHelp(x, y, patches, index, eventNode, tNode) {
-    if (x === y) { return; }
-    var xType = x.$;
-    var yType = y.$;
-    if (xType !== yType) {
-        if (y.$ === 5) { return _VirtualDom_diffHelp(x, y.k || (y.k = y.m()), eventNode, tNode); }
-        _VirtualDom_pushPatch(patches, 0, index, y);
-        return;
-    }
-    switch (yType) {
-        case 5:
-            var xRefs = x.l;
-            var yRefs = y.l;
-            var i = xRefs.length;
-            var same = i === yRefs.length;
-            while (same && i--) {
-                same = xRefs[i] === yRefs[i];
-            }
-            if (same) { y.k = x.k; return; }
-            y.k = y.m();
-            _VirtualDom_pushPatch(patches, 0, index, y);
-            return;
-    }
-}
-`;
-
-    const patched = patchFrozenViews(SAFE_VDOM_CODE);
-
-    // Verify the frozen view check was injected
-    const hasFrozenRefsVar = patched.includes('__frozenRefs') || patched.includes('__isFrozenView');
-    const hasDataStaticSelector = patched.includes('data-static');
-
-    // Verify the original thunk rendering with tNode is still there as fallback
-    const hasOriginalThunk = patched.includes('vNode.k || (vNode.k = vNode.m())');
-    const hasTNodeParam = patched.includes('eventNode, tNode');
-
-    expect(hasFrozenRefsVar).toBe(true);
-    expect(hasDataStaticSelector).toBe(true);
-    expect(hasOriginalThunk).toBe(true);
-    expect(hasTNodeParam).toBe(true);
+    expect(() => patchFrozenViews(olderVirtualDom)).toThrow(
+      /could not patch the compiled virtual DOM/
+    );
   });
 });
