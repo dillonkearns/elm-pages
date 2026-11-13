@@ -177,6 +177,6 @@ export default {
 };
 ```
 
-### elm-safe-virtual-dom Support
+### Browser extensions and frozen views
 
-If you're using [elm-safe-virtual-dom](https://github.com/nicklydell/elm-safe-virtual-dom) to protect your app from browser extensions like Google Translate or Grammarly interfering with your DOM, static regions will work automatically. elm-pages detects elm-safe-virtual-dom in the compiled output and applies the appropriate patching strategy that works with its "tNode" tracking system.
+Lamdera's virtual DOM is based on [elm-safe-virtual-dom](https://github.com/lydell/elm-safe-virtual-dom), which protects your app from browser extensions like Google Translate or Grammarly changing the page. Frozen views work with it out of the box.

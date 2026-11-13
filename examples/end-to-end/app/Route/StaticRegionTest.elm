@@ -62,6 +62,10 @@ route =
 
 type alias Data =
     { timestamp : String
+
+    -- Only used inside `View.freeze`, so it is removed from the client's `Data`.
+    -- `check-frozen-views.mjs` checks that for a production build.
+    , frozenNote : String
     }
 
 
@@ -70,6 +74,7 @@ data =
     -- No more staticHtml in Data - it's automatically extracted from rendered output!
     BackendTask.succeed
         { timestamp = "Build time: 2024-01-01T00:00:00Z"
+        , frozenNote = "Frozen data: this text must not be in the client bundle."
         }
 
 
@@ -113,7 +118,7 @@ view app _ model =
             -- Server: renders staticContent with data-static wrapper
             -- Client: transforms to lazy thunk for DOM adoption
             -- SPA nav: HTML comes from content.dat
-            , View.freeze (staticContent ())
+            , View.freeze (staticContent app.data.frozenNote)
 
             -- Dynamic region - this updates normally
             , Html.div
@@ -139,6 +144,8 @@ view app _ model =
                     [ Html.text "+" ]
                 , Html.p [ Attr.style "margin-top" "10px", Attr.style "color" "#666" ]
                     [ Html.text "This counter is interactive and updates via the normal Elm update cycle." ]
+                , Html.p [ Attr.style "color" "#666" ]
+                    [ Html.text "Dynamic view code: this text must be in the client bundle." ]
                 ]
 
             -- Link to test SPA navigation
@@ -181,8 +188,8 @@ In a real application, this could include:
   - Heavy dependencies that shouldn't be in the client bundle
 
 -}
-staticContent : () -> Html Never
-staticContent () =
+staticContent : String -> Html Never
+staticContent frozenNote =
     Html.div
         [ Attr.style "padding" "20px"
         , Attr.style "background" "#f0f0f0"
@@ -203,6 +210,15 @@ staticContent () =
             , Html.li [] [ Html.text "Item 2 - adopted by virtual-dom" ]
             , Html.li [] [ Html.text "Item 3 - never re-rendered on client" ]
             ]
+        , Html.p []
+            [ Html.text "Frozen view code: this text must not be in the client bundle." ]
+        , Html.p []
+            [ -- A link inside a frozen view still navigates without a page load.
+              -- `cypress/production/frozen-views.cy.js` checks that.
+              Html.a [ Attr.href "/links" ] [ Html.text "Links page (a link inside the frozen view)" ]
+            ]
+        , Html.p []
+            [ Html.text frozenNote ]
         , Html.p []
             [ Html.em []
                 [ Html.text "In production, this could be markdown, syntax-highlighted code, etc." ]

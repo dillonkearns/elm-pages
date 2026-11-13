@@ -1,0 +1,20 @@
+port module Counter exposing (main)
+
+{-| A worker that counts. The test compiles it twice with a different
+version label to check that hot reloading swaps in the new code and keeps the count.
+-}
+
+
+port increment : (() -> msg) -> Sub msg
+
+
+port report : String -> Cmd msg
+
+
+main : Program () Int ()
+main =
+    Platform.worker
+        { init = \() -> ( 0, Cmd.none )
+        , update = \() count -> ( count + 1, report ("__VERSION__:" ++ String.fromInt (count + 1)) )
+        , subscriptions = \_ -> increment identity
+        }

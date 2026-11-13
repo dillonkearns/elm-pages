@@ -86,7 +86,9 @@ cleanup() {
   wrap repository local-dev clear dillonkearns/elm-pages "$ELM_VERSION" 2>/dev/null || true
   # Remove the ELM_HOME symlink that elm-wrap's --local-dev creates
   local elm_home="${ELM_HOME:-$HOME/.elm}"
-  local pkg_path="$elm_home/0.19.1/packages/dillonkearns/elm-pages/$ELM_VERSION"
+  # The package cache folder is named after the Elm version the compiler is
+  # built on, which is what `lamdera --version` prints (for example 0.19.3).
+  local pkg_path="$elm_home/$(lamdera --version)/packages/dillonkearns/elm-pages/$ELM_VERSION"
   if [ -L "$pkg_path" ]; then
     rm "$pkg_path"
   fi

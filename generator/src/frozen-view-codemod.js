@@ -1,256 +1,235 @@
 /**
- * Frozen View Codemod
+ * Frozen view patch for the compiled virtual DOM.
  *
- * This codemod patches the compiled Elm virtual-dom code to support "frozen view adoption"
- * where pre-rendered HTML can be adopted by the virtual-dom without re-rendering.
+ * `View.freeze` content is rendered on the server and left out of the client
+ * bundle. On the client, each frozen view is a lazy thunk whose second ref is
+ * the string "__ELM_PAGES_STATIC__<id>" (see the StaticViewTransform review
+ * rule). This patch teaches the virtual DOM to draw such a thunk from the
+ * server-rendered HTML instead of evaluating it.
  *
- * The patch intercepts the thunk (lazy) rendering to:
- * 1. Detect thunks with a magic string marker "__ELM_PAGES_STATIC__" in their refs
- * 2. On initial load: adopt existing DOM nodes with matching data-static attribute
- * 3. On SPA navigation: parse HTML strings from window.__ELM_PAGES_FROZEN_VIEWS__
+ * The compiler is Lamdera 1.5.0 or later, whose virtual DOM is based on
+ * elm-safe-virtual-dom. It keeps its own tree of DOM nodes (the `tNode`
+ * arguments), separate from the real DOM, so that browser extensions that
+ * change the page do not break the app.
  *
- * This enables dead-code elimination of frozen view dependencies (markdown parsers, etc.)
- * while preserving server-rendered HTML.
+ * Three places are patched:
  *
- * Detection uses a magic string prefix instead of a custom type, which is more robust
- * because strings survive minification unchanged (unlike type tags which vary between
- * debug/optimized modes).
+ * 1. _VirtualDom_render: a frozen view drawn from scratch. This is the usual
+ *    case on page load, because the app's first render replaces the
+ *    server-rendered page before the page data has arrived. The HTML comes
+ *    from window.__ELM_PAGES_FROZEN_VIEWS__, which is saved from the page
+ *    before the app starts and replaced on SPA navigation.
+ *
+ * 2. _VirtualDom_diffHelp, old node is not a thunk and new node is a frozen
+ *    view: keep the DOM if it is that frozen view (data-static matches),
+ *    otherwise replace what is there with the frozen view.
+ *
+ * 3. _VirtualDom_diffHelp, both nodes are frozen views: keep the DOM on a
+ *    re-render of the same page, replace it after SPA navigation.
+ *
+ * The magic string is used for detection because strings survive minification.
+ *
+ * The patterns below match the text of Lamdera's compiled virtual DOM,
+ * including its short field names (`tNode.r`, `y.k`, ...). If a new Lamdera
+ * changes that code, patchFrozenViews throws instead of leaving frozen views
+ * broken, and test/frozen-view-codemod.test.js fails.
  */
-
-import { patchFrozenViewsESVD } from "./frozen-view-codemod-esvd.js";
 
 // Magic prefix for frozen view identification
 const FROZEN_VIEW_PREFIX = '__ELM_PAGES_STATIC__';
 const FROZEN_VIEW_PREFIX_LENGTH = FROZEN_VIEW_PREFIX.length; // 21
 
 /**
- * Inlined frozen view handling code for the thunk render patch.
- * This gets inserted directly in the tag === 5 (THUNK) case.
+ * Patch for the "old is not thunk, new is thunk" case in diffHelp.
+ * This handles initial page load where virtualize has already adopted the DOM.
+ *
+ * Original:
+ *   if (y.$ === 5) {
+ *       return _VirtualDom_diffHelp(x, y.k || (y.k = y.m()), eventNode, tNode);
+ *   }
+ *
+ * We intercept to check: if the new thunk is a frozen view, and the existing DOM
+ * (from virtualize) has a matching data-static attribute, keep it without evaluating the thunk.
  */
-const FROZEN_VIEW_INLINE_CHECK = `
-    // Frozen view adoption: check if this thunk is for a frozen view
+const FROZEN_VIEW_VIRTUALIZE_ADOPTION = `
+    // Frozen view adoption: check if new thunk is for a frozen view
     // Detection: refs[1] is a string starting with "__ELM_PAGES_STATIC__"
-    var __frozenRefs = vNode.l;
-    var __isFrozenView = __frozenRefs && __frozenRefs.length >= 2 &&
-        typeof __frozenRefs[1] === 'string' &&
-        __frozenRefs[1].startsWith('${FROZEN_VIEW_PREFIX}');
+    var __yRefs = y.l;
+    var __isFrozenView = __yRefs && __yRefs.length >= 2 &&
+        typeof __yRefs[1] === 'string' &&
+        __yRefs[1].startsWith('${FROZEN_VIEW_PREFIX}');
+
     if (__isFrozenView) {
-        var __frozenId = __frozenRefs[1].slice(${FROZEN_VIEW_PREFIX_LENGTH});
-        // Check global first (populated on SPA navigation BEFORE render)
-        // This ensures we use the NEW page's content, not stale DOM from old page
-        var __frozenViews = window.__ELM_PAGES_FROZEN_VIEWS__ || {};
-        var __htmlFromGlobal = __frozenViews[__frozenId];
-        if (__htmlFromGlobal && __htmlFromGlobal.length > 0) {
-            var __template = document.createElement('template');
-            __template.innerHTML = __htmlFromGlobal;
-            var __newDom = __template.content.firstElementChild;
-            if (__newDom) {
-                vNode.k = _VirtualDom_virtualize(__newDom);
-                return __newDom;
+        var __frozenId = __yRefs[1].slice(${FROZEN_VIEW_PREFIX_LENGTH});
+        var __existingDom = tNode.r;  // DOM from virtualize
+
+        // Check if existing DOM has matching data-static attribute
+        if (__existingDom && __existingDom.nodeType === 1) {
+            var __existingFrozenId = __existingDom.getAttribute('data-static');
+            if (__existingFrozenId === __frozenId) {
+                // Keep the existing DOM - don't evaluate thunk!
+                // x is the virtual node for that DOM, so later diffs have
+                // something real to compare against.
+                y.k = x;
+                __existingDom.elmPagesFrozenHtml = (window.__ELM_PAGES_FROZEN_VIEWS__ || {})[__frozenId];
+                return {
+                    r: __existingDom,
+                    u: false,
+                    v: false
+                };
             }
         }
-        // Fall back to DOM adoption (initial page load - global is empty {})
-        var __existingDom = document.querySelector('[data-static="' + __frozenId + '"]');
-        if (__existingDom) {
-            if (__existingDom.parentNode) __existingDom.parentNode.removeChild(__existingDom);
-            vNode.k = _VirtualDom_virtualize(__existingDom);
-            return __existingDom;
+
+        // Something else is on the page here (SPA navigation to a page with a
+        // frozen view in this spot). Replace it with the frozen view, drawn from
+        // its saved HTML (see the patch in _VirtualDom_render).
+        if (((window.__ELM_PAGES_FROZEN_VIEWS__ || {})[__frozenId] || '').length > 0) {
+            return _VirtualDom_applyPatchRedraw(x, y, eventNode, tNode);
         }
-        var __placeholder = document.createElement('div');
-        __placeholder.setAttribute('data-static', __frozenId);
-        __placeholder.textContent = 'Loading frozen view...';
-        return __placeholder;
     }
 `;
 
 /**
- * Inlined frozen view refs comparison for thunk diffing.
+ * Patch for thunk-vs-thunk comparison (SPA navigation AND re-renders after adoption).
  *
- * For frozen views:
- * - On initial load: global is {}, so we compare by value and cache the adopted DOM
- * - On SPA navigation: global has content, so we virtualize from global instead of calling thunk
- *
- * This allows proper caching on initial load while ensuring navigation updates work.
+ * Cases handled:
+ * 1. Re-render after adoption: x.k is undefined but tNode.r has the adopted DOM
+ *    → Keep existing DOM, don't evaluate thunk
+ * 2. SPA navigation: Need HTML from window.__ELM_PAGES_FROZEN_VIEWS__
+ *    → Parse HTML, return with reinsert flag
  */
-const FROZEN_VIEW_DIFF_CHECK = `
-    // Frozen view: check if refs have magic string prefix
-    var __xIsFrozen = xRefs && xRefs.length >= 2 && typeof xRefs[1] === 'string' && xRefs[1].startsWith('${FROZEN_VIEW_PREFIX}');
+const FROZEN_VIEW_SPA_NAVIGATION = `
+    // Frozen view: check if this is a frozen view thunk
+    // Detection: refs[1] is a string starting with "${FROZEN_VIEW_PREFIX}"
     var __yIsFrozen = yRefs && yRefs.length >= 2 && typeof yRefs[1] === 'string' && yRefs[1].startsWith('${FROZEN_VIEW_PREFIX}');
-    if (__xIsFrozen && __yIsFrozen) {
-        var __frozenId = yRefs[1].slice(${FROZEN_VIEW_PREFIX_LENGTH});
-        var __globalContent = (window.__ELM_PAGES_FROZEN_VIEWS__ || {})[__frozenId];
-        if (__globalContent && __globalContent.length > 0) {
-            // Global has content - SPA navigation
-            // Use REDRAW with the thunk itself (y), not virtualized content
-            // This way render will be called with the thunk, our interception fires,
-            // and we parse HTML fresh with correct SVG namespace
-            _VirtualDom_pushPatch(patches, 0, index, y);
-            return;
-        } else {
-            // No global content - initial load, compare by value to enable caching
-            // Strings compare by value, so this works correctly
-            same = xRefs[1] === yRefs[1];
+    var __xIsFrozen = xRefs && xRefs.length >= 2 && typeof xRefs[1] === 'string' && xRefs[1].startsWith('${FROZEN_VIEW_PREFIX}');
+
+    if (__yIsFrozen && __xIsFrozen) {
+        var __newFrozenId = yRefs[1].slice(${FROZEN_VIEW_PREFIX_LENGTH});
+        var __oldFrozenId = xRefs[1].slice(${FROZEN_VIEW_PREFIX_LENGTH});
+        var __globalContent = (window.__ELM_PAGES_FROZEN_VIEWS__ || {})[__newFrozenId];
+        var __existingDom = tNode.r;
+
+        // Case 1: the frozen view on the page is already this one (a re-render
+        // of the same page). Keep the DOM, skip thunk evaluation.
+        // Two pages can both have a frozen view "0", so the id alone is not
+        // enough: the DOM must also have been made from the current HTML.
+        if (__newFrozenId === __oldFrozenId && __existingDom && __existingDom.nodeType === 1 &&
+            (!__globalContent || __existingDom.elmPagesFrozenHtml === __globalContent)) {
+            y.k = x.k;
+            return {
+                r: __existingDom,
+                u: false,
+                v: false
+            };
         }
-    } else `;
+
+        // Case 2: a different frozen view (SPA navigation). Draw it from its
+        // saved HTML (see the patch in _VirtualDom_render) in place of the old one.
+        if (__globalContent && __globalContent.length > 0 && x.k) {
+            return _VirtualDom_applyPatchRedraw(x.k, y, eventNode, tNode);
+        }
+    }
+`;
 
 /**
- * Auto-detecting frozen view patcher.
+ * Patch for rendering a frozen view from scratch, in _VirtualDom_render.
  *
- * Detects whether the compiled Elm code uses standard virtual-dom or elm-safe-virtual-dom
- * and applies the appropriate patches.
+ * The app's first render happens before the page data has arrived, and replaces
+ * the server-rendered page. So when the real view is drawn, its frozen views are
+ * new nodes that go through render, not through the diff. The same happens
+ * whenever a frozen view appears where there was none before.
  *
- * Detection: elm-safe-virtual-dom uses a tNode parameter for DOM tracking, which appears
- * in patterns like `_VirtualDom_diffHelp(..., eventNode, tNode)`. Standard virtual-dom
- * does not have this parameter.
+ * Original:
+ *   if (tag === 5) {
+ *       return _VirtualDom_render(vNode.k || (vNode.k = vNode.m()), eventNode, tNode);
+ *   }
+ *
+ * The frozen view's HTML is in window.__ELM_PAGES_FROZEN_VIEWS__ (saved from the
+ * server-rendered page before the app starts, and replaced on SPA navigation).
+ * We build the DOM from it, and virtualize it so that the thunk has a real
+ * virtual node (and tNode a real tree) for later diffs.
+ */
+const FROZEN_VIEW_RENDER = `
+        // Frozen view: draw it from its saved HTML instead of evaluating the thunk
+        // Detection: refs[1] is a string starting with "${FROZEN_VIEW_PREFIX}"
+        var __frozenRefs = vNode.l;
+        if (__frozenRefs && __frozenRefs.length >= 2 &&
+            typeof __frozenRefs[1] === 'string' &&
+            __frozenRefs[1].startsWith('${FROZEN_VIEW_PREFIX}')) {
+            var __frozenHtml = (window.__ELM_PAGES_FROZEN_VIEWS__ || {})[__frozenRefs[1].slice(${FROZEN_VIEW_PREFIX_LENGTH})];
+            if (__frozenHtml && __frozenHtml.length > 0) {
+                var __template = document.createElement('template');
+                __template.innerHTML = __frozenHtml;
+                var __frozenDom = __template.content.firstElementChild;
+                if (__frozenDom) {
+                    tNode.r = __frozenDom;
+                    tNode.s = Object.create(null);
+                    vNode.k = _VirtualDom_virtualizeHelp(__frozenDom, tNode);
+                    __frozenDom.elmPagesFrozenHtml = __frozenHtml;
+                    return __frozenDom;
+                }
+            }
+        }
+`;
+
+/**
+ * Patch the compiled Elm output so the virtual DOM can draw frozen views.
  *
  * @param {string} elmCode - The compiled Elm JavaScript code
  * @returns {string} - The patched code
  */
 export function patchFrozenViews(elmCode) {
-  // Detect elm-safe-virtual-dom by looking for the tNode parameter pattern
-  const isESVD = /eventNode\s*,\s*tNode\s*\)/.test(elmCode);
+    let patchedCode = elmCode;
+    let patchCount = 0;
 
-  if (isESVD) {
-    console.log("Detected elm-safe-virtual-dom, applying ESVD frozen view patches.");
-    return patchFrozenViewsESVD(elmCode);
-  }
+    // Patch 1: "old is not thunk, new is thunk" case
+    // This handles initial page load where virtualize has adopted the DOM
+    // Pattern: if (y.$ === 5) { return _VirtualDom_diffHelp(x, y.k || (y.k = y.m()), eventNode, tNode); }
+    const virtualizePatchPattern = /(if\s*\(\s*y\.\$\s*===\s*5\s*\)\s*\{)\s*(return\s+_VirtualDom_diffHelp\s*\(\s*x\s*,\s*y\.k\s*\|\|\s*\(\s*y\.k\s*=\s*y\.m\s*\(\s*\)\s*\)\s*,\s*eventNode\s*,\s*tNode\s*\))/;
 
-  return patchFrozenViewsStandard(elmCode);
-}
-
-/**
- * Patches the thunk rendering code in the compiled Elm output for standard virtual-dom.
- *
- * Original thunk rendering (from kernel code):
- *   if (tag === __2_THUNK) {
- *     return _VirtualDom_render(vNode.__node || (vNode.__node = vNode.__thunk()), eventNode);
- *   }
- *
- * In compiled/optimized output this becomes something like:
- *   if (tag === 5) { return _VirtualDom_render(vNode.k || (vNode.k = vNode.m()), eventNode); }
- *
- * Patched version:
- *   if (tag === 5) {
- *     if (_VirtualDom_isFrozenView(vNode.l)) {
- *       return _VirtualDom_handleFrozenView(vNode, vNode.l, eventNode);
- *     }
- *     return _VirtualDom_render(vNode.k || (vNode.k = vNode.m()), eventNode);
- *   }
- *
- * Note: In compiled Elm output:
- * - Tag 5 = THUNK (lazy node)
- * - vNode.l = refs array (__refs)
- * - vNode.k = cached node (__node)
- * - vNode.m = thunk function (__thunk)
- */
-export function patchFrozenViewsStandard(elmCode) {
-  let patchedCode = elmCode;
-  let patched = false;
-
-  // Pattern 1: Standard debug/development mode
-  // if (tag === 5) { return _VirtualDom_render(vNode.k || (vNode.k = vNode.m()), eventNode); }
-  const debugPattern = /(if\s*\(\s*tag\s*===\s*5\s*\)\s*\{)\s*(return\s+_VirtualDom_render\s*\(\s*vNode\.k\s*\|\|\s*\(\s*vNode\.k\s*=\s*vNode\.m\s*\(\s*\)\s*\)\s*,\s*eventNode\s*\))/g;
-
-  if (debugPattern.test(patchedCode)) {
-    patchedCode = patchedCode.replace(debugPattern,
-      `$1${FROZEN_VIEW_INLINE_CHECK}
+    if (virtualizePatchPattern.test(patchedCode)) {
+        patchedCode = patchedCode.replace(virtualizePatchPattern,
+            `$1${FROZEN_VIEW_VIRTUALIZE_ADOPTION}
     $2`
-    );
-    patched = true;
-  }
-
-  // Pattern 2: elm-hot injected pattern (might have slightly different formatting)
-  if (!patched) {
-    const elmHotPattern = /(if\s*\(\s*tag\s*===\s*5\s*\))\s*\{([^}]*return\s+_VirtualDom_render[^}]*)\}/g;
-
-    if (elmHotPattern.test(patchedCode)) {
-      patchedCode = patchedCode.replace(elmHotPattern, (match, condition, body) => {
-        // Check if we already patched it
-        if (body.includes('__frozenRefs')) {
-          return match;
-        }
-        return `${condition} {${FROZEN_VIEW_INLINE_CHECK}
-    ${body.trim()}
-  }`;
-      });
-      patched = true;
+        );
+        patchCount++;
     }
-  }
 
-  // Pattern 3: Very general fallback - just find the thunk case
-  if (!patched) {
-    // More lenient pattern: find "tag === 5" followed by return _VirtualDom_render
-    const generalPattern = /(if\s*\(\s*tag\s*===\s*5\s*\)\s*\{[^}]*)(return\s+_VirtualDom_render)/;
+    // Patch 2: thunk-vs-thunk comparison for SPA navigation and re-renders
+    // Pattern: after the refs comparison loop, before y.k = y.m()
+    const spaNavigationPattern = /(var\s+xRefs\s*=\s*x\.l\s*;\s*var\s+yRefs\s*=\s*y\.l\s*;[\s\S]*?while\s*\(\s*same\s*&&\s*i\s*--\s*\)\s*\{[\s\S]*?\}\s*if\s*\(\s*same\s*\)\s*\{[\s\S]*?\})\s*(y\.k\s*=\s*y\.m\s*\(\s*\)\s*;)/;
 
-    if (generalPattern.test(patchedCode)) {
-      patchedCode = patchedCode.replace(generalPattern,
-        `$1${FROZEN_VIEW_INLINE_CHECK}
-    $2`
-      );
-      patched = true;
+    if (spaNavigationPattern.test(patchedCode)) {
+        patchedCode = patchedCode.replace(spaNavigationPattern,
+            `$1
+                ${FROZEN_VIEW_SPA_NAVIGATION}
+                $2`
+        );
+        patchCount++;
     }
-  }
 
-  if (!patched) {
-    throw new Error('Could not patch thunk rendering for frozen views - virtual-dom structure may have changed');
-  }
+    // Patch 3: rendering a frozen view from scratch
+    // Pattern: if (tag === 5) { return _VirtualDom_render(vNode.k || (vNode.k = vNode.m()), eventNode, tNode); }
+    const renderPattern = /(if\s*\(\s*tag\s*===\s*5\s*\)\s*\{)\s*(return\s+_VirtualDom_render\s*\(\s*vNode\.k\s*\|\|\s*\(\s*vNode\.k\s*=\s*vNode\.m\s*\(\s*\)\s*\)\s*,\s*eventNode\s*,\s*tNode\s*\))/;
 
-  // Now patch the thunk DIFFING code to handle frozen view comparison
-  // The diff code compares refs by reference, but frozen views create new objects each render
-  // We need to use value comparison for frozen views
-  patchedCode = patchThunkDiffing(patchedCode);
+    if (renderPattern.test(patchedCode)) {
+        patchedCode = patchedCode.replace(renderPattern,
+            `$1${FROZEN_VIEW_RENDER}
+        $2`
+        );
+        patchCount++;
+    }
 
-  return patchedCode;
-}
+    if (patchCount < 3) {
+        throw new Error(
+            `elm-pages could not patch the compiled virtual DOM for frozen views (${patchCount} of 3 patches applied). ` +
+            `The compiled code does not look like the output of a Lamdera version that this elm-pages supports. ` +
+            `If you just updated Lamdera, this version of elm-pages needs an update too.`
+        );
+    }
 
-/**
- * Patches the thunk diffing code to handle frozen view comparison.
- *
- * Original diffing (in _VirtualDom_diffHelp, case 5 for THUNK):
- *   var xRefs = x.l;
- *   var yRefs = y.l;
- *   var i = xRefs.length;
- *   var same = i === yRefs.length;
- *   while (same && i--) {
- *       same = xRefs[i] === yRefs[i];
- *   }
- *   if (same) { y.k = x.k; return; }
- *
- * We need to add a special case for frozen views that detects the magic string prefix
- * and handles caching/navigation correctly.
- */
-function patchThunkDiffing(elmCode) {
-  // Look for the thunk diffing pattern in _VirtualDom_diffHelp
-  // Pattern: case 5 followed by refs comparison loop
-
-  // First, try to find and patch the specific pattern
-  // The key is the "while (same && i--)" loop with "xRefs[i] === yRefs[i]"
-
-  const diffPattern = /(case\s+5\s*:[\s\S]*?var\s+xRefs\s*=\s*x\.l\s*;[\s\S]*?var\s+yRefs\s*=\s*y\.l\s*;[\s\S]*?)(var\s+same\s*=\s*i\s*===\s*yRefs\.length\s*;[\s\S]*?while\s*\(\s*same\s*&&\s*i\s*--\s*\)\s*\{[\s\S]*?same\s*=\s*xRefs\[i\]\s*===\s*yRefs\[i\]\s*;[\s\S]*?\})/;
-
-  if (diffPattern.test(elmCode)) {
-    elmCode = elmCode.replace(diffPattern, (match, prefix, comparison) => {
-      return `${prefix}${FROZEN_VIEW_DIFF_CHECK}{
-				${comparison}
-			}`;
-    });
-    return elmCode;
-  }
-
-  // Fallback: try a more lenient pattern
-  // Look for the while loop with xRefs[i] === yRefs[i]
-  const fallbackPattern = /(var\s+xRefs\s*=\s*x\.l[\s\S]{0,200}?)(while\s*\(\s*same\s*&&\s*i\s*--\s*\)\s*\{\s*same\s*=\s*xRefs\[i\]\s*===\s*yRefs\[i\]\s*;\s*\})/;
-
-  if (fallbackPattern.test(elmCode)) {
-    elmCode = elmCode.replace(fallbackPattern, (match, prefix, whileLoop) => {
-      return `${prefix}${FROZEN_VIEW_DIFF_CHECK}{
-				${whileLoop}
-			}`;
-    });
-    return elmCode;
-  }
-
-  throw new Error('Could not patch thunk diffing for frozen views - virtual-dom structure may have changed');
+    return patchedCode;
 }
 
 export default { patchFrozenViews };

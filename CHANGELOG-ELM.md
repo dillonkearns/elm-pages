@@ -7,6 +7,19 @@ will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- The package now needs `elm/virtual-dom` 1.0.5, the newest version
+  that Lamdera 1.5.0 accepts.
+
+### Fixed
+
+- `Test.PagesProgram` made the Lamdera 1.5.0 compiler crash with
+  `index out of bounds (3,3)`. A type annotation on an internal helper
+  avoids the compiler bug.
+
 ## [12.3.0] - 2026-05-10
 
 ### Added

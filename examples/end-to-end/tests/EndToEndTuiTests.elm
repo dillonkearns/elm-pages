@@ -1,4 +1,4 @@
-module TuiTests exposing (suite, tuiTests)
+module EndToEndTuiTests exposing (suite, tuiTests)
 
 import BackendTask
 import Test

@@ -122,6 +122,11 @@ print("bundle-script --help OK")
 # Stream tests - tests gzip, unzip, command stdin handling, etc.
 (cd examples/end-to-end && npm ci && npx elm-pages run script/src/StreamTests.elm)
 
+# Frozen views in a production build - the server must wrap them, and the code and data
+# that only they use must be left out of the client bundle. This also fails if the
+# elm-review transforms did not run at all.
+(cd examples/end-to-end && npx elm-pages build --debug && node check-frozen-views.mjs)
+
 # File/Script utility tests - tests file operations, optional, finally, etc.
 (cd examples/end-to-end && npx elm-pages run script/src/FileTests.elm)
 

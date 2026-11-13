@@ -10,7 +10,10 @@ HTML for adoption by the virtual-dom.
     -- View.freeze (user-defined in View.elm):
     View.freeze (heavyRender data)
     -- becomes:
-    Html.Lazy.lazy (\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable
+    View.freeze (Html.Lazy.lazy (\_ -> Html.text "") "__ELM_PAGES_STATIC__0" |> View.htmlToFreezable)
+
+The call to `freeze` stays: it is the user's own function, and the only one that
+knows how to turn their `Freezable` into their view type. Only its argument changes.
 
 ## Data Type Transformation
 
@@ -1413,7 +1416,7 @@ extractFreezeCall node lookupTable =
 handleViewFreezeCall : Node Expression -> Node Expression -> Node Expression -> Context -> ( List (Error {}), Context )
 handleViewFreezeCall functionNode freezeArg node context =
     case Node.value functionNode of
-        Expression.FunctionOrValue _ "freeze" ->
+        Expression.FunctionOrValue freezeQualifier "freeze" ->
             -- First check: are we inside a nested freeze call?
             -- Nested freeze should be a no-op - only transform the outermost freeze
             if context.sharedState.freezeCallDepth > 1 then
@@ -1445,22 +1448,49 @@ handleViewFreezeCall functionNode freezeArg node context =
                         ( [ emitDeOptimizationCount (Node.range node) "tainted_argument" ], context )
 
                     Taint.Pure ->
-                        -- Safe to transform - no model dependency
-                        let
-                            -- Generate inlined lazy thunk with View.htmlToFreezable wrapper
-                            replacement =
-                                inlinedLazyThunk context
+                        if isFrozenViewPlaceholder freezeArg then
+                            -- Already transformed (elm-review runs the rule again after
+                            -- applying fixes). Count it so the next frozen view gets the next id.
+                            ( [], { context | staticIndex = context.staticIndex + 1 } )
 
-                            fixes =
-                                [ Review.Fix.replaceRangeBy (Node.range node) replacement ]
-                                    ++ htmlLazyImportFix context
-                        in
-                        ( [ createTransformErrorWithFixes "View.freeze" "inlined lazy thunk" node fixes ]
-                        , { context | staticIndex = context.staticIndex + 1 }
-                        )
+                        else
+                            -- Safe to transform - no model dependency.
+                            -- Only the argument is replaced. The call to the user's `freeze`
+                            -- stays, because it is the one function that knows how to turn
+                            -- `Freezable` into the project's view type (elm/html, elm-css, ...).
+                            let
+                                fixes =
+                                    [ Review.Fix.replaceRangeBy (Node.range freezeArg) (inlinedLazyThunk freezeQualifier context) ]
+                                        ++ htmlLazyImportFix context
+                            in
+                            ( [ createTransformErrorWithFixes "View.freeze" "inlined lazy thunk" node fixes ]
+                            , { context | staticIndex = context.staticIndex + 1 }
+                            )
 
         _ ->
             ( [], context )
+
+
+{-| Whether a `freeze` argument is the placeholder this rule puts there:
+an expression containing the magic `"__ELM_PAGES_STATIC__..."` string.
+-}
+isFrozenViewPlaceholder : Node Expression -> Bool
+isFrozenViewPlaceholder node =
+    case Node.value node of
+        Expression.Literal string ->
+            String.startsWith "__ELM_PAGES_STATIC__" string
+
+        Expression.ParenthesizedExpression inner ->
+            isFrozenViewPlaceholder inner
+
+        Expression.Application nodes ->
+            List.any isFrozenViewPlaceholder nodes
+
+        Expression.OperatorApplication _ _ left right ->
+            isFrozenViewPlaceholder left || isFrozenViewPlaceholder right
+
+        _ ->
+            False
 
 
 createTransformErrorWithFixes : String -> String -> Node Expression -> List Review.Fix.Fix -> Error {}
@@ -1521,26 +1551,33 @@ htmlLazyImportFix context =
         ]
 
 
-{-| Generate inlined lazy thunk with View.htmlToFreezable wrapper and map never.
+{-| Generate the placeholder that replaces the argument of a `freeze` call:
 
-The generated code (using elm/html's Html module throughout):
-
-    Html.Lazy.lazy (\_ -> Html.text "") "__ELM_PAGES_STATIC__0"
+    (Html.Lazy.lazy (\_ -> Html.text "") "__ELM_PAGES_STATIC__0"
         |> View.htmlToFreezable
-        |> Html.map never
+    )
 
-This creates a lazy thunk with a magic string prefix that the virtual-dom codemod
-detects at runtime to adopt pre-rendered HTML. The View.htmlToFreezable wrapper
-converts the Html.Html Never back to the user's Freezable type, and Html.map never
-converts from `Freezable` (Html Never) to `Html msg`.
+This is a lazy thunk with a magic string prefix that the virtual-dom codemod
+detects at runtime to draw the pre-rendered HTML instead. `View.htmlToFreezable`
+turns it into the user's `Freezable` type, and the surrounding call to the user's
+`freeze` (which this rule leaves in place) turns that into their view type.
 
 When Html is not already imported, we add `import Html as ElmPages__Html` to avoid
 conflicts with user imports (e.g., `import Accessibility as Html`).
 
 -}
-inlinedLazyThunk : Context -> String
-inlinedLazyThunk context =
+inlinedLazyThunk : ModuleName -> Context -> String
+inlinedLazyThunk freezeQualifier context =
     let
+        -- Refer to `htmlToFreezable` the same way the code refers to `freeze`,
+        -- so `import View as V` with `V.freeze` gives `V.htmlToFreezable`.
+        viewPrefix =
+            if List.isEmpty freezeQualifier then
+                "View"
+
+            else
+                String.join "." freezeQualifier
+
         htmlLazyPrefix =
             case context.htmlLazyImport of
                 ImportedAs alias ->
@@ -1559,10 +1596,6 @@ inlinedLazyThunk context =
                 NotImported ->
                     "ElmPages__Html"
 
-        -- Always use elm/html for map never, same prefix as for text
-        mapPrefix =
-            htmlPrefix
-
         -- Magic prefix that vdom codemod detects
         -- Shared module uses "shared:" prefix to distinguish from Route frozen views
         staticId =
@@ -1576,7 +1609,7 @@ inlinedLazyThunk context =
             in
             "\"__ELM_PAGES_STATIC__" ++ prefix ++ String.fromInt context.staticIndex ++ "\""
     in
-    "(" ++ htmlLazyPrefix ++ ".lazy (\\_ -> " ++ htmlPrefix ++ ".text \"\") " ++ staticId ++ " |> View.htmlToFreezable |> " ++ mapPrefix ++ ".map never)"
+    "(" ++ htmlLazyPrefix ++ ".lazy (\\_ -> " ++ htmlPrefix ++ ".text \"\") " ++ staticId ++ " |> " ++ viewPrefix ++ ".htmlToFreezable)"
 
 
 {-| Final evaluation - emit Data type transformation if there are removable fields.

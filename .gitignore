@@ -28,3 +28,5 @@ tests/viewer-app/elm-stuff/
 # elm-wrap artifacts
 artifacts.dat
 artifacts.x.dat
+# Lamdera 1.5.0+ names its package artifacts after the compiler version
+artifacts.lamdera-*.dat

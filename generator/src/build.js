@@ -3,6 +3,8 @@ import * as fsPromises from "fs/promises";
 import { runElmReview, elmOptimizeLevel2, resolveCompileMode, modeToOptions } from "./compile-elm.js";
 import { patchFrozenViews } from "./frozen-view-codemod.js";
 import { restoreColorSafe } from "./error-formatter.js";
+import { requireSupportedLamderaVersion } from "./lamdera-version.js";
+import { requireSupportedElmReviewVersion } from "./elm-review-version.js";
 import * as path from "path";
 import { spawn as spawnCallback } from "cross-spawn";
 import * as codegen from "./codegen.js";
@@ -109,9 +111,11 @@ async function ensureRequiredExecutables(options) {
   if (checks[0].status === "rejected") {
     throw "I couldn't find lamdera on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
+  requireSupportedLamderaVersion();
   if (checks[1].status === "rejected") {
     throw "I couldn't find elm-review on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
+  requireSupportedElmReviewVersion();
 }
 
 export async function run(options) {
@@ -570,7 +574,7 @@ async function compileElm(options, config) {
     path.join(process.cwd(), "./elm-stuff/elm-pages/client")
   );
 
-  // Apply frozen view adoption codemod (auto-detects standard vs elm-safe-virtual-dom)
+  // Patch the virtual DOM so it can draw frozen views
   const elmCode = await fsPromises.readFile(fullOutputPath, "utf-8");
   const patchedCode = patchFrozenViews(elmCode);
   await fsPromises.writeFile(fullOutputPath, patchedCode);

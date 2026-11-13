@@ -3,6 +3,7 @@
  */
 
 import * as fs from "node:fs";
+import { requireSupportedLamderaVersion } from "../lamdera-version.js";
 import * as path from "node:path";
 import * as url from "node:url";
 import { createRequire } from "node:module";
@@ -949,12 +950,13 @@ export async function requireLamdera() {
   const { default: which } = await import("which");
   try {
     await which("lamdera");
-    lamderaVerified = true;
   } catch (error) {
     throw new Error(
       "I couldn't find lamdera on the PATH. elm-pages requires the lamdera compiler.\nhttps://lamdera.com"
     );
   }
+  requireSupportedLamderaVersion();
+  lamderaVerified = true;
   return "lamdera";
 }
 
