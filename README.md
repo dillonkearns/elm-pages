@@ -31,3 +31,21 @@ You will see an error if the NPM and Elm package do not have a matching Compatib
 packages when you upgrade. However, in case you want to install versions that are behind the latest, the Compatibility Key is included here for reference.
 
 Current Compatibility Key: 29.
+
+## Why is `elm/virtual-dom` held at 1.0.5?
+
+`elm-pages` compiles your app with [Lamdera](https://lamdera.com), and Lamdera 1.5.0 swaps in its own copy of `elm/virtual-dom`, based on [elm-safe-virtual-dom](https://github.com/lydell/elm-safe-virtual-dom). That copy is what keeps your app working when a browser extension changes the page, and it is how frozen views are drawn from the server's HTML.
+
+Each Lamdera release only accepts the `elm/virtual-dom` versions it knows about. Lamdera 1.5.0 accepts up to 1.0.5, and stops with an error if your `elm.json` asks for a newer one:
+
+```
+"elm/virtual-dom": "1.0.0 <= v <= 1.0.5"
+
+But your elm.json contains:
+
+    "elm/virtual-dom": "1.0.6"
+
+You need to update the Lamdera compiler.
+```
+
+So the `elm-pages` Elm package asks for exactly `elm/virtual-dom` 1.0.5. If you see the error above, or a dependency conflict about `elm/virtual-dom` when you install `elm-pages`, set `elm/virtual-dom` to `1.0.5` in your `elm.json`. Nothing is lost by this: Lamdera uses its own copy either way. The limit will go up when a Lamdera release accepts a newer version.
