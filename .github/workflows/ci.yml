@@ -101,7 +101,7 @@ jobs:
       - name: DB migration E2E test
         run: cd examples/end-to-end && node ../../generator/src/cli.js run TestMigration
       - name: Cypress tests
-        uses: cypress-io/github-action@v6
+        uses: cypress-io/github-action@v7
         with:
           working-directory: examples/end-to-end
           start: node ../../generator/src/cli.js dev --debug
@@ -110,7 +110,7 @@ jobs:
       - name: Production build for frozen view tests
         run: cd examples/end-to-end && node ../../generator/src/cli.js build --debug && node check-frozen-views.mjs
       - name: Cypress tests (production build)
-        uses: cypress-io/github-action@v6
+        uses: cypress-io/github-action@v7
         with:
           working-directory: examples/end-to-end
           install: false
