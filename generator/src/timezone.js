@@ -73,11 +73,14 @@ function partsToMs(parts) {
 
 /**
  * Get UTC offset in minutes for a timezone at a given instant.
+ * Rounded to whole minutes because elm/time only accepts Int offsets, and a
+ * few zones had offsets with seconds in the past (Africa/Monrovia was
+ * UTC-0:44:30 until 1972).
  */
 function getOffsetMinutesIntl(tzId, ms) {
   const utcMs = partsToMs(utcFormatter.formatToParts(ms));
   const localMs = partsToMs(getTzFormatter(tzId).formatToParts(ms));
-  return (localMs - utcMs) / 60000;
+  return Math.round((localMs - utcMs) / 60000);
 }
 
 /**
@@ -98,19 +101,22 @@ function binarySearchTransition(tzId, loMs, hiMs, offsetBefore) {
 /**
  * Get timezone transition data using the Intl API (scan + binary search).
  * Scans every 2 weeks to catch even rare mid-month transitions.
+ * Includes transitions up to and including untilMs.
  */
 export function getTimezoneDataIntl(tzId, sinceMs, untilMs) {
   const defaultOffset = getOffsetMinutesIntl(tzId, sinceMs);
   const eras = [];
   let prevOffset = defaultOffset;
 
-  let scanMs = sinceMs + TWO_WEEKS_MS;
-  while (scanMs <= untilMs) {
+  let prevScanMs = sinceMs;
+  while (prevScanMs < untilMs) {
+    // The last step is shortened so it lands exactly on the end of the range.
+    const scanMs = Math.min(prevScanMs + TWO_WEEKS_MS, untilMs);
     const offset = getOffsetMinutesIntl(tzId, scanMs);
     if (offset !== prevOffset) {
       const exactMs = binarySearchTransition(
         tzId,
-        scanMs - TWO_WEEKS_MS,
+        prevScanMs,
         scanMs,
         prevOffset
       );
@@ -120,7 +126,7 @@ export function getTimezoneDataIntl(tzId, sinceMs, untilMs) {
       });
       prevOffset = offset;
     }
-    scanMs += TWO_WEEKS_MS;
+    prevScanMs = scanMs;
   }
 
   // elm/time expects eras sorted newest-first
@@ -143,6 +149,11 @@ function supportsTemporalTransitions() {
   );
 }
 
+/** UTC offset in whole minutes (see getOffsetMinutesIntl for why it is rounded). */
+function offsetMinutes(zonedDateTime) {
+  return Math.round(zonedDateTime.offsetNanoseconds / 60_000_000_000);
+}
+
 /**
  * Get timezone transition data using the Temporal API (direct transition walking).
  */
@@ -151,13 +162,13 @@ export function getTimezoneDataTemporal(tzId, sinceMs, untilMs) {
   const start =
     Temporal.Instant.fromEpochMilliseconds(sinceMs).toZonedDateTimeISO(tzId);
 
-  const defaultOffset = start.offsetNanoseconds / 60_000_000_000;
+  const defaultOffset = offsetMinutes(start);
   const eras = [];
   let prevOffset = defaultOffset;
 
   let transition = start.getTimeZoneTransition("next");
-  while (transition && transition.epochMilliseconds < untilMs) {
-    const offset = transition.offsetNanoseconds / 60_000_000_000;
+  while (transition && transition.epochMilliseconds <= untilMs) {
+    const offset = offsetMinutes(transition);
     if (offset !== prevOffset) {
       eras.push({
         start: Math.floor(transition.epochMilliseconds / 60000),

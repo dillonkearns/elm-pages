@@ -129,6 +129,18 @@ run =
                                 Time.toHour z (Time.millisToPosix 1704067200000)
                                     |> Expect.equal 0
                             )
+                    , BackendTask.Time.zoneByNameFor "Africa/Monrovia"
+                        (between
+                            { since = Date.fromCalendarDate 1960 Time.Jan 1
+                            , until = Date.fromCalendarDate 1980 Time.Jan 1
+                            }
+                        )
+                        |> testTask "zoneByNameFor: Monrovia offset that is not a whole minute (UTC-0:44:30)"
+                            (\z ->
+                                -- Jan 1, 1970 00:00 UTC = Dec 31, 1969 23:15:30 in Monrovia
+                                Time.toHour z (Time.millisToPosix 0)
+                                    |> Expect.equal 23
+                            )
                     ]
                     |> BackendTaskTest.run
             )

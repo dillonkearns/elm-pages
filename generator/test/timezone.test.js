@@ -12,6 +12,10 @@ function request(args) {
   return { body: { args: [args] } };
 }
 
+const hasTemporalTransitions =
+  typeof globalThis.Temporal?.ZonedDateTime?.prototype
+    ?.getTimeZoneTransition === "function";
+
 const zones = [
   "America/New_York",
   "Europe/London",
@@ -62,10 +66,50 @@ describe("runTimezone", () => {
   });
 });
 
-describe.runIf(
-  typeof globalThis.Temporal?.ZonedDateTime?.prototype
-    ?.getTimeZoneTransition === "function"
-)("getTimezoneDataTemporal", () => {
+describe("getTimezoneDataIntl", () => {
+  it("finds a change in the last days of the range", () => {
+    const result = getTimezoneDataIntl(
+      "America/New_York",
+      Date.UTC(2024, 0, 1),
+      Date.UTC(2024, 10, 3, 12)
+    );
+
+    expect(result.eras[0]).toEqual({
+      start: Date.UTC(2024, 10, 3, 6) / 60000,
+      offset: -300,
+    });
+  });
+});
+
+// Liberia was 44 minutes and 30 seconds behind UTC until 1972. Elm only
+// accepts whole minutes.
+describe("zones with offsets that are not whole minutes", () => {
+  const liberiaSince = Date.UTC(1960, 0, 1);
+  const liberiaUntil = Date.UTC(1980, 0, 1);
+  const expected = {
+    defaultOffset: -44,
+    eras: [
+      { start: Math.floor(Date.UTC(1972, 0, 7, 0, 44, 30) / 60000), offset: 0 },
+    ],
+  };
+
+  it("rounds to whole minutes with Intl", () => {
+    expect(
+      getTimezoneDataIntl("Africa/Monrovia", liberiaSince, liberiaUntil)
+    ).toEqual(expected);
+  });
+
+  it.runIf(hasTemporalTransitions)(
+    "rounds to whole minutes with Temporal",
+    () => {
+      expect(
+        getTimezoneDataTemporal("Africa/Monrovia", liberiaSince, liberiaUntil)
+      ).toEqual(expected);
+    }
+  );
+});
+
+describe.runIf(hasTemporalTransitions)("getTimezoneDataTemporal", () => {
   it.each(zones)("matches the Intl fallback for %s", (tzId) => {
     expect(getTimezoneDataTemporal(tzId, since, until)).toEqual(
       getTimezoneDataIntl(tzId, since, until)
