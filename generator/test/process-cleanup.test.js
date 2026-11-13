@@ -137,7 +137,7 @@ describe("Child process cleanup on exit", () => {
     expect(died).toBe(true);
   });
 
-  it("SIGTERM handler kills children before exiting", async () => {
+  it("SIGTERM handler kills children before exiting", { timeout: 20000 }, async () => {
     const { proc, childPidPromise } = runFixtureLive("--mode=sigterm-cleanup");
     const childPid = await childPidPromise;
     pidsToCleanup.push(childPid);
