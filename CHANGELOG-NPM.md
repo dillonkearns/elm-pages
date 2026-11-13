@@ -18,8 +18,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   `elm-pages`.
 - Hot reloading in `elm-pages dev` now uses the hot reloading that
   Lamdera 1.5.0 builds into compiled code, instead of `elm-hot`. The
-  running app keeps its model and ports when new code arrives. The
-  `elm-hot` dependency is gone.
+  running app keeps its model and ports when new code arrives. If the
+  new code cannot be swapped in (for example the model changed shape),
+  the page reloads instead. The `elm-hot` dependency is gone.
 - The frozen view patch for the older virtual DOM is removed, along with
   the detection that chose between the two. If the compiled code is not
   what elm-pages expects, the build now stops instead of shipping pages

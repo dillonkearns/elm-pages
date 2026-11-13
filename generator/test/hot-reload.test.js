@@ -86,6 +86,12 @@ function compileCounter(version) {
 function createPage() {
   const page = vm.createContext({ console, setTimeout, clearTimeout });
   page.window = page;
+  page.pageReloads = 0;
+  page.location = {
+    reload() {
+      page.pageReloads += 1;
+    },
+  };
   vm.runInContext(hmrClientCode, page, { filename: "hmr.js" });
   return page;
 }
@@ -120,5 +126,18 @@ describe("hot reloading with the installed lamdera", { timeout: 120000 }, () => 
     await vi.waitFor(() =>
       expect(reports).toEqual(["v1:1", "v1:2", "v2:3"])
     );
+    expect(page.pageReloads).toBe(0);
+  });
+
+  it("reloads the page when the new code cannot be swapped in", async () => {
+    const page = createPage();
+    vm.runInContext(compileCounter("v1"), page, { filename: "elm.js" });
+    vm.runInContext("var app = Elm.Counter.init({});", page);
+    const quietConsole = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await page.applyElmJs("throw new Error('this bundle is broken');");
+
+    quietConsole.mockRestore();
+    expect(page.pageReloads).toBe(1);
   });
 });

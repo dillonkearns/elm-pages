@@ -189,12 +189,25 @@ async function waitFor(millis) {
  * `view`, `update` and `subscriptions`. The app keeps running, with the same
  * model and the same ports.
  *
+ * That cannot always work. The old model may not fit the new code (say a
+ * field was added to it), which shows up as an error while redrawing. In that
+ * case we load the page again, so you get the new code with a fresh model.
+ *
  * @param {string} elmJs - the contents of the dev server's `/elm.js`
  */
 async function applyElmJs(elmJs) {
-  var newScope = {};
-  new Function(elmJs).call(newScope);
-  window.Elm.hot.reload(newScope);
+  try {
+    var newScope = {};
+    new Function(elmJs).call(newScope);
+    window.Elm.hot.reload(newScope);
+  } catch (error) {
+    console.error(
+      "[elm-pages] Could not hot reload, so the page is being reloaded instead.",
+      error
+    );
+    window.location.reload();
+    return;
+  }
   // Send the page's latest data to the app, in case that changed too.
   (await updateAppContentJson)();
 }
