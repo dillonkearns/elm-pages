@@ -26,7 +26,10 @@ const cliPath = path.resolve(__dirname, "..", "..", "src", "cli.js");
 const fixtureElmJson = JSON.parse(fs.readFileSync(path.join(fixtureDir, "elm.json"), "utf-8"));
 const fixturePkgVersion = fixtureElmJson.dependencies.direct["dillonkearns/elm-pages"];
 const elmHome = process.env.ELM_HOME || path.join(process.env.HOME, ".elm");
-const pkgPath = path.join(elmHome, "0.19.1", "packages", "dillonkearns", "elm-pages", fixturePkgVersion);
+// The compiler keeps its package cache in a folder named after the Elm version
+// it is built on, which is what `lamdera --version` prints (for example 0.19.3).
+const compilerElmVersion = spawnSync("lamdera", ["--version"], { encoding: "utf-8" }).stdout.trim();
+const pkgPath = path.join(elmHome, compilerElmVersion, "packages", "dillonkearns", "elm-pages", fixturePkgVersion);
 let createdSymlink = false;
 
 // Replace whatever is at pkgPath with a symlink to the repo root.
@@ -87,7 +90,16 @@ function runCoverage(extraArgs = []) {
   return { consoleOutput, lcovContent };
 }
 
-describe("elm-pages run --coverage", () => {
+// These tests instrument code with `elm-instrument`, which CI installs with
+// `npm install -g elm-coverage`. It is only published as an x64 binary, so it
+// cannot run on an Apple Silicon Mac without Rosetta. Skip them where it cannot
+// run, but never on CI, so a broken CI setup still fails loudly.
+const elmInstrumentRuns =
+  spawnSync("elm-instrument", ["--help"], { encoding: "utf-8" }).error === undefined;
+const describeWithElmInstrument =
+  elmInstrumentRuns || process.env.CI ? describe : describe.skip;
+
+describeWithElmInstrument("elm-pages run --coverage", () => {
   let result;
   beforeAll(() => { result = runCoverage(); }, 120_000);
 
@@ -101,7 +113,7 @@ describe("elm-pages run --coverage", () => {
   });
 });
 
-describe("elm-pages run --coverage --coverage-exclude", () => {
+describeWithElmInstrument("elm-pages run --coverage --coverage-exclude", () => {
   let result;
   beforeAll(() => { result = runCoverage(["--coverage-exclude", "lib"]); }, 120_000);
 
@@ -121,7 +133,7 @@ describe("elm-pages run --coverage --coverage-exclude", () => {
   });
 });
 
-describe("elm-pages run --coverage --coverage-include", () => {
+describeWithElmInstrument("elm-pages run --coverage --coverage-include", () => {
   let result;
   beforeAll(() => { result = runCoverage(["--coverage-include", "lib"]); }, 120_000);
 
@@ -139,7 +151,7 @@ describe("elm-pages run --coverage --coverage-include", () => {
   });
 });
 
-describe("elm-pages run --coverage --coverage-exclude-module", () => {
+describeWithElmInstrument("elm-pages run --coverage --coverage-exclude-module", () => {
   let result;
   beforeAll(() => { result = runCoverage(["--coverage-exclude-module", "RunGreet"]); }, 120_000);
 

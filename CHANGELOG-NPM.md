@@ -7,6 +7,48 @@ will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Breaking:** Lamdera 1.5.0 or later is now required. `elm-pages`
+  checks the version of `lamdera` on your PATH and tells you how to
+  update if it is too old (`npm install --save-dev lamdera@latest`).
+  Projects that need to stay on an older Lamdera can stay on an older
+  `elm-pages`.
+- Hot reloading in `elm-pages dev` now uses the hot reloading that
+  Lamdera 1.5.0 builds into compiled code, instead of `elm-hot`. The
+  running app keeps its model and ports when new code arrives. The
+  `elm-hot` dependency is gone.
+- Pre-rendered HTML now has a `data-elm` attribute on each element.
+  This comes from the safe virtual DOM that Lamdera 1.5.0 uses, which
+  needs it to pick up server-rendered elements in the browser. The
+  attribute is removed again on the first render.
+- `elm-pages init` template now installs Lamdera 1.5.0.
+- **Breaking:** elm-review 2.13.3 or later is now required, and checked
+  at startup. With older versions, elm-review found nothing when its
+  rules were built with Lamdera, so builds skipped frozen views and dead
+  code elimination without any warning.
+- A build now stops with an explanation when elm-review could not review
+  the project (for example two modules with the same name), or reported
+  nothing at all. Before, the build carried on without the frozen view
+  and dead code transforms.
+
+### Fixed
+
+- `elm-pages dev` failed to serve the app with Lamdera 1.5.0
+  (`[elm-hot] Browser.Navigation.Key def not found`).
+- The dev server no longer crashes when preparing the client code fails
+  with an unexpected error. The error is shown in the browser overlay.
+- `View.freeze` in a project whose `View` is not plain `elm/html` (for
+  example elm-css) no longer fails to compile in a production build. The
+  client transform now keeps your `View.freeze` call and only replaces
+  its argument.
+- Frozen views (`View.freeze`) disappeared from the page when the app
+  started, and after client-side navigation, with the safe virtual DOM
+  that Lamdera 1.5.0 uses. They are now drawn from the server-rendered
+  HTML in both cases.
+
 ## [3.5.1] - 2026-05-11
 
 ### Changed

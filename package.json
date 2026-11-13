@@ -39,7 +39,6 @@
     "cross-spawn": "7.0.6",
     "devcert": "^1.2.3",
     "elm-doc-preview": "^6.0.1",
-    "elm-hot": "^1.1.6",
     "elm-optimize-level-2": "^0.4.0",
     "esbuild": "^0.27.4",
     "fs-extra": "^11.3.3",
@@ -72,7 +71,7 @@
     "elm-test": "^0.19.1-revision17",
     "elm-tooling": "^1.17.0",
     "elm-verify-examples": "^6.0.3",
-    "lamdera": "0.19.1-1.4.0",
+    "lamdera": "0.19.3-1.5.0",
     "prettier": "^3.8.1",
     "typescript": "^6.0.2",
     "vitest": "^4.1.2"

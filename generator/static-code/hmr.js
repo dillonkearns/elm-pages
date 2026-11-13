@@ -25,8 +25,7 @@ function connect(sendContentJsonPort, initialErrorPage) {
     setTimeout(tryToSetupFunc, waitFunc());
   }
   function setupEventSource() {
-    // elm-hot re-evaluates the client bundle on every hot update, which calls
-    // connect() again. Ensure we don't leak multiple /stream connections.
+    // Ensure we don't leak /stream connections if connect() is called again.
     if (eventSource) {
       eventSource.close();
     }
@@ -163,36 +162,6 @@ function fetchContentJsonForCurrentPage() {
   });
 }
 
-// Expose the Webpack HMR API
-
-// var myDisposeCallback = null;
-var myDisposeCallback = function () {
-  console.log("dispose...");
-};
-
-// simulate the HMR api exposed by webpack
-var module = {
-  hot: {
-    accept: async function () {
-      (await updateAppContentJson)();
-    },
-
-    dispose: function (callback) {
-      myDisposeCallback = callback;
-    },
-
-    data: null,
-
-    apply: function () {
-      var newData = {};
-      myDisposeCallback(newData);
-      module.hot.data = newData;
-    },
-
-    verbose: true,
-  },
-};
-
 // Thanks to the elm-live maintainers and contributors for this code for rendering errors as an HTML overlay
 // https://github.com/wking-io/elm-live/blob/e317b4914c471addea7243c47f28dcebe27a5d36/lib/src/websocket.js
 
@@ -212,16 +181,30 @@ async function waitFor(millis) {
   });
 }
 
+/**
+ * Swap freshly compiled Elm code into the running page.
+ *
+ * Lamdera builds hot reloading into the compiled code: we evaluate the new
+ * code off to the side, then `Elm.hot.reload` gives the running app its new
+ * `view`, `update` and `subscriptions`. The app keeps running, with the same
+ * model and the same ports.
+ *
+ * @param {string} elmJs - the contents of the dev server's `/elm.js`
+ */
+async function applyElmJs(elmJs) {
+  var newScope = {};
+  new Function(elmJs).call(newScope);
+  window.Elm.hot.reload(newScope);
+  // Send the page's latest data to the app, in case that changed too.
+  (await updateAppContentJson)();
+}
+
 async function thenApplyHmr(response) {
   if (response.ok) {
     if (window.reloadOnOk) {
       location.reload();
     } else {
-      response.text().then(function (value) {
-        module.hot.apply();
-        delete window.Elm;
-        eval(value);
-      });
+      response.text().then(applyElmJs);
     }
   } else {
     try {

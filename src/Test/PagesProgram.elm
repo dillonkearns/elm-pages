@@ -7108,7 +7108,17 @@ processSimulatedEffect config baseUrl requestDefaults makeReady makePlatformReso
 {-| Wrapper around Platform.update that cleans relative path segments
 from the resulting model's URL. Platform internally produces paths like
 "/./counter" during redirect handling which breaks route matching.
+
+Keep the type annotation: without it, Lamdera 1.5.0 crashes with
+`index out of bounds (3,3)` while type checking the unannotated callers
+that also read fields from `config`.
+
 -}
+platformUpdateClean :
+    Platform.ProgramConfig userMsg userModel route pageData actionData sharedData userEffect (Platform.Msg userMsg pageData actionData sharedData errorPage) errorPage
+    -> Platform.Msg userMsg pageData actionData sharedData errorPage
+    -> Platform.Model userModel pageData actionData sharedData
+    -> ( Platform.Model userModel pageData actionData sharedData, Platform.Effect userMsg pageData actionData sharedData userEffect errorPage )
 platformUpdateClean config msg platformModel =
     let
         -- Normalize the model's URL path BEFORE calling Platform.update.

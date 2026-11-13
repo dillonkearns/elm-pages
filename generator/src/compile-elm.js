@@ -4,7 +4,6 @@ import * as fsHelpers from "./dir-helpers.js";
 import * as fsPromises from "fs/promises";
 import * as path from "path";
 import * as kleur from "kleur/colors";
-import { inject } from "elm-hot";
 import { fileURLToPath } from "url";
 import { rewriteElmJson } from "./rewrite-elm-json-help.js";
 import { patchFrozenViews } from "./frozen-view-codemod.js";
@@ -44,11 +43,13 @@ export async function compileElmForBrowser(options, config = {}) {
   );
   const rawElmCode = await fs.promises.readFile(pathToClientElm, "utf-8");
 
+  // Hot reloading needs no transform here: Lamdera builds it into the compiled
+  // code (`Elm.hot.reload`), and `static-code/hmr.js` calls it in the browser.
+  //
   // Apply transforms in sequence:
-  // 1. elm-hot injection for development
-  // 2. Form data stringify replacement
-  // 3. Frozen view adoption patch
-  let transformedCode = inject(rawElmCode);
+  // 1. Form data stringify replacement
+  // 2. Frozen view adoption patch
+  let transformedCode = rawElmCode;
 
   transformedCode = transformedCode.replace(
     /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_FORM_TO_STRING.\)/g,

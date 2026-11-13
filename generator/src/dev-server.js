@@ -8,6 +8,8 @@ import {
   runElmReview,
   compileCliApp,
 } from "./compile-elm.js";
+import { requireSupportedLamderaVersion } from "./lamdera-version.js";
+import { requireSupportedElmReviewVersion } from "./elm-review-version.js";
 import * as http from "http";
 import * as https from "https";
 import * as codegen from "./codegen.js";
@@ -1545,7 +1547,11 @@ main =
         next();
       } catch (elmCompilerError) {
         res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(elmCompilerError);
+        res.end(
+          typeof elmCompilerError === "string"
+            ? elmCompilerError
+            : unexpectedErrorJson(elmCompilerError)
+        );
       }
     } else {
       next();
@@ -1602,6 +1608,30 @@ main =
     });
     return newWorker;
   }
+}
+
+/**
+ * Compiler errors arrive as JSON strings. Anything else (an Error thrown while
+ * preparing the client code) is put into the same shape, so the browser shows
+ * it in the error overlay instead of the dev server crashing.
+ *
+ * @param {unknown} error
+ * @returns {string}
+ */
+function unexpectedErrorJson(error) {
+  const message =
+    error instanceof Error ? error.stack || error.message : String(error);
+  console.error(error);
+  return JSON.stringify({
+    type: "compile-errors",
+    errors: [
+      {
+        path: "",
+        name: "",
+        problems: [{ title: "UNEXPECTED ERROR", message: [message] }],
+      },
+    ],
+  });
 }
 
 function timeMiddleware() {
@@ -1686,9 +1716,11 @@ async function ensureRequiredExecutables() {
   if (checks[0].status === "rejected") {
     throw "I couldn't find lamdera on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
+  requireSupportedLamderaVersion();
   if (checks[1].status === "rejected") {
     throw "I couldn't find elm-review on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
+  requireSupportedElmReviewVersion();
 }
 
 /**

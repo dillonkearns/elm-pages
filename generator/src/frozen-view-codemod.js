@@ -159,7 +159,7 @@ export function patchFrozenViewsStandard(elmCode) {
     patched = true;
   }
 
-  // Pattern 2: elm-hot injected pattern (might have slightly different formatting)
+  // Pattern 2: the same check with slightly different formatting
   if (!patched) {
     const elmHotPattern = /(if\s*\(\s*tag\s*===\s*5\s*\))\s*\{([^}]*return\s+_VirtualDom_render[^}]*)\}/g;
 

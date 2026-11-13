@@ -87,7 +87,7 @@
         "elm/regex": "1.0.0 <= v < 2.0.0",
         "elm/time": "1.0.0 <= v < 2.0.0",
         "elm/url": "1.0.0 <= v < 2.0.0",
-        "elm/virtual-dom": "1.0.3 <= v < 2.0.0",
+        "elm/virtual-dom": "1.0.5 <= v < 1.0.6",
         "elm-community/list-extra": "8.6.0 <= v < 9.0.0",
         "elm-explorations/test": "2.1.1 <= v < 3.0.0",
         "jluckyiv/elm-utc-date-strings": "1.0.0 <= v < 2.0.0",

@@ -57,12 +57,23 @@ const FROZEN_VIEW_VIRTUALIZE_ADOPTION = `
             var __existingFrozenId = __existingDom.getAttribute('data-static');
             if (__existingFrozenId === __frozenId) {
                 // Keep the existing DOM - don't evaluate thunk!
+                // x is the virtual node for that DOM, so later diffs have
+                // something real to compare against.
+                y.k = x;
+                __existingDom.elmPagesFrozenHtml = (window.__ELM_PAGES_FROZEN_VIEWS__ || {})[__frozenId];
                 return {
                     r: __existingDom,
                     u: false,
                     v: false
                 };
             }
+        }
+
+        // Something else is on the page here (SPA navigation to a page with a
+        // frozen view in this spot). Replace it with the frozen view, drawn from
+        // its saved HTML (see the patch in _VirtualDom_render).
+        if (((window.__ELM_PAGES_FROZEN_VIEWS__ || {})[__frozenId] || '').length > 0) {
+            return _VirtualDom_applyPatchRedraw(x, y, eventNode, tNode);
         }
     }
 `;
@@ -78,51 +89,77 @@ const FROZEN_VIEW_VIRTUALIZE_ADOPTION = `
  */
 const FROZEN_VIEW_SPA_NAVIGATION = `
     // Frozen view: check if this is a frozen view thunk
-    // Detection: refs[1] is a string starting with "__ELM_PAGES_STATIC__"
+    // Detection: refs[1] is a string starting with "${FROZEN_VIEW_PREFIX}"
     var __yIsFrozen = yRefs && yRefs.length >= 2 && typeof yRefs[1] === 'string' && yRefs[1].startsWith('${FROZEN_VIEW_PREFIX}');
     var __xIsFrozen = xRefs && xRefs.length >= 2 && typeof xRefs[1] === 'string' && xRefs[1].startsWith('${FROZEN_VIEW_PREFIX}');
 
     if (__yIsFrozen && __xIsFrozen) {
         var __newFrozenId = yRefs[1].slice(${FROZEN_VIEW_PREFIX_LENGTH});
         var __oldFrozenId = xRefs[1].slice(${FROZEN_VIEW_PREFIX_LENGTH});
+        var __globalContent = (window.__ELM_PAGES_FROZEN_VIEWS__ || {})[__newFrozenId];
+        var __existingDom = tNode.r;
 
-        // Case 1: Same frozen view, re-render after adoption
-        // x.k is undefined because we adopted without evaluating
-        if (__newFrozenId === __oldFrozenId) {
-            var __existingDom = tNode.r;
-            if (__existingDom && __existingDom.nodeType === 1) {
-                // Keep existing DOM, skip thunk evaluation
-                return {
-                    r: __existingDom,
-                    u: false,
-                    v: false
-                };
-            }
+        // Case 1: the frozen view on the page is already this one (a re-render
+        // of the same page). Keep the DOM, skip thunk evaluation.
+        // Two pages can both have a frozen view "0", so the id alone is not
+        // enough: the DOM must also have been made from the current HTML.
+        if (__newFrozenId === __oldFrozenId && __existingDom && __existingDom.nodeType === 1 &&
+            (!__globalContent || __existingDom.elmPagesFrozenHtml === __globalContent)) {
+            y.k = x.k;
+            return {
+                r: __existingDom,
+                u: false,
+                v: false
+            };
         }
 
-        // Case 2: Different frozen view (SPA navigation)
-        var __globalContent = (window.__ELM_PAGES_FROZEN_VIEWS__ || {})[__newFrozenId];
-
-        if (__globalContent && __globalContent.length > 0) {
-            // Parse HTML string into DOM
-            var __template = document.createElement('template');
-            __template.innerHTML = __globalContent;
-            var __newDom = __template.content.firstElementChild;
-
-            if (__newDom) {
-                // Set tNode to track the new DOM
-                tNode.r = __newDom;
-                tNode.s = Object.create(null);
-
-                // Return with reinsert flag - elm-safe-virtual-dom will handle insertion
-                return {
-                    r: __newDom,
-                    u: false,
-                    v: true  // __reinsert: true - needs to be inserted into document
-                };
-            }
+        // Case 2: a different frozen view (SPA navigation). Draw it from its
+        // saved HTML (see the patch in _VirtualDom_render) in place of the old one.
+        if (__globalContent && __globalContent.length > 0 && x.k) {
+            return _VirtualDom_applyPatchRedraw(x.k, y, eventNode, tNode);
         }
     }
+`;
+
+/**
+ * Patch for rendering a frozen view from scratch, in _VirtualDom_render.
+ *
+ * The app's first render happens before the page data has arrived, and replaces
+ * the server-rendered page. So when the real view is drawn, its frozen views are
+ * new nodes that go through render, not through the diff. The same happens
+ * whenever a frozen view appears where there was none before.
+ *
+ * Original:
+ *   if (tag === 5) {
+ *       return _VirtualDom_render(vNode.k || (vNode.k = vNode.m()), eventNode, tNode);
+ *   }
+ *
+ * The frozen view's HTML is in window.__ELM_PAGES_FROZEN_VIEWS__ (saved from the
+ * server-rendered page before the app starts, and replaced on SPA navigation).
+ * We build the DOM from it, and virtualize it so that the thunk has a real
+ * virtual node (and tNode a real tree) for later diffs.
+ */
+const FROZEN_VIEW_RENDER = `
+        // Frozen view: draw it from its saved HTML instead of evaluating the thunk
+        // Detection: refs[1] is a string starting with "${FROZEN_VIEW_PREFIX}"
+        var __frozenRefs = vNode.l;
+        if (__frozenRefs && __frozenRefs.length >= 2 &&
+            typeof __frozenRefs[1] === 'string' &&
+            __frozenRefs[1].startsWith('${FROZEN_VIEW_PREFIX}')) {
+            var __frozenHtml = (window.__ELM_PAGES_FROZEN_VIEWS__ || {})[__frozenRefs[1].slice(${FROZEN_VIEW_PREFIX_LENGTH})];
+            if (__frozenHtml && __frozenHtml.length > 0) {
+                var __template = document.createElement('template');
+                __template.innerHTML = __frozenHtml;
+                var __frozenDom = __template.content.firstElementChild;
+                if (__frozenDom) {
+                    tNode.r = __frozenDom;
+                    tNode.s = Object.create(null);
+                    vNode.k = _VirtualDom_virtualizeHelp(__frozenDom, tNode);
+                    __frozenDom.elmPagesFrozenHtml = __frozenHtml;
+                    return __frozenDom;
+                }
+            }
+        }
 `;
 
 /**
@@ -161,8 +198,20 @@ export function patchFrozenViewsESVD(elmCode) {
         patchCount++;
     }
 
-    if (patchCount < 2) {
-        throw new Error(`[frozen-view-codemod-esvd] Only applied ${patchCount}/2 patches - elm-safe-virtual-dom structure may have changed`);
+    // Patch 3: rendering a frozen view from scratch
+    // Pattern: if (tag === 5) { return _VirtualDom_render(vNode.k || (vNode.k = vNode.m()), eventNode, tNode); }
+    const renderPattern = /(if\s*\(\s*tag\s*===\s*5\s*\)\s*\{)\s*(return\s+_VirtualDom_render\s*\(\s*vNode\.k\s*\|\|\s*\(\s*vNode\.k\s*=\s*vNode\.m\s*\(\s*\)\s*\)\s*,\s*eventNode\s*,\s*tNode\s*\))/;
+
+    if (renderPattern.test(patchedCode)) {
+        patchedCode = patchedCode.replace(renderPattern,
+            `$1${FROZEN_VIEW_RENDER}
+        $2`
+        );
+        patchCount++;
+    }
+
+    if (patchCount < 3) {
+        throw new Error(`[frozen-view-codemod-esvd] Only applied ${patchCount}/3 patches - elm-safe-virtual-dom structure may have changed`);
     }
 
     return patchedCode;

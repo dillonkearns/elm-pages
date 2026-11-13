@@ -10,6 +10,7 @@ import { generateTemplateModuleConnector } from "./generate-template-module-conn
 import * as path from "path";
 import { ensureDirSync, deleteIfExists, writeFileIfChanged, copyDirIfNewer, copyFileIfNewer } from "./file-helpers.js";
 import { fileURLToPath } from "url";
+import { reviewReportProblem } from "./review-report.js";
 global.builtAt = new Date();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -298,6 +299,12 @@ export async function runElmReviewCodemod(cwd, target = "client") {
   // Run elm-review without fixes first to capture EPHEMERAL_FIELDS_JSON for analysis.
   // This step does not require elm-format.
   const analysisOutput = await runElmReviewCommand(cwdPath, configPath, lamderaPath, elmFormatPath, false);
+  const problem = reviewReportProblem(analysisOutput);
+  if (problem) {
+    throw new Error(
+      `-- ELM-REVIEW DID NOT RUN ---------------\n\nelm-pages uses elm-review to transform frozen views and remove dead code (the ${target} step, in ${cwdPath}), but it could not review this project:\n\n${problem}`
+    );
+  }
   const ephemeralFields = parseEphemeralFieldsWithFields(analysisOutput);
   const deOptimizationCount = parseDeOptimizationCount(analysisOutput);
 
