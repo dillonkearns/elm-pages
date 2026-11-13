@@ -52,7 +52,7 @@ function spawnLocalElmPages() {
 
 // Since we muck with process.env.PATH in these tests,
 // don't try to run them in parallel.
-describe.sequential("runElmCodegenInstall", () => {
+describe("runElmCodegenInstall", () => {
   beforeAll(() => {
     process.chdir(`${testDir}/missing-elm-codegen`);
 
