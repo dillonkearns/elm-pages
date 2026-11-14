@@ -11,7 +11,7 @@ npx elm-pages dev
 
 This creates a new project in `my-project/` and starts the dev server. You can then add new routes using the CLI commands below.
 
-You can get the `npx` command by installing [node](https://nodejs.org). `elm-pages` supports all and only [supported release lines](https://github.com/nodejs/release#release-schedule) of node.
+You can get the `npx` command by installing [node](https://nodejs.org). `elm-pages` supports all and only [supported release lines](https://github.com/nodejs/release#release-schedule) of node. Right now that means Node 22 (22.22.2 or later), Node 24 (24.15.0 or later), or Node 26 and up.
 
 ## Lamdera
 
