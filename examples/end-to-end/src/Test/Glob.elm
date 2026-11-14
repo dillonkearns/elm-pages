@@ -344,12 +344,7 @@ globTestCase { glob, name, expected } =
             (\actual ->
                 test name <|
                     \() ->
-                        actual
-                            |> List.sortBy Debug.toString
-                            |> Expect.equalLists
-                                (expected
-                                    |> List.sortBy Debug.toString
-                                )
+                        actual |> expectSameItems expected
              --if actual == expected then
              --    --Ok ()
              --
@@ -363,6 +358,26 @@ globTestCase { glob, name, expected } =
              --            ++ "\nActual\n"
              --            ++ Debug.toString actual
             )
+
+
+{-| Passes when both lists hold the same items, in any order.
+
+This does not sort with `Debug.toString`, because the app must also compile
+with `--optimize` (plain `elm-pages dev`), where `Debug` is not allowed.
+
+-}
+expectSameItems : List value -> List value -> Expect.Expectation
+expectSameItems expected actual =
+    if List.length actual == List.length expected && List.all (\item -> count item actual == count item expected) expected then
+        Expect.pass
+
+    else
+        actual |> Expect.equalLists expected
+
+
+count : value -> List value -> Int
+count item list =
+    list |> List.filter (\other -> other == item) |> List.length
 
 
 testDir :
@@ -382,12 +397,7 @@ testDir { glob, name, expectedDirs, expectedFiles } =
             (\actual ->
                 test name <|
                     \() ->
-                        actual
-                            |> List.sortBy Debug.toString
-                            |> Expect.equalLists
-                                (expectedDirs
-                                    |> List.sortBy Debug.toString
-                                )
+                        actual |> expectSameItems expectedDirs
              --if actual == expectedDirs then
              --    Ok ()
              --
