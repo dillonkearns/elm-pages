@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.6.0] - 2026-11-14
+
+Use with the `dillonkearns/elm-pages` Elm package 12.3.1 or later.
+
 ### Changed
 
 - **Breaking:** Node.js 22 or later is now required: 22.22.2 or later
@@ -35,7 +39,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   This comes from the safe virtual DOM that Lamdera 1.5.0 uses, which
   needs it to pick up server-rendered elements in the browser. The
   attribute is removed again on the first render.
-- `elm-pages init` template now installs Lamdera 1.5.0.
+- `elm-pages init` template now installs Lamdera 1.5.0 and
+  `dillonkearns/elm-pages` 12.3.1, with its other Elm and npm
+  dependencies updated to match.
+- npm dependencies updated to their latest versions, including
+  `elm-optimize-level-2` 0.4.0, which no longer prints TypeScript
+  deprecation warnings during a production build.
 - **Breaking:** elm-review 2.13.3 or later is now required, and checked
   at startup. With older versions, elm-review found nothing when its
   rules were built with Lamdera, so builds skipped frozen views and dead
@@ -59,6 +68,19 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   started, and after client-side navigation, with the safe virtual DOM
   that Lamdera 1.5.0 uses. They are now drawn from the server-rendered
   HTML in both cases.
+- `elm-pages dev` failed to render a page with a lazy node (`Html.Lazy`,
+  or anything built on it, such as a `Pages.Form`) inside an
+  `Html.Keyed` node. The page showed `Error pre-rendering HTML in
+  HtmlPrinter.elm` instead. `elm-pages build` and `elm-pages dev --debug`
+  were not affected. See
+  [#622](https://github.com/dillonkearns/elm-pages/issues/622).
+- `BackendTask.Time.zone`, `zoneFor` and the other timezone lookups
+  crashed on Node 26, which ships the final Temporal API without
+  `Temporal.TimeZone`.
+- Timezone lookups missed a daylight saving change in the last two weeks
+  of the requested range on Node versions without Temporal, and failed
+  for zones whose past offsets were not whole minutes (for example
+  `Africa/Monrovia` before 1972).
 
 ## [3.5.1] - 2026-05-11
 

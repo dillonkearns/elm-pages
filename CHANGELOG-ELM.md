@@ -9,10 +9,19 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [12.3.1] - 2026-11-14
+
+This is the first version that compiles with Lamdera 1.5.0, so it is
+required for the `elm-pages` npm package 3.6.0 and later (which needs
+Lamdera 1.5.0). 12.3.0 and older make the Lamdera 1.5.0 compiler crash
+when it builds the package, even if you do not use `Test.PagesProgram`.
+
 ### Changed
 
 - The package now needs `elm/virtual-dom` 1.0.5, the newest version
-  that Lamdera 1.5.0 accepts.
+  that Lamdera 1.5.0 accepts. If installing gives a dependency conflict,
+  set `elm/virtual-dom` to `1.0.5` in your `elm.json` (see
+  [the README](https://github.com/dillonkearns/elm-pages#why-is-elmvirtual-dom-held-at-105)).
 
 ### Fixed
 
