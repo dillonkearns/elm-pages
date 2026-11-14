@@ -32,6 +32,16 @@ const compilerElmVersion = spawnSync("lamdera", ["--version"], { encoding: "utf-
 const pkgPath = path.join(elmHome, compilerElmVersion, "packages", "dillonkearns", "elm-pages", fixturePkgVersion);
 let createdSymlink = false;
 
+// The compiler caches a compiled package next to its source and never checks
+// whether the source changed (published packages never do). Here the package
+// is this repo, so remove the cache, or a run after a source change (a new
+// compatibility key, for example) would use the old compiled code.
+for (const file of fs.readdirSync(repoRoot)) {
+  if (/^artifacts\..*dat$/.test(file)) {
+    fs.rmSync(path.join(repoRoot, file));
+  }
+}
+
 // Replace whatever is at pkgPath with a symlink to the repo root.
 // This works whether the published version exists or not.
 if (fs.existsSync(pkgPath)) {

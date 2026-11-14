@@ -14,14 +14,16 @@
  *
  * Three places are patched:
  *
- * 1. _VirtualDom_render: a frozen view drawn from scratch. This is the usual
- *    case on page load, because the app's first render replaces the
- *    server-rendered page before the page data has arrived. The HTML comes
- *    from window.__ELM_PAGES_FROZEN_VIEWS__, which is saved from the page
- *    before the app starts and replaced on SPA navigation.
+ * 1. _VirtualDom_render: a frozen view drawn from scratch, where there was
+ *    nothing to diff it against (for example after SPA navigation to a page
+ *    with a different structure). The HTML comes from
+ *    window.__ELM_PAGES_FROZEN_VIEWS__, which is saved from the page before
+ *    the app starts and replaced on SPA navigation.
  *
  * 2. _VirtualDom_diffHelp, old node is not a thunk and new node is a frozen
- *    view: keep the DOM if it is that frozen view (data-static matches),
+ *    view. This is the case on page load: the app's first render is diffed
+ *    against the server-rendered page. Keep the DOM if it is that frozen view
+ *    (data-static matches),
  *    otherwise replace what is there with the frozen view.
  *
  * 3. _VirtualDom_diffHelp, both nodes are frozen views: keep the DOM on a
@@ -135,10 +137,9 @@ const FROZEN_VIEW_SPA_NAVIGATION = `
 /**
  * Patch for rendering a frozen view from scratch, in _VirtualDom_render.
  *
- * The app's first render happens before the page data has arrived, and replaces
- * the server-rendered page. So when the real view is drawn, its frozen views are
- * new nodes that go through render, not through the diff. The same happens
- * whenever a frozen view appears where there was none before.
+ * When a frozen view appears where there was no node to diff it against, it is
+ * a new node that goes through render, not through the diff. (On page load the
+ * frozen views are already on the page, and the diff patch above keeps them.)
  *
  * Original:
  *   if (tag === 5) {

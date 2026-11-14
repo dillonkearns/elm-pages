@@ -45,9 +45,10 @@ jobs:
         run: npm install -g elm-coverage
       - name: Add node_modules/.bin to PATH
         run: realpath node_modules/.bin >> $GITHUB_PATH
-      - uses: sparksp/elm-review-action@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # The same command as on a developer's machine. It reviews with Lamdera,
+      # the compiler that everything else here uses.
+      - name: elm-review
+        run: npm run review
       - name: Build Generator
         run: npm run build:generator
       - name: Tests

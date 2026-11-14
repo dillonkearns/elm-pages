@@ -2232,11 +2232,13 @@ otherFile routes phaseString routesWithEphemeral =
             |> Elm.expose
         , case phase of
             Browser ->
-                Gen.Pages.Internal.Platform.application config
+                -- With the page data in the flags, the app's first render is the
+                -- page that the server rendered.
+                Gen.Pages.Internal.Platform.applicationWithPageData config
                     |> Elm.withType
                         (Type.namedWith [ "Platform" ]
                             "Program"
-                            [ Gen.Pages.Internal.Platform.annotation_.flags
+                            [ Gen.Pages.Internal.Platform.annotation_.flagsWithPageData
                             , Gen.Pages.Internal.Platform.annotation_.model modelType.annotation
                                 pageDataType.annotation
                                 actionDataType.annotation

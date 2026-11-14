@@ -110,17 +110,18 @@ export async function fetchFrozenViews(pathname) {
 
 /**
  * Initialize frozen views on initial page load.
- * Extracts frozen view HTML from the pre-rendered DOM BEFORE Elm initializes,
- * since Elm.Main.init() will replace the entire body content.
+ * Saves the HTML of each frozen view from the pre-rendered DOM before Elm
+ * initializes. The app keeps those elements on its first render. The saved HTML
+ * is how the virtual-dom codemod knows which page a frozen view on the page
+ * belongs to, and how it draws one again if it has to.
  *
- * The extracted HTML is stored in window.__ELM_PAGES_FROZEN_VIEWS__ where
- * the virtual-dom codemod will find it during rendering.
+ * The HTML is stored in window.__ELM_PAGES_FROZEN_VIEWS__.
  */
 export function initFrozenViews() {
   const frozenViews = {};
 
   // Find all elements with data-static attribute and extract their outerHTML
-  // This must happen BEFORE Elm.Main.init() replaces the DOM
+  // This must happen before Elm.Main.init(), which reads it during its first render
   document.querySelectorAll('[data-static]').forEach((element) => {
     const id = element.getAttribute('data-static');
     if (id !== null) {

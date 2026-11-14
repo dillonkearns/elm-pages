@@ -1,6 +1,7 @@
 module Pages.Internal.Platform exposing
     ( Flags, Model, Msg(..), Program, ProgramConfig, application, init, update
     , Effect(..), RequestInfo, view, ActionDataOrRedirect(..)
+    , FlagsWithPageData, applicationWithPageData, initWithPageData
     )
 
 {-| Exposed for internal use only (used in generated code).
@@ -8,6 +9,8 @@ module Pages.Internal.Platform exposing
 @docs Flags, Model, Msg, Program, ProgramConfig, application, init, update
 
 @docs Effect, RequestInfo, view, ActionDataOrRedirect
+
+@docs FlagsWithPageData, applicationWithPageData, initWithPageData
 
 -}
 
@@ -155,39 +158,203 @@ type alias Flags =
     Decode.Value
 
 
+{-| What `elm-pages.js` passes to the app when it starts it.
+
+`pageData` is the page data that the server sent along with the HTML (the bytes
+in the `__ELM_PAGES_BYTES_DATA__` script tag). Having it in the flags means the
+app can render the real page in its very first view, which has to match the
+server-rendered HTML.
+
+-}
+type alias FlagsWithPageData =
+    { pageData : Maybe Bytes
+    , userFlags : Decode.Value
+    }
+
+
 type InitKind shared page actionData errorPage
     = OkPage shared page (Maybe actionData)
     | NotFound { reason : NotFoundReason, path : UrlPath }
     | InitialRedirect String
 
 
-{-| -}
+{-| Start without page data. The model has no page until the page data arrives
+in a `FrozenViewsReady` message, so a view of it is not the page yet.
+
+The browser app uses [`initWithPageData`](#initWithPageData) instead, so that its
+first view is the page.
+
+-}
 init :
     ProgramConfig userMsg userModel route pageData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage
     -> Flags
     -> Url
     -> Maybe Browser.Navigation.Key
     -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
-init _ flags url key =
-    -- Page data will arrive via the pageDataFromJs port immediately after init.
-    -- Set pendingFrozenViewsUrl so FrozenViewsReady can handle the incoming bytes.
-    ( { key = key
-      , url = url
-      , currentPath = url.path
-      , pageData = Err ""
-      , ariaNavigationAnnouncement = ""
-      , userFlags = flags
-      , notFound = Nothing
-      , transition = Nothing
-      , nextTransitionKey = 0
-      , inFlightFetchers = Dict.empty
-      , pageFormState = Dict.empty
-      , pendingRedirect = False
-      , pendingData = Nothing
-      , pendingFrozenViewsUrl = Just url
-      }
-    , NoEffect
-    )
+init config flags url key =
+    initWithPageData config
+        { pageData = Nothing
+        , userFlags =
+            flags
+                |> Decode.decodeValue (Decode.field "userFlags" Decode.value)
+                |> Result.withDefault Json.Encode.null
+        }
+        url
+        key
+
+
+{-| Start with the page data that the server sent along with the HTML, so that
+the first view is the page that the server rendered.
+-}
+initWithPageData :
+    ProgramConfig userMsg userModel route pageData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage
+    -> FlagsWithPageData
+    -> Url
+    -> Maybe Browser.Navigation.Key
+    -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
+initWithPageData config flags url key =
+    let
+        waitingForPageData : Model userModel pageData actionData sharedData
+        waitingForPageData =
+            { key = key
+            , url = url
+            , currentPath = url.path
+            , pageData = Err ""
+            , ariaNavigationAnnouncement = ""
+            , userFlags = flags.userFlags
+            , notFound = Nothing
+            , transition = Nothing
+            , nextTransitionKey = 0
+            , inFlightFetchers = Dict.empty
+            , pageFormState = Dict.empty
+            , pendingRedirect = False
+            , pendingData = Nothing
+            , pendingFrozenViewsUrl = Just url
+            }
+    in
+    case flags.pageData of
+        Just pageDataBytes ->
+            -- The usual case. The model has its page data before the first render,
+            -- so the first view is the page that the server rendered.
+            loadFirstPage config url pageDataBytes waitingForPageData
+
+        Nothing ->
+            -- There is no page data yet. It will arrive in a `FrozenViewsReady` message.
+            ( waitingForPageData, NoEffect )
+
+
+{-| Put the first page's data in a model that has no page yet.
+
+This is used when the app starts, and when the first response was a redirect and
+the data for the page it points to arrives.
+
+-}
+loadFirstPage :
+    ProgramConfig userMsg userModel route pageData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage
+    -> Url
+    -> Bytes
+    -> Model userModel pageData actionData sharedData
+    -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
+loadFirstPage config pendingUrl pageDataBytes model =
+    let
+        pageDataResult : Maybe (InitKind sharedData pageData actionData errorPage)
+        pageDataResult =
+            case Bytes.Decode.decode config.decodeResponse pageDataBytes of
+                Just (ResponseSketch.RenderPage _ _) ->
+                    Nothing
+
+                Just (ResponseSketch.HotUpdate pageData shared actionData) ->
+                    OkPage shared pageData actionData
+                        |> Just
+
+                Just (ResponseSketch.NotFound notFound) ->
+                    NotFound notFound
+                        |> Just
+
+                Just (ResponseSketch.Redirect redirectTo) ->
+                    InitialRedirect redirectTo
+                        |> Just
+
+                _ ->
+                    Nothing
+    in
+    case pageDataResult of
+        Just (OkPage sharedData pageData actionData) ->
+            let
+                urls : { currentUrl : Url, basePath : List String }
+                urls =
+                    { currentUrl = pendingUrl
+                    , basePath = config.basePath
+                    }
+
+                pagePath : UrlPath
+                pagePath =
+                    urlsToPagePath urls
+
+                userFlags : Pages.Flags.Flags
+                userFlags =
+                    Pages.Flags.BrowserFlags model.userFlags
+
+                ( userModel, userCmd ) =
+                    Just
+                        { path =
+                            { path = pagePath
+                            , query = pendingUrl.query
+                            , fragment = pendingUrl.fragment
+                            }
+                        , metadata = config.urlToRoute pendingUrl
+                        , pageUrl =
+                            Just
+                                { protocol = pendingUrl.protocol
+                                , host = pendingUrl.host
+                                , port_ = pendingUrl.port_
+                                , path = pagePath
+                                , query = pendingUrl.query |> Maybe.map QueryParams.fromString |> Maybe.withDefault Dict.empty
+                                , fragment = pendingUrl.fragment
+                                }
+                        }
+                        |> config.init userFlags sharedData pageData actionData
+
+                initialModel : Model userModel pageData actionData sharedData
+                initialModel =
+                    { model
+                        | url = pendingUrl
+                        , currentPath = pendingUrl.path
+                        , pageData =
+                            Ok
+                                { userModel = userModel
+                                , sharedData = sharedData
+                                , pageData = pageData
+                                , actionData = actionData
+                                }
+                        , notFound = Nothing
+                        , pendingFrozenViewsUrl = Nothing
+                    }
+            in
+            ( { initialModel
+                | ariaNavigationAnnouncement = mainView config initialModel |> .title
+              }
+            , UserCmd userCmd
+            )
+
+        Just (NotFound info) ->
+            ( { model
+                | pageData = Err "Not found"
+                , ariaNavigationAnnouncement = "Page Not Found"
+                , notFound = Just info
+                , pendingFrozenViewsUrl = Nothing
+              }
+            , NoEffect
+            )
+
+        Just (InitialRedirect redirectTo) ->
+            ( { model | pendingRedirect = True, pendingFrozenViewsUrl = Nothing }
+            , NoEffect
+            )
+                |> startNewGetLoad (currentUrlWithPath redirectTo model)
+
+        _ ->
+            ( { model | pendingFrozenViewsUrl = Nothing }, NoEffect )
 
 
 {-| -}
@@ -608,10 +775,7 @@ update config appMsg model =
                             onActionMsg =
                                 newActionData |> Maybe.andThen config.onActionData
                         in
-                        ( { updatedModel
-                            | ariaNavigationAnnouncement = mainView config updatedModel |> .title
-                            , currentPath = newUrl.path
-                          }
+                        ( updatedModel |> showPageAt config newUrl.path
                         , if not stayingOnSamePath && scrollToTopWhenDone then
                             Batch
                                 [ ScrollToTop
@@ -739,11 +903,7 @@ update config appMsg model =
 
                                 userFlags : Pages.Flags.Flags
                                 userFlags =
-                                    model.userFlags
-                                        |> Decode.decodeValue
-                                            (Decode.field "userFlags" Decode.value)
-                                        |> Result.withDefault Json.Encode.null
-                                        |> Pages.Flags.BrowserFlags
+                                    Pages.Flags.BrowserFlags model.userFlags
 
                                 ( userModel, userCmd ) =
                                     Just
@@ -900,10 +1060,7 @@ update config appMsg model =
                                             else
                                                 NoEffect
                                     in
-                                    ( { updatedModel
-                                        | ariaNavigationAnnouncement = mainView config updatedModel |> .title
-                                        , currentPath = newUrl.path
-                                      }
+                                    ( updatedModel |> showPageAt config newUrl.path
                                     , if not isSubmission && not stayingOnSamePath then
                                         Batch [ ScrollToTop, userEffect, urlChangeEffect ]
 
@@ -999,10 +1156,7 @@ update config appMsg model =
                                             else
                                                 NoEffect
                                     in
-                                    ( { updatedModel_
-                                        | ariaNavigationAnnouncement = mainView config updatedModel_ |> .title
-                                        , currentPath = pendingUrl.path
-                                      }
+                                    ( updatedModel_ |> showPageAt config pendingUrl.path
                                     , if not isSubmission_ && not stayingOnSamePath_ then
                                         Batch [ ScrollToTop, userEffect_, urlChangeEffect_ ]
 
@@ -1025,110 +1179,8 @@ update config appMsg model =
                             ( { model | pendingFrozenViewsUrl = Nothing }, NoEffect )
 
                 ( Just pageDataBytes, Just pendingUrl, Err _ ) ->
-                    -- Initial page load — page data arriving via port
-                    let
-                        pageDataResult : Maybe (InitKind sharedData pageData actionData errorPage)
-                        pageDataResult =
-                            case Bytes.Decode.decode config.decodeResponse pageDataBytes of
-                                Just (ResponseSketch.RenderPage _ _) ->
-                                    Nothing
-
-                                Just (ResponseSketch.HotUpdate pageData shared actionData) ->
-                                    OkPage shared pageData actionData
-                                        |> Just
-
-                                Just (ResponseSketch.NotFound notFound) ->
-                                    NotFound notFound
-                                        |> Just
-
-                                Just (ResponseSketch.Redirect redirectTo) ->
-                                    InitialRedirect redirectTo
-                                        |> Just
-
-                                _ ->
-                                    Nothing
-                    in
-                    case pageDataResult of
-                        Just (OkPage sharedData pageData actionData) ->
-                            let
-                                urls : { currentUrl : Url, basePath : List String }
-                                urls =
-                                    { currentUrl = pendingUrl
-                                    , basePath = config.basePath
-                                    }
-
-                                pagePath : UrlPath
-                                pagePath =
-                                    urlsToPagePath urls
-
-                                userFlags : Pages.Flags.Flags
-                                userFlags =
-                                    model.userFlags
-                                        |> Decode.decodeValue
-                                            (Decode.field "userFlags" Decode.value)
-                                        |> Result.withDefault Json.Encode.null
-                                        |> Pages.Flags.BrowserFlags
-
-                                ( userModel, userCmd ) =
-                                    Just
-                                        { path =
-                                            { path = pagePath
-                                            , query = pendingUrl.query
-                                            , fragment = pendingUrl.fragment
-                                            }
-                                        , metadata = config.urlToRoute pendingUrl
-                                        , pageUrl =
-                                            Just
-                                                { protocol = pendingUrl.protocol
-                                                , host = pendingUrl.host
-                                                , port_ = pendingUrl.port_
-                                                , path = pagePath
-                                                , query = pendingUrl.query |> Maybe.map QueryParams.fromString |> Maybe.withDefault Dict.empty
-                                                , fragment = pendingUrl.fragment
-                                                }
-                                        }
-                                        |> config.init userFlags sharedData pageData actionData
-
-                                initialModel : Model userModel pageData actionData sharedData
-                                initialModel =
-                                    { model
-                                        | url = pendingUrl
-                                        , currentPath = pendingUrl.path
-                                        , pageData =
-                                            Ok
-                                                { userModel = userModel
-                                                , sharedData = sharedData
-                                                , pageData = pageData
-                                                , actionData = actionData
-                                                }
-                                        , notFound = Nothing
-                                        , pendingFrozenViewsUrl = Nothing
-                                    }
-                            in
-                            ( { initialModel
-                                | ariaNavigationAnnouncement = mainView config initialModel |> .title
-                              }
-                            , UserCmd userCmd
-                            )
-
-                        Just (NotFound info) ->
-                            ( { model
-                                | pageData = Err "Not found"
-                                , ariaNavigationAnnouncement = "Page Not Found"
-                                , notFound = Just info
-                                , pendingFrozenViewsUrl = Nothing
-                              }
-                            , NoEffect
-                            )
-
-                        Just (InitialRedirect redirectTo) ->
-                            ( { model | pendingRedirect = True, pendingFrozenViewsUrl = Nothing }
-                            , NoEffect
-                            )
-                                |> startNewGetLoad (currentUrlWithPath redirectTo model)
-
-                        _ ->
-                            ( { model | pendingFrozenViewsUrl = Nothing }, NoEffect )
+                    -- There is no page yet, and this is the first page's data
+                    loadFirstPage config pendingUrl pageDataBytes model
 
                 _ ->
                     -- No page data, no pending path - just clear the pending flag
@@ -1136,6 +1188,28 @@ update config appMsg model =
 
         NoOp ->
             ( model, NoEffect )
+
+
+{-| Set the path of the page that is shown, and announce that page to screen readers.
+
+The path is set first because the page's title depends on it: with the path of
+the previous page, the view is for the wrong route.
+
+-}
+showPageAt :
+    ProgramConfig userMsg userModel route pageData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
+    -> String
+    -> Model userModel pageData actionData sharedData
+    -> Model userModel pageData actionData sharedData
+showPageAt config path model =
+    let
+        modelWithPath : Model userModel pageData actionData sharedData
+        modelWithPath =
+            { model | currentPath = path }
+    in
+    { modelWithPath
+        | ariaNavigationAnnouncement = mainView config modelWithPath |> .title
+    }
 
 
 toFetcherState : Dict String ( Int, Pages.ConcurrentSubmission.ConcurrentSubmission actionData ) -> Dict String (Pages.ConcurrentSubmission.ConcurrentSubmission actionData)
@@ -1503,17 +1577,41 @@ urlFromAction currentUrl fetchInfo =
     fetchInfo |> Maybe.map .action |> Maybe.andThen Url.fromString |> Maybe.withDefault currentUrl
 
 
-{-| -}
+{-| The browser app, started without page data (see [`init`](#init)).
+The generated code uses [`applicationWithPageData`](#applicationWithPageData).
+-}
 application :
     ProgramConfig userMsg userModel route pageData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
     -> Platform.Program Flags (Model userModel pageData actionData sharedData) (Msg userMsg pageData actionData sharedData errorPage)
 application config =
+    applicationWith init config
+
+
+{-| The browser app. `elm-pages.js` starts it with the page data in its flags.
+-}
+applicationWithPageData :
+    ProgramConfig userMsg userModel route pageData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
+    -> Platform.Program FlagsWithPageData (Model userModel pageData actionData sharedData) (Msg userMsg pageData actionData sharedData errorPage)
+applicationWithPageData config =
+    applicationWith initWithPageData config
+
+
+applicationWith :
+    (ProgramConfig userMsg userModel route pageData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
+     -> flags
+     -> Url
+     -> Maybe Browser.Navigation.Key
+     -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData effect errorPage )
+    )
+    -> ProgramConfig userMsg userModel route pageData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
+    -> Platform.Program flags (Model userModel pageData actionData sharedData) (Msg userMsg pageData actionData sharedData errorPage)
+applicationWith init_ config =
     Browser.application
         { init =
             \flags url key ->
                 let
                     ( model, effect ) =
-                        init config flags url (Just key)
+                        init_ config flags url (Just key)
                 in
                 ( model
                 , effect |> perform config model
@@ -1884,10 +1982,7 @@ loadDataAndUpdateUrl ( newPageData, newSharedData, newActionData ) maybeUserMsg 
                 onActionMsg =
                     newActionData |> Maybe.andThen config.onActionData
             in
-            ( { updatedModel
-                | ariaNavigationAnnouncement = mainView config updatedModel |> .title
-                , currentPath = newUrl.path
-              }
+            ( updatedModel |> showPageAt config newUrl.path
             , ScrollToTop
             )
                 |> (case maybeUserMsg of
