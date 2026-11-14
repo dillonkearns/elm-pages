@@ -3,15 +3,24 @@
 #
 # Creates an ephemeral project using:
 #   - `npm pack` to emulate the published npm package
-#   - `elm-wrap` to emulate the published Elm package
+#   - a throwaway ELM_HOME to emulate the published Elm package: this repo's
+#     Elm package source is put into an empty package cache, so the test
+#     project compiles it as an installed package (not as source directories)
 # Then runs smoke tests (build + script execution) against it.
 #
 # This catches issues like incompatible dependency versions in the init
 # template before they reach users.
 #
+# The Elm compiler only accepts package versions that the package registry
+# knows about, and the version being released is not published yet. So the
+# local source stands in for the newest published version: it is copied into
+# the throwaway cache under that version number, and the test project asks
+# for that number. Everything else (the source, its dependency constraints,
+# the template's dependencies) is the real thing. Your own ~/.elm is not
+# touched.
+#
 # Prerequisites:
-#   - elm-wrap: brew tap dsimunic/elm-wrap && brew install elm-wrap
-#   - Node.js / npm
+#   - Node.js / npm, python3, curl
 #   - Internet access (to fetch Elm dependencies)
 #
 # Usage:
@@ -33,11 +42,10 @@ echo "  Elm package: dillonkearns/elm-pages@$ELM_PKG_VERSION"
 echo "  npm package: elm-pages@$NPM_PKG_VERSION"
 
 # ── Prerequisites ────────────────────────────────────────────────────────
-for cmd in wrap node npm python3; do
+for cmd in node npm python3 curl; do
   if ! command -v "$cmd" &>/dev/null; then
     echo ""
     echo "ERROR: '$cmd' is required but not found on PATH."
-    [[ "$cmd" == "wrap" ]] && echo "  Install: brew tap dsimunic/elm-wrap && brew install elm-wrap"
     exit 1
   fi
 done
@@ -69,7 +77,7 @@ check_ref "generator/template/script/elm.json" \
 
 check_ref "generator/template/package.json" \
   "print(json.load(open(0))['devDependencies']['elm-pages'])" \
-  "$NPM_PKG_VERSION" "template/package.json npm version"
+  "^$NPM_PKG_VERSION" "template/package.json npm version"
 
 if [ "$FAIL" -ne 0 ]; then
   echo ""
@@ -88,27 +96,89 @@ WORK_DIR=$(mktemp -d)
 echo ""
 echo "Work directory: $WORK_DIR"
 
+# When a smoke test fails, the compiler often only says that the dependencies
+# are "not compatible". This looks through the template's dependency lists and
+# says which package wants which version, and which indirect dependencies
+# nothing needs. It can only look at packages the compiler got as far as
+# downloading, so it is a hint, not a full check.
+explain_template_dependencies() {
+  echo ""
+  echo "--- Looking for problems in the template's dependency lists ---"
+  python3 - "$ELM_PACKAGES_DIR" "$REPO_ROOT/generator/template/elm.json" "$REPO_ROOT/generator/template/script/elm.json" <<'PYEOF'
+import json, os, sys
+cache, *app_elm_jsons = sys.argv[1:]
+
+
+def parse(version):
+    return tuple(int(n) for n in version.split('.'))
+
+
+def satisfies(version, constraint):
+    # "1.0.0 <= v < 2.0.0"
+    low, low_op, _, high_op, high = constraint.split()
+    above = parse(low) <= parse(version) if low_op == '<=' else parse(low) < parse(version)
+    below = parse(version) < parse(high) if high_op == '<' else parse(version) <= parse(high)
+    return above and below
+
+
+def package_dependencies(name, version):
+    if name == 'dillonkearns/elm-pages':
+        # Only the stand-in version is in the cache, and it is this repo's source
+        versions = os.listdir(os.path.join(cache, name))
+        version = versions[0]
+    path = os.path.join(cache, name, version, 'elm.json')
+    if not os.path.exists(path):
+        return None
+    with open(path) as f:
+        return json.load(f)['dependencies']
+
+
+failed = False
+for path in app_elm_jsons:
+    label = path.split('generator/')[-1]
+    with open(path) as f:
+        deps = json.load(f)['dependencies']
+    pins = {**deps['direct'], **deps['indirect']}
+    needed = set(deps['direct'])
+    problems = []
+    saw_every_package = True
+    for name, version in pins.items():
+        wanted = package_dependencies(name, version)
+        if wanted is None:
+            # Not downloaded (the compiler stopped before it got there)
+            saw_every_package = False
+            continue
+        for dep, constraint in wanted.items():
+            needed.add(dep)
+            if dep not in pins:
+                problems.append(f'{name} needs {dep} ({constraint}), which is not listed')
+            elif not satisfies(pins[dep], constraint):
+                problems.append(f'{name} needs {dep} ({constraint}), but {pins[dep]} is listed')
+    for name in sorted(set(pins) - needed) if saw_every_package else []:
+        problems.append(f'{name} is listed as an indirect dependency, but nothing needs it')
+    if problems:
+        failed = True
+        print(f'  {label}')
+        for problem in problems:
+            print(f'    - {problem}')
+if not failed:
+    print('  Nothing found. See the compiler output above.')
+PYEOF
+}
+
 cleanup() {
   local rc=$?
+  if [ "$rc" -ne 0 ] && [ -d "${ELM_PACKAGES_DIR:-}" ]; then
+    explain_template_dependencies || true
+  fi
   echo ""
   echo "--- Cleaning up ---"
-  wrap repository local-dev clear dillonkearns/elm-pages "$ELM_PKG_VERSION" 2>/dev/null || true
-  # Remove the ELM_HOME symlink that elm-wrap's --local-dev creates.
-  # `wrap repository local-dev clear` only removes wrap's tracking metadata,
-  # not the actual symlink in ELM_HOME, which can poison future builds.
-  local elm_home="${ELM_HOME:-$HOME/.elm}"
-  # The package cache folder is named after the Elm version the compiler is
-  # built on, which is what `lamdera --version` prints (for example 0.19.3).
-  local pkg_path="$elm_home/$(lamdera --version)/packages/dillonkearns/elm-pages/$ELM_PKG_VERSION"
-  if [ -L "$pkg_path" ]; then
-    rm "$pkg_path"
-    echo "  Removed elm-wrap symlink: $pkg_path"
-  fi
   if [ "${SKIP_CLEANUP:-}" = "1" ]; then
     echo "  SKIP_CLEANUP=1 — keeping work directory."
     echo ""
     echo "  Test project:  $WORK_DIR/smoke-test"
     echo "  cd $WORK_DIR/smoke-test"
+    echo "  export ELM_HOME=$WORK_DIR/elm-home PATH=$WORK_DIR/smoke-test/node_modules/.bin:\$PATH"
     echo ""
     echo "  To diff your changes against the template:"
     echo "    diff -ru $REPO_ROOT/generator/template $WORK_DIR/smoke-test --exclude=node_modules --exclude=elm-stuff --exclude=.elm-pages --exclude=dist --exclude=codegen"
@@ -127,17 +197,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# ── Step 2: Register local Elm package with elm-wrap ─────────────────────
+# ── Step 2: Find the published version to stand in for ───────────────────
 echo ""
-echo "--- Registering local Elm package with elm-wrap ---"
-# Clear any stale package-artifact cache from prior runs. Since --local-dev
-# symlinks the repo root as the "package directory", Elm reads artifacts.dat
-# from here; if that cache predates current elm.json changes (e.g. a newly
-# exposed module), compiles see the old exposed-modules list and fail
-# confusingly. A fresh install by a real user wouldn't have these.
-rm -f "$REPO_ROOT/artifacts.dat" "$REPO_ROOT/artifacts.x.dat"
-wrap install --local-dev dillonkearns/elm-pages -y -q
-echo "  Registered dillonkearns/elm-pages@$ELM_PKG_VERSION from $REPO_ROOT"
+echo "--- Finding the newest published Elm package version ---"
+STAND_IN_VERSION=$(curl -fsSL "https://package.elm-lang.org/packages/dillonkearns/elm-pages/releases.json" \
+  | python3 -c "import json,sys; print(max(json.load(sys.stdin), key=lambda v: tuple(int(n) for n in v.split('.'))))")
+echo "  Local source (to be $ELM_PKG_VERSION) stands in for published $STAND_IN_VERSION"
 
 # ── Step 3: Pack npm package ─────────────────────────────────────────────
 echo ""
@@ -187,6 +252,38 @@ if ! command -v lamdera &>/dev/null; then
   exit 1
 fi
 echo "  lamdera $(lamdera --version) on PATH"
+
+# ── Step 5b: Put the local Elm package into a throwaway package cache ────
+echo ""
+echo "--- Installing local Elm package into a throwaway ELM_HOME ---"
+export ELM_HOME="$WORK_DIR/elm-home"
+# The package cache folder is named after the Elm version the compiler is
+# built on, which is what `lamdera --version` prints (for example 0.19.3).
+ELM_PACKAGES_DIR="$ELM_HOME/$(lamdera --version)/packages"
+ELM_PKG_DIR="$ELM_PACKAGES_DIR/dillonkearns/elm-pages/$STAND_IN_VERSION"
+mkdir -p "$ELM_PKG_DIR"
+cp -R "$REPO_ROOT/src" "$REPO_ROOT/README.md" "$REPO_ROOT/LICENSE" "$ELM_PKG_DIR/"
+python3 - "$REPO_ROOT/elm.json" "$ELM_PKG_DIR/elm.json" "$STAND_IN_VERSION" elm.json script/elm.json <<'PYEOF'
+import json, sys
+package_src, package_dest, stand_in, *app_elm_jsons = sys.argv[1:]
+
+# The package's own elm.json, labelled with the stand-in version
+with open(package_src) as f:
+    package = json.load(f)
+package['version'] = stand_in
+with open(package_dest, 'w') as f:
+    json.dump(package, f, indent=4)
+
+# The test project asks for the stand-in version
+for path in app_elm_jsons:
+    with open(path) as f:
+        d = json.load(f)
+    d['dependencies']['direct']['dillonkearns/elm-pages'] = stand_in
+    with open(path, 'w') as f:
+        json.dump(d, f, indent=4)
+        f.write('\n')
+PYEOF
+echo "  $ELM_PKG_DIR"
 
 # ── Step 6: Smoke test — build ───────────────────────────────────────────
 echo ""

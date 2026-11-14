@@ -189,9 +189,11 @@ async function waitFor(millis) {
  * `view`, `update` and `subscriptions`. The app keeps running, with the same
  * model and the same ports.
  *
- * That cannot always work. The old model may not fit the new code (say a
- * field was added to it), which shows up as an error while redrawing. In that
- * case we load the page again, so you get the new code with a fresh model.
+ * That cannot always work. The old model does not fit new code whose types
+ * changed (say a field was added to the model). The dev server tells us by
+ * way of a type fingerprint in the code, and then we load the page again, so
+ * you get the new code with a fresh model. We do the same if swapping in the
+ * new code fails with an error.
  *
  * @param {string} elmJs - the contents of the dev server's `/elm.js`
  */
@@ -199,6 +201,16 @@ async function applyElmJs(elmJs) {
   try {
     var newScope = {};
     new Function(elmJs).call(newScope);
+    if (newScope.__elmPagesTypeFingerprint !== window.__elmPagesTypeFingerprint) {
+      // The dev server puts a fingerprint of the app's types (Model, Msg and
+      // page data) into the code it serves. The running app's model was made
+      // by code with other types, so it cannot be handed to this new code.
+      console.info(
+        "[elm-pages] The app's Model, Msg or Data types changed, so the page is being reloaded."
+      );
+      window.location.reload();
+      return;
+    }
     window.Elm.hot.reload(newScope);
   } catch (error) {
     console.error(

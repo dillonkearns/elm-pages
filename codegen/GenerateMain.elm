@@ -69,8 +69,22 @@ otherFile routes phaseString routesWithEphemeral =
                 "browser" ->
                     Browser
 
+                "browser-dev" ->
+                    Browser
+
                 _ ->
                     Cli
+
+        -- The dev server's client code ("browser-dev") keeps the Wire codecs
+        -- for `Model` and `Msg` in the compiled JavaScript. Lamdera generates
+        -- those codecs from the types, so their code changes exactly when the
+        -- types do. The dev server reads them to tell whether new code can be
+        -- hot reloaded into a running app, or whether the page has to be loaded
+        -- again because the app's model no longer fits
+        -- (see `generator/src/type-fingerprint.js`). Nothing ever calls them.
+        keepTypesForHotReload : Bool
+        keepTypesForHotReload =
+            phaseString == "browser-dev"
 
         sharedDataType : Type.Annotation
         sharedDataType =
@@ -192,7 +206,17 @@ otherFile routes phaseString routesWithEphemeral =
             , notFoundRoute = Elm.nothing
             , pageModelToString =
                 Elm.fn (Elm.Arg.ignore)
-                    (\_ -> Elm.string "")
+                    (\_ ->
+                        if keepTypesForHotReload then
+                            Gen.Tuple.second
+                                (Elm.tuple
+                                    (Elm.tuple (Elm.val "w3_encode_Model") (Elm.val "w3_encode_Msg"))
+                                    (Elm.string "")
+                                )
+
+                        else
+                            Elm.string ""
+                    )
             }
                 |> make_
 
@@ -2208,11 +2232,13 @@ otherFile routes phaseString routesWithEphemeral =
             |> Elm.expose
         , case phase of
             Browser ->
-                Gen.Pages.Internal.Platform.application config
+                -- With the page data in the flags, the app's first render is the
+                -- page that the server rendered.
+                Gen.Pages.Internal.Platform.applicationWithPageData config
                     |> Elm.withType
                         (Type.namedWith [ "Platform" ]
                             "Program"
-                            [ Gen.Pages.Internal.Platform.annotation_.flags
+                            [ Gen.Pages.Internal.Platform.annotation_.flagsWithPageData
                             , Gen.Pages.Internal.Platform.annotation_.model modelType.annotation
                                 pageDataType.annotation
                                 actionDataType.annotation

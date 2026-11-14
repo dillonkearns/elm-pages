@@ -33580,6 +33580,29 @@ var $author$project$Gen$Pages$Internal$Platform$annotation_ = {
 							$mdgriffith$elm_codegen$Elm$Annotation$var('errorPage')
 						])));
 		}),
+	flagsWithPageData: $mdgriffith$elm_codegen$Elm$Annotation$alias$(
+		$author$project$Gen$Pages$Internal$Platform$moduleName_,
+		'FlagsWithPageData',
+		_List_Nil,
+		$mdgriffith$elm_codegen$Elm$Annotation$record(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'pageData',
+					$mdgriffith$elm_codegen$Elm$Annotation$maybe(
+						$mdgriffith$elm_codegen$Elm$Annotation$namedWith$(
+							_List_fromArray(
+								['Bytes']),
+							'Bytes',
+							_List_Nil))),
+					_Utils_Tuple2(
+					'userFlags',
+					$mdgriffith$elm_codegen$Elm$Annotation$namedWith$(
+						_List_fromArray(
+							['Json', 'Decode']),
+						'Value',
+						_List_Nil))
+				]))),
 	actionDataOrRedirect: function (actionDataOrRedirectArg0) {
 		return $mdgriffith$elm_codegen$Elm$Annotation$namedWith$(
 			_List_fromArray(
@@ -33820,84 +33843,6 @@ var $author$project$Gen$Pages$Internal$NotFoundReason$annotation_ = {
 			['Pages', 'Internal', 'NotFoundReason']),
 		'NotFoundReason',
 		_List_Nil)
-};
-var $author$project$Gen$Pages$Internal$Platform$application = function (applicationArg_) {
-	return $mdgriffith$elm_codegen$Elm$apply$(
-		$mdgriffith$elm_codegen$Elm$value(
-			{
-				name: 'application',
-				annotation: $elm$core$Maybe$Just(
-					$mdgriffith$elm_codegen$Elm$Annotation$function$(
-						_List_fromArray(
-							[
-								$mdgriffith$elm_codegen$Elm$Annotation$namedWith$(
-								_List_fromArray(
-									['Pages', 'Internal', 'Platform']),
-								'ProgramConfig',
-								_List_fromArray(
-									[
-										$mdgriffith$elm_codegen$Elm$Annotation$var('userMsg'),
-										$mdgriffith$elm_codegen$Elm$Annotation$var('userModel'),
-										$mdgriffith$elm_codegen$Elm$Annotation$var('route'),
-										$mdgriffith$elm_codegen$Elm$Annotation$var('pageData'),
-										$mdgriffith$elm_codegen$Elm$Annotation$var('actionData'),
-										$mdgriffith$elm_codegen$Elm$Annotation$var('sharedData'),
-										$mdgriffith$elm_codegen$Elm$Annotation$var('effect'),
-										$mdgriffith$elm_codegen$Elm$Annotation$namedWith$(
-										_List_fromArray(
-											['Pages', 'Internal', 'Platform']),
-										'Msg',
-										_List_fromArray(
-											[
-												$mdgriffith$elm_codegen$Elm$Annotation$var('userMsg'),
-												$mdgriffith$elm_codegen$Elm$Annotation$var('pageData'),
-												$mdgriffith$elm_codegen$Elm$Annotation$var('actionData'),
-												$mdgriffith$elm_codegen$Elm$Annotation$var('sharedData'),
-												$mdgriffith$elm_codegen$Elm$Annotation$var('errorPage')
-											])),
-										$mdgriffith$elm_codegen$Elm$Annotation$var('errorPage')
-									]))
-							]),
-						$mdgriffith$elm_codegen$Elm$Annotation$namedWith$(
-							_List_fromArray(
-								['Platform']),
-							'Program',
-							_List_fromArray(
-								[
-									$mdgriffith$elm_codegen$Elm$Annotation$namedWith$(
-									_List_fromArray(
-										['Pages', 'Internal', 'Platform']),
-									'Flags',
-									_List_Nil),
-									$mdgriffith$elm_codegen$Elm$Annotation$namedWith$(
-									_List_fromArray(
-										['Pages', 'Internal', 'Platform']),
-									'Model',
-									_List_fromArray(
-										[
-											$mdgriffith$elm_codegen$Elm$Annotation$var('userModel'),
-											$mdgriffith$elm_codegen$Elm$Annotation$var('pageData'),
-											$mdgriffith$elm_codegen$Elm$Annotation$var('actionData'),
-											$mdgriffith$elm_codegen$Elm$Annotation$var('sharedData')
-										])),
-									$mdgriffith$elm_codegen$Elm$Annotation$namedWith$(
-									_List_fromArray(
-										['Pages', 'Internal', 'Platform']),
-									'Msg',
-									_List_fromArray(
-										[
-											$mdgriffith$elm_codegen$Elm$Annotation$var('userMsg'),
-											$mdgriffith$elm_codegen$Elm$Annotation$var('pageData'),
-											$mdgriffith$elm_codegen$Elm$Annotation$var('actionData'),
-											$mdgriffith$elm_codegen$Elm$Annotation$var('sharedData'),
-											$mdgriffith$elm_codegen$Elm$Annotation$var('errorPage')
-										]))
-								])))),
-				importFrom: _List_fromArray(
-					['Pages', 'Internal', 'Platform'])
-			}),
-		_List_fromArray(
-			[applicationArg_]));
 };
 var $author$project$Gen$Maybe$withDefault$ = function (withDefaultArg_, withDefaultArg_0) {
 	return $mdgriffith$elm_codegen$Elm$apply$(
@@ -34703,6 +34648,84 @@ var $author$project$GenerateMain$routeVariantExpression$ = function (variant, ro
 	return $mdgriffith$elm_codegen$Elm$val(moduleName);
 };
 var $author$project$GenerateMain$routeVariantExpression = F2($author$project$GenerateMain$routeVariantExpression$);
+var $author$project$Gen$Pages$Internal$Platform$applicationWithPageData = function (applicationWithPageDataArg_) {
+	return $mdgriffith$elm_codegen$Elm$apply$(
+		$mdgriffith$elm_codegen$Elm$value(
+			{
+				name: 'applicationWithPageData',
+				annotation: $elm$core$Maybe$Just(
+					$mdgriffith$elm_codegen$Elm$Annotation$function$(
+						_List_fromArray(
+							[
+								$mdgriffith$elm_codegen$Elm$Annotation$namedWith$(
+								_List_fromArray(
+									['Pages', 'Internal', 'Platform']),
+								'ProgramConfig',
+								_List_fromArray(
+									[
+										$mdgriffith$elm_codegen$Elm$Annotation$var('userMsg'),
+										$mdgriffith$elm_codegen$Elm$Annotation$var('userModel'),
+										$mdgriffith$elm_codegen$Elm$Annotation$var('route'),
+										$mdgriffith$elm_codegen$Elm$Annotation$var('pageData'),
+										$mdgriffith$elm_codegen$Elm$Annotation$var('actionData'),
+										$mdgriffith$elm_codegen$Elm$Annotation$var('sharedData'),
+										$mdgriffith$elm_codegen$Elm$Annotation$var('effect'),
+										$mdgriffith$elm_codegen$Elm$Annotation$namedWith$(
+										_List_fromArray(
+											['Pages', 'Internal', 'Platform']),
+										'Msg',
+										_List_fromArray(
+											[
+												$mdgriffith$elm_codegen$Elm$Annotation$var('userMsg'),
+												$mdgriffith$elm_codegen$Elm$Annotation$var('pageData'),
+												$mdgriffith$elm_codegen$Elm$Annotation$var('actionData'),
+												$mdgriffith$elm_codegen$Elm$Annotation$var('sharedData'),
+												$mdgriffith$elm_codegen$Elm$Annotation$var('errorPage')
+											])),
+										$mdgriffith$elm_codegen$Elm$Annotation$var('errorPage')
+									]))
+							]),
+						$mdgriffith$elm_codegen$Elm$Annotation$namedWith$(
+							_List_fromArray(
+								['Platform']),
+							'Program',
+							_List_fromArray(
+								[
+									$mdgriffith$elm_codegen$Elm$Annotation$namedWith$(
+									_List_fromArray(
+										['Pages', 'Internal', 'Platform']),
+									'FlagsWithPageData',
+									_List_Nil),
+									$mdgriffith$elm_codegen$Elm$Annotation$namedWith$(
+									_List_fromArray(
+										['Pages', 'Internal', 'Platform']),
+									'Model',
+									_List_fromArray(
+										[
+											$mdgriffith$elm_codegen$Elm$Annotation$var('userModel'),
+											$mdgriffith$elm_codegen$Elm$Annotation$var('pageData'),
+											$mdgriffith$elm_codegen$Elm$Annotation$var('actionData'),
+											$mdgriffith$elm_codegen$Elm$Annotation$var('sharedData')
+										])),
+									$mdgriffith$elm_codegen$Elm$Annotation$namedWith$(
+									_List_fromArray(
+										['Pages', 'Internal', 'Platform']),
+									'Msg',
+									_List_fromArray(
+										[
+											$mdgriffith$elm_codegen$Elm$Annotation$var('userMsg'),
+											$mdgriffith$elm_codegen$Elm$Annotation$var('pageData'),
+											$mdgriffith$elm_codegen$Elm$Annotation$var('actionData'),
+											$mdgriffith$elm_codegen$Elm$Annotation$var('sharedData'),
+											$mdgriffith$elm_codegen$Elm$Annotation$var('errorPage')
+										]))
+								])))),
+				importFrom: _List_fromArray(
+					['Pages', 'Internal', 'Platform'])
+			}),
+		_List_fromArray(
+			[applicationWithPageDataArg_]));
+};
 var $author$project$GenerateMain$destructureRouteVariant$ = function (variant, varName, route) {
 	var moduleName = _Utils_ap(
 		$author$project$GenerateMain$routeVariantToString(variant),
@@ -35029,6 +35052,7 @@ var $author$project$GenerateMain$otherFile$ = function (routes, phaseString, rou
 				},
 				$author$project$Gen$Bytes$Decode$unsignedInt32($author$project$Gen$Bytes$make_.bE));
 		});
+	var keepTypesForHotReload = phaseString === 'browser-dev';
 	var modelMismatchView = $mdgriffith$elm_codegen$Elm$Declare$value$(
 		'modelMismatchView',
 		$mdgriffith$elm_codegen$Elm$record(
@@ -35969,10 +35993,13 @@ var $author$project$GenerateMain$otherFile$ = function (routes, phaseString, rou
 						}));
 			}));
 	var phase = function () {
-		if (phaseString === 'browser') {
-			return $author$project$GenerateMain$Browser;
-		} else {
-			return $author$project$GenerateMain$Cli;
+		switch (phaseString) {
+			case 'browser':
+				return $author$project$GenerateMain$Browser;
+			case 'browser-dev':
+				return $author$project$GenerateMain$Browser;
+			default:
+				return $author$project$GenerateMain$Cli;
 		}
 	}();
 	var pageDataType = $mdgriffith$elm_codegen$Elm$Declare$customType$(
@@ -37888,7 +37915,12 @@ var $author$project$GenerateMain$otherFile$ = function (routes, phaseString, rou
 			pageModelToString: $mdgriffith$elm_codegen$Elm$fn$(
 				$mdgriffith$elm_codegen$Elm$Arg$ignore,
 				function (_v6) {
-					return $mdgriffith$elm_codegen$Elm$string('');
+					return keepTypesForHotReload ? $author$project$Gen$Tuple$second(
+						$mdgriffith$elm_codegen$Elm$tuple$(
+							$mdgriffith$elm_codegen$Elm$tuple$(
+								$mdgriffith$elm_codegen$Elm$val('w3_encode_Model'),
+								$mdgriffith$elm_codegen$Elm$val('w3_encode_Msg')),
+							$mdgriffith$elm_codegen$Elm$string(''))) : $mdgriffith$elm_codegen$Elm$string('');
 				}),
 			byteDecodePageData: byteDecodePageData.value,
 			byteEncodePageData: byteEncodePageData.value
@@ -37918,7 +37950,7 @@ var $author$project$GenerateMain$otherFile$ = function (routes, phaseString, rou
 									'Program',
 									_List_fromArray(
 										[
-											$author$project$Gen$Pages$Internal$Platform$annotation_.flags,
+											$author$project$Gen$Pages$Internal$Platform$annotation_.flagsWithPageData,
 											A4($author$project$Gen$Pages$Internal$Platform$annotation_.model, modelType.annotation, pageDataType.annotation, actionDataType.annotation, sharedDataType),
 											A5(
 											$author$project$Gen$Pages$Internal$Platform$annotation_.msg,
@@ -37931,7 +37963,7 @@ var $author$project$GenerateMain$otherFile$ = function (routes, phaseString, rou
 													['ErrorPage']),
 												'ErrorPage'))
 										])),
-								$author$project$Gen$Pages$Internal$Platform$application(config))));
+								$author$project$Gen$Pages$Internal$Platform$applicationWithPageData(config))));
 				} else {
 					return $mdgriffith$elm_codegen$Elm$exposeConstructor(
 						$mdgriffith$elm_codegen$Elm$declaration$(

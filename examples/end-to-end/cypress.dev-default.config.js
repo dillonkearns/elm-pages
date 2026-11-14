@@ -7,6 +7,12 @@ export default defineConfig({
   e2e: {
     setupNodeEvents(on, config) {},
     baseUrl: "http://localhost:1235",
-    specPattern: "cypress/dev-default/**/*.cy.js",
+    specPattern: [
+      "cypress/dev-default/**/*.cy.js",
+      // Hot reloading and the first render must work in both modes, so these
+      // specs run here too.
+      "cypress/e2e/hot-reload.cy.js",
+      "cypress/e2e/first-render.cy.js",
+    ],
   },
 });

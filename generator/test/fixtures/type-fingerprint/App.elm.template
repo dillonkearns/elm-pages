@@ -1,0 +1,36 @@
+port module App exposing (main)
+
+{-| A small app whose `Model` and `Msg` Wire codecs are kept in the compiled
+code, the way the dev server's generated `Main.elm` keeps them. The test
+compiles variations of it to check which changes move the type fingerprint.
+-}
+
+import Item exposing (Item)
+
+
+port increment : (() -> msg) -> Sub msg
+
+
+port report : String -> Cmd msg
+
+
+type alias Model =
+    __MODEL__
+
+
+type Msg
+    = __MSG__
+
+
+main : Program () Model Msg
+main =
+    Platform.worker
+        { init = \() -> ( __INIT__, Cmd.none )
+        , update = \_ model -> ( __UPDATE__, report (keepTypes "__LABEL__") )
+        , subscriptions = \_ -> increment (\_ -> Increment)
+        }
+
+
+keepTypes : String -> String
+keepTypes label =
+    Tuple.second ( ( w3_encode_Model, w3_encode_Msg ), label )

@@ -14,30 +14,15 @@ function loadContentAndInitializeApp() {
   if (!path.endsWith("/")) {
     path = path + "/";
   }
-  // Decode the base64-encoded page data in JS and send raw bytes through port
-  const pageDataBase64 = document.getElementById("__ELM_PAGES_BYTES_DATA__").innerHTML;
   const app = Elm.Main.init({
     flags: {
-      secrets: null,
-      isPrerendering: false,
-      isDevServer: false,
-      isElmDebugMode: false,
-      contentJson: {},
+      // The page data goes in the flags (not through a port) so that the app
+      // has it for its first render. That first render has to be the same page
+      // as the server-rendered HTML, so that the app keeps that HTML.
+      pageData: initialPageData(),
       userFlags: userInit.flags(),
     },
   });
-
-  // Send initial page data as raw bytes through the port
-  // Port messages are processed synchronously before the browser paints
-  if (pageDataBase64) {
-    const binaryString = atob(pageDataBase64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    const dataView = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-    app.ports.pageDataFromJs.send(dataView);
-  }
 
   app.ports.toJsPort.subscribe(async (portData) => {
     // toJsPort now sends { json, bytes } — unwrap the json payload
@@ -58,6 +43,26 @@ function loadContentAndInitializeApp() {
   });
 
   return app;
+}
+
+/**
+ * The page data that the server sent with the HTML, as bytes.
+ * It is in the combined format that the Elm decoder (skipFrozenViewsPrefix) expects.
+ *
+ * @returns {DataView | null}
+ */
+function initialPageData() {
+  const element = document.getElementById("__ELM_PAGES_BYTES_DATA__");
+  const pageDataBase64 = element && element.textContent;
+  if (!pageDataBase64) {
+    return null;
+  }
+  const binaryString = atob(pageDataBase64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 }
 
 function loadNamedAnchor() {

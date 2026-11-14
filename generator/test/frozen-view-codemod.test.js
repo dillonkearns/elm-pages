@@ -55,8 +55,8 @@ afterAll(() => {
 
 describe("frozen view patch on real lamdera output", () => {
   it("draws a frozen view from its saved HTML when rendering from scratch", () => {
-    // The app's first render replaces the server-rendered page, so frozen
-    // views are drawn by `_VirtualDom_render`, not found by the diff.
+    // A frozen view that appears where there was no node to diff against is
+    // drawn by `_VirtualDom_render`, not found by the diff.
     const render = functionSource(patched, "_VirtualDom_render");
 
     expect(render).toContain("__ELM_PAGES_FROZEN_VIEWS__");
