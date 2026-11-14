@@ -9,8 +9,26 @@
  */
 
 /**
+ * @typedef {{ type: "paste"; text: string; }} PasteEvent
+ * @typedef {{ type: "mouse"; action: "scrollUp" | "scrollDown"; row: number; col: number; }} MouseEvent
+ * @typedef {{ type: "mouse"; action: "click"; button: unknown; row: number; col: number; }} ClickEvent
+ * @typedef {{ _exit: true; }} ExitEvent
+ *
+ * @typedef {{ type: "keypress"; key: Key; modifiers: ("Shift" | "Ctrl")[]; }} KeypressEvent
+ * @typedef {ArrowKey | SpecialKey | NormalKey} Key
+ * @typedef {{ tag: "Arrow", direction: "Up" | "Down" | "Right" | "Left" }} ArrowKey
+ * @typedef {{ tag: "Home" | "End" | "PageUp" | "PageDown" | "Delete" | "Tab" | "Escape" | "Enter" | "Backspace"}} SpecialKey
+ * @typedef {{ tag: "Character", char: string; }} NormalKey
+ *
+ *
+ * @typedef {PasteEvent | MouseEvent | ClickEvent | ExitEvent | KeypressEvent} TuiEvent
+ */
+
+/**
  * Parse a single terminal event from the beginning of a string.
  * Returns { event, remaining } or null if unparseable.
+ * @param {string} s
+ * @return {{ event: TuiEvent | null; remaining: string; } | null}
  */
 export function tuiParseSingleEvent(s) {
   // Bracketed paste: \x1b[200~ ... \x1b[201~
@@ -47,7 +65,12 @@ export function tuiParseSingleEvent(s) {
 
     if (isWheel) {
       return {
-        event: { type: "mouse", action: low2 === 0 ? "scrollUp" : "scrollDown", row: cy, col: cx },
+        event: {
+          type: "mouse",
+          action: low2 === 0 ? "scrollUp" : "scrollDown",
+          row: cy,
+          col: cx,
+        },
         remaining: s.slice(consumed),
       };
     }
@@ -56,7 +79,13 @@ export function tuiParseSingleEvent(s) {
     }
     const buttons = ["left", "middle", "right"];
     return {
-      event: { type: "mouse", action: "click", button: buttons[low2] || "left", row: cy, col: cx },
+      event: {
+        type: "mouse",
+        action: "click",
+        button: buttons[low2] || "left",
+        row: cy,
+        col: cx,
+      },
       remaining: s.slice(consumed),
     };
   }
@@ -72,7 +101,12 @@ export function tuiParseSingleEvent(s) {
 
     if (isWheel) {
       return {
-        event: { type: "mouse", action: low2 === 0 ? "scrollUp" : "scrollDown", row: cy, col: cx },
+        event: {
+          type: "mouse",
+          action: low2 === 0 ? "scrollUp" : "scrollDown",
+          row: cy,
+          col: cx,
+        },
         remaining: s.slice(6),
       };
     }
@@ -81,17 +115,40 @@ export function tuiParseSingleEvent(s) {
     }
     const buttons = ["left", "middle", "right"];
     return {
-      event: { type: "mouse", action: "click", button: buttons[low2] || "left", row: cy, col: cx },
+      event: {
+        type: "mouse",
+        action: "click",
+        button: buttons[low2] || "left",
+        row: cy,
+        col: cx,
+      },
       remaining: s.slice(6),
     };
   }
 
   // Known escape sequences (fixed length)
+  /** @type {{ [seq: string]: KeypressEvent; }} */
   const escapeMap = {
-    "\x1b[A": { type: "keypress", key: { tag: "Arrow", direction: "Up" }, modifiers: [] },
-    "\x1b[B": { type: "keypress", key: { tag: "Arrow", direction: "Down" }, modifiers: [] },
-    "\x1b[C": { type: "keypress", key: { tag: "Arrow", direction: "Right" }, modifiers: [] },
-    "\x1b[D": { type: "keypress", key: { tag: "Arrow", direction: "Left" }, modifiers: [] },
+    "\x1b[A": {
+      type: "keypress",
+      key: { tag: "Arrow", direction: "Up" },
+      modifiers: [],
+    },
+    "\x1b[B": {
+      type: "keypress",
+      key: { tag: "Arrow", direction: "Down" },
+      modifiers: [],
+    },
+    "\x1b[C": {
+      type: "keypress",
+      key: { tag: "Arrow", direction: "Right" },
+      modifiers: [],
+    },
+    "\x1b[D": {
+      type: "keypress",
+      key: { tag: "Arrow", direction: "Left" },
+      modifiers: [],
+    },
     "\x1b[H": { type: "keypress", key: { tag: "Home" }, modifiers: [] },
     "\x1b[F": { type: "keypress", key: { tag: "End" }, modifiers: [] },
     "\x1b[5~": { type: "keypress", key: { tag: "PageUp" }, modifiers: [] },
@@ -108,7 +165,10 @@ export function tuiParseSingleEvent(s) {
 
   // Escape key alone
   if (s.startsWith("\x1b") && s.length === 1) {
-    return { event: { type: "keypress", key: { tag: "Escape" }, modifiers: [] }, remaining: "" };
+    return {
+      event: { type: "keypress", key: { tag: "Escape" }, modifiers: [] },
+      remaining: "",
+    };
   }
 
   // Unknown escape sequence — don't parse, let caller handle as leftover
@@ -121,19 +181,45 @@ export function tuiParseSingleEvent(s) {
     const c = s.charCodeAt(0);
 
     if (c === 0x03) return { event: { _exit: true }, remaining: s.slice(1) };
-    if (c === 0x0d || c === 0x0a) return { event: { type: "keypress", key: { tag: "Enter" }, modifiers: [] }, remaining: s.slice(1) };
-    if (c === 0x09) return { event: { type: "keypress", key: { tag: "Tab" }, modifiers: [] }, remaining: s.slice(1) };
-    if (c === 0x7f) return { event: { type: "keypress", key: { tag: "Backspace" }, modifiers: [] }, remaining: s.slice(1) };
+    if (c === 0x0d || c === 0x0a)
+      return {
+        event: { type: "keypress", key: { tag: "Enter" }, modifiers: [] },
+        remaining: s.slice(1),
+      };
+    if (c === 0x09)
+      return {
+        event: { type: "keypress", key: { tag: "Tab" }, modifiers: [] },
+        remaining: s.slice(1),
+      };
+    if (c === 0x7f)
+      return {
+        event: { type: "keypress", key: { tag: "Backspace" }, modifiers: [] },
+        remaining: s.slice(1),
+      };
 
     // Ctrl+letter
     if (c >= 1 && c <= 26) {
       const letter = String.fromCharCode(c + 96);
-      return { event: { type: "keypress", key: { tag: "Character", char: letter }, modifiers: ["Ctrl"] }, remaining: s.slice(1) };
+      return {
+        event: {
+          type: "keypress",
+          key: { tag: "Character", char: letter },
+          modifiers: ["Ctrl"],
+        },
+        remaining: s.slice(1),
+      };
     }
 
     // Regular printable character
     if (c >= 32) {
-      return { event: { type: "keypress", key: { tag: "Character", char: s.charAt(0) }, modifiers: [] }, remaining: s.slice(1) };
+      return {
+        event: {
+          type: "keypress",
+          key: { tag: "Character", char: s.charAt(0) },
+          modifiers: [],
+        },
+        remaining: s.slice(1),
+      };
     }
   }
 
@@ -143,8 +229,11 @@ export function tuiParseSingleEvent(s) {
 /**
  * Parse all events from a string, returning events and any leftover
  * partial sequence to carry over to the next data chunk.
+ * @param {string} s
+ * @returns {{ events: TuiEvent[]; leftover: string; }}
  */
 export function tuiParseAllEvents(s) {
+  /** @type {TuiEvent[]} */
   const events = [];
   let remaining = s;
 
