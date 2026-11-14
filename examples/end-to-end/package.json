@@ -9,7 +9,8 @@
     "build": "elm-pages build",
     "test:frozen-views": "elm-pages build --debug && node check-frozen-views.mjs",
     "serve:dist": "node serve-dist.mjs",
-    "cypress:production": "cypress run --config-file cypress.production.config.js"
+    "cypress:production": "cypress run --config-file cypress.production.config.js",
+    "cypress:dev-default": "cypress run --config-file cypress.dev-default.config.js"
   },
   "author": "Dillon Kearns",
   "license": "BSD-3",
