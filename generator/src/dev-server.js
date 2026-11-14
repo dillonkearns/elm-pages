@@ -128,7 +128,7 @@ export async function start(options) {
   let config;
   try {
     const results = await Promise.all([
-      codegen.generate(options.base),
+      codegen.generate(options.base, { keepTypesForHotReload: true }),
       ensureRequiredExecutables(),
       resolveConfig(),
     ]);
@@ -1182,7 +1182,9 @@ main =
         let codegenError = null;
         if (needToRerunCodegen(eventName, pathThatChanged)) {
           try {
-            await codegen.generate(options.base);
+            await codegen.generate(options.base, {
+              keepTypesForHotReload: true,
+            });
           } catch (error) {
             codegenError = error;
           }

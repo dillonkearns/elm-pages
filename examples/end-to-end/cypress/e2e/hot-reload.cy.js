@@ -5,25 +5,36 @@
 // cypress/e2e) and against plain `elm-pages dev` (cypress.dev-default.config.js).
 
 const counterRoute = "app/Route/Counter.elm";
-
-/** @type {string} */
-let originalSource;
+const sharedModule = "app/Shared.elm";
 
 /**
- * Save a changed copy of the Counter route, which makes the dev server
- * compile it and send the new code to the page.
+ * The files these tests change, as they were before the tests ran.
  *
+ * @type {Record<string, string>}
+ */
+const originalSources = {};
+
+/**
+ * Save a changed copy of an Elm file, which makes the dev server compile it
+ * and send the new code to the page.
+ *
+ * @param {string} file
  * @param {[string, string][]} replacements - pairs of [text to find, text to put there]
  */
-function editCounterRoute(replacements) {
+function editFile(file, replacements) {
   cy.then(() => {
-    let source = originalSource;
+    let source = originalSources[file];
     for (const [from, to] of replacements) {
-      expect(source, `Counter.elm should contain ${from}`).to.include(from);
+      expect(source, `${file} should contain ${from}`).to.include(from);
       source = source.replace(from, to);
     }
-    cy.writeFile(counterRoute, source);
+    cy.writeFile(file, source);
   });
+}
+
+/** @param {[string, string][]} replacements */
+function editCounterRoute(replacements) {
+  editFile(counterRoute, replacements);
 }
 
 /** Click "+" until the page shows the given count, checking each step. */
@@ -56,15 +67,36 @@ function pageWasNotReloaded() {
   );
 }
 
+function pageMarkIsGone() {
+  cy.window().should((win) => {
+    expect(win.stillTheSamePage).to.equal(undefined);
+  });
+}
+
+/**
+ * The page was loaded again: the marks are gone and the app started over,
+ * with a fresh model.
+ */
+function pageWasReloaded() {
+  cy.contains("Count: 0");
+  pageMarkIsGone();
+  cy.get("@consoleError").should(
+    "not.have.been.calledWithMatch",
+    /Could not hot reload/
+  );
+}
+
 function errorOverlay() {
   return cy.get("[id='elm-live:elmErrorContainer']");
 }
 
 context("dev server hot reloading", () => {
   before(() => {
-    cy.readFile(counterRoute).then((source) => {
-      originalSource = source;
-    });
+    for (const file of [counterRoute, sharedModule]) {
+      cy.readFile(file).then((source) => {
+        originalSources[file] = source;
+      });
+    }
   });
 
   beforeEach(() => {
@@ -79,7 +111,14 @@ context("dev server hot reloading", () => {
   afterEach(() => {
     // Put the file back even if the test failed halfway, and wait until the
     // dev server has compiled it, so the next test starts from a quiet server.
-    cy.writeFile(counterRoute, originalSource);
+    for (const file of [counterRoute, sharedModule]) {
+      cy.readFile(file).then((source) => {
+        if (source !== originalSources[file]) {
+          cy.writeFile(file, originalSources[file]);
+        }
+      });
+    }
+    cy.contains("h1", /^Counter$/);
     cy.contains("Count: ");
     errorOverlay().should("not.exist");
   });
@@ -150,5 +189,85 @@ context("dev server hot reloading", () => {
 
     cy.contains("button", "+").click();
     cy.contains("Total: 3");
+  });
+
+  // New code cannot run on a model that was made by code with different types.
+  // So when the types the app keeps in memory change, the page is loaded again
+  // and the app starts over, instead of running with a model that does not fit.
+  describe("when the app's types change", () => {
+    it("reloads the page when a field is added to the route's Model", () => {
+      countUpTo(2);
+      markThePage();
+
+      editCounterRoute([
+        ["{ count : Int\n    }", "{ count : Int\n    , step : Int\n    }"],
+        ["{ count = 0 }", "{ count = 0, step = 5 }"],
+        ["model.count + 1", "model.count + model.step"],
+        ['Html.text "Counter"', 'Html.text "Counter with steps"'],
+      ]);
+
+      cy.contains("h1", "Counter with steps");
+      pageWasReloaded();
+
+      // The new field is there, so the new code works.
+      cy.contains("button", "+").click();
+      cy.contains("Count: 5");
+    });
+
+    it("reloads the page when a variant is added to the route's Msg", () => {
+      countUpTo(2);
+      markThePage();
+
+      editCounterRoute([
+        ["    | Reset\n", "    | Reset\n    | Double\n"],
+        [
+          "        Reset ->\n",
+          "        Double ->\n            ( { model | count = model.count * 2 }, Effect.none )\n\n        Reset ->\n",
+        ],
+        [
+          '[ Html.text "Reset" ]',
+          '[ Html.text "Reset" ]\n            , Html.button\n                [ Events.onClick (PagesMsg.fromMsg Double) ]\n                [ Html.text "Double" ]',
+        ],
+      ]);
+
+      cy.contains("button", "Double");
+      pageWasReloaded();
+
+      countUpTo(3);
+      cy.contains("button", "Double").click();
+      cy.contains("Count: 6");
+    });
+
+    it("reloads the page when a field is added to Shared.Model", () => {
+      countUpTo(2);
+      markThePage();
+
+      editFile(sharedModule, [
+        [
+          "{ showMobileMenu : Bool\n    }",
+          "{ showMobileMenu : Bool\n    , visits : Int\n    }",
+        ],
+        ["{ showMobileMenu = False }", "{ showMobileMenu = False, visits = 0 }"],
+      ]);
+
+      pageWasReloaded();
+      countUpTo(1);
+    });
+
+    it("reloads the page when the route's Data changes", () => {
+      countUpTo(2);
+      markThePage();
+
+      editCounterRoute([
+        ["type alias Data =\n    {}", "type alias Data =\n    { label : String }"],
+        ["BackendTask.succeed Data", 'BackendTask.succeed (Data "Clicks")'],
+        ['"Count: "', 'app.data.label ++ ": "'],
+      ]);
+
+      cy.contains("Clicks: 0");
+      pageMarkIsGone();
+      cy.contains("button", "+").click();
+      cy.contains("Clicks: 1");
+    });
   });
 });

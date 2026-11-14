@@ -35029,6 +35029,7 @@ var $author$project$GenerateMain$otherFile$ = function (routes, phaseString, rou
 				},
 				$author$project$Gen$Bytes$Decode$unsignedInt32($author$project$Gen$Bytes$make_.bE));
 		});
+	var keepTypesForHotReload = phaseString === 'browser-dev';
 	var modelMismatchView = $mdgriffith$elm_codegen$Elm$Declare$value$(
 		'modelMismatchView',
 		$mdgriffith$elm_codegen$Elm$record(
@@ -35969,10 +35970,13 @@ var $author$project$GenerateMain$otherFile$ = function (routes, phaseString, rou
 						}));
 			}));
 	var phase = function () {
-		if (phaseString === 'browser') {
-			return $author$project$GenerateMain$Browser;
-		} else {
-			return $author$project$GenerateMain$Cli;
+		switch (phaseString) {
+			case 'browser':
+				return $author$project$GenerateMain$Browser;
+			case 'browser-dev':
+				return $author$project$GenerateMain$Browser;
+			default:
+				return $author$project$GenerateMain$Cli;
 		}
 	}();
 	var pageDataType = $mdgriffith$elm_codegen$Elm$Declare$customType$(
@@ -37888,7 +37892,12 @@ var $author$project$GenerateMain$otherFile$ = function (routes, phaseString, rou
 			pageModelToString: $mdgriffith$elm_codegen$Elm$fn$(
 				$mdgriffith$elm_codegen$Elm$Arg$ignore,
 				function (_v6) {
-					return $mdgriffith$elm_codegen$Elm$string('');
+					return keepTypesForHotReload ? $author$project$Gen$Tuple$second(
+						$mdgriffith$elm_codegen$Elm$tuple$(
+							$mdgriffith$elm_codegen$Elm$tuple$(
+								$mdgriffith$elm_codegen$Elm$val('w3_encode_Model'),
+								$mdgriffith$elm_codegen$Elm$val('w3_encode_Msg')),
+							$mdgriffith$elm_codegen$Elm$string(''))) : $mdgriffith$elm_codegen$Elm$string('');
 				}),
 			byteDecodePageData: byteDecodePageData.value,
 			byteEncodePageData: byteEncodePageData.value

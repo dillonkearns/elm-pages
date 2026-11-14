@@ -1,0 +1,5 @@
+module Item exposing (Item)
+
+
+type alias Item =
+    __ITEM__

@@ -29,8 +29,15 @@ Use with the `dillonkearns/elm-pages` Elm package 12.3.1 or later.
 - Hot reloading in `elm-pages dev` now uses the hot reloading that
   Lamdera 1.5.0 builds into compiled code, instead of `elm-hot`. The
   running app keeps its model, its ports and the page's DOM when new
-  code arrives. If swapping in the new code fails with an error, the
-  page reloads instead. The `elm-hot` dependency is gone.
+  code arrives. The `elm-hot` dependency is gone.
+- The dev server reloads the page, instead of hot reloading, when a
+  change alters the types the running app keeps in memory: your routes'
+  `Model`, `Msg` and `Data`, `Shared.Model`, `Shared.Msg`, and any type
+  they use. New code cannot run safely on a model made by code with
+  different types (a new field would be missing from it), so the app
+  starts over with a fresh model. A change that only touches function
+  bodies, such as `view` or `update`, is still hot reloaded. The page
+  also reloads if swapping in the new code fails with an error.
 - `elm-pages dev` no longer compiles with `--optimize`. Lamdera only
   builds hot reloading into code compiled without it, the same as its
   own dev server: optimized code shortens record field names, and those
