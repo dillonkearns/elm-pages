@@ -85,7 +85,9 @@ describe("runElmCodegenInstall", () => {
     // system tools to function correctly. The "with elm-codegen missing" test
     // below specifically tests the behavior when elm-codegen is not in PATH.
 
-    it("succeeds", async () => {
+    // This compiles and runs a script, which takes 4 to 5 seconds on CI, so
+    // the default 5 second timeout is too tight.
+    it("succeeds", { timeout: 60000 }, async () => {
       expect(existsSync("node_modules/.bin/elm-pages")).toBe(true);
 
       await expect(spawnLocalElmPages()).resolves.toEqual(
