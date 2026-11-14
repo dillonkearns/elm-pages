@@ -35,7 +35,7 @@ toUrl url =
     { protocol = url.protocol
     , host = url.host
     , port_ = url.port_
-    , path = url.path |> UrlPath.toRelative
+    , path = url.path |> UrlPath.toAbsolute
     , query =
         if url.query |> Dict.isEmpty then
             Nothing
