@@ -5,8 +5,9 @@
   "description": "Example site built with elm-pages.",
   "scripts": {
     "start": "elm-pages dev",
-    "test": "elm-pages build --debug && npm run clean-diff && elm-pages build && npm run clean-diff",
+    "test": "elm-pages build --debug && npm run clean-diff && elm-pages build && npm run clean-diff && npm run check-dev-server",
     "clean-diff": "sed -E -i.bak 's/[.-][a-zA-Z0-9_-]{8}([.-][a-z]{2,4})/.HASH\\1/gi' ./dist/escaping/index.html && sed -i.bak 's/<meta name=\"generator\".*$//gi' ./dist/escaping/index.html  && git diff --exit-code ./dist",
+    "check-dev-server": "node check-dev-server.mjs",
     "build": "elm-pages build"
   },
   "author": "Dillon Kearns",
