@@ -54,7 +54,9 @@ Use with the `dillonkearns/elm-pages` Elm package 12.3.1 or later.
 - Pre-rendered HTML now has a `data-elm` attribute on each element.
   This comes from the safe virtual DOM that Lamdera 1.5.0 uses, which
   needs it to pick up server-rendered elements in the browser. The
-  attribute is removed again on the first render.
+  attribute is removed again on the first render, except inside frozen
+  views: the browser app does not redraw those, so their elements keep
+  it.
 - `elm-pages init` template now installs Lamdera 1.5.0 and
   `dillonkearns/elm-pages` 12.3.1, with its other Elm and npm
   dependencies updated to match.
