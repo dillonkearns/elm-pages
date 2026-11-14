@@ -75,7 +75,7 @@ async function analyzeEphemeralFields() {
 
 /**
  * @param {string} basePath
- * @param {'browser' | 'cli'} phase
+ * @param {'browser' | 'browser-dev' | 'cli'} phase
  * @param {{ skipEphemeralAnalysis?: boolean, routesWithEphemeral?: string[] }} [options]
  */
 export async function generateTemplateModuleConnector(basePath, phase, options = {}) {

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.6.0] - 2026-11-14
+
+Use with the `dillonkearns/elm-pages` Elm package 12.3.1 or later.
+
 ### Changed
 
 - **Breaking:** Node.js 22 or later is now required: 22.22.2 or later
@@ -24,9 +28,25 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   `elm-pages`.
 - Hot reloading in `elm-pages dev` now uses the hot reloading that
   Lamdera 1.5.0 builds into compiled code, instead of `elm-hot`. The
-  running app keeps its model and ports when new code arrives. If the
-  new code cannot be swapped in (for example the model changed shape),
-  the page reloads instead. The `elm-hot` dependency is gone.
+  running app keeps its model, its ports and the page's DOM when new
+  code arrives. The `elm-hot` dependency is gone.
+- The dev server reloads the page, instead of hot reloading, when a
+  change alters the types the running app keeps in memory: your routes'
+  `Model`, `Msg` and `Data`, `Shared.Model`, `Shared.Msg`, and any type
+  they use. New code cannot run safely on a model made by code with
+  different types (a new field would be missing from it), so the app
+  starts over with a fresh model. A change that only touches function
+  bodies, such as `view` or `update`, is still hot reloaded. The page
+  also reloads if swapping in the new code fails with an error.
+- `elm-pages dev` no longer compiles with `--optimize`. Lamdera only
+  builds hot reloading into code compiled without it, the same as its
+  own dev server: optimized code shortens record field names, and those
+  can differ from one compile to the next, so a running app's model
+  could not be handed to new code safely. This also means `Debug.log`
+  and the rest of `Debug` now work in plain `elm-pages dev`, not only
+  with `--debug`. `elm-pages build` still compiles with `--optimize`
+  and still rejects `Debug`, so a project that uses it runs in the dev
+  server but does not build until it is removed.
 - The frozen view patch for the older virtual DOM is removed, along with
   the detection that chose between the two. If the compiled code is not
   what elm-pages expects, the build now stops instead of shipping pages
@@ -35,7 +55,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   This comes from the safe virtual DOM that Lamdera 1.5.0 uses, which
   needs it to pick up server-rendered elements in the browser. The
   attribute is removed again on the first render.
-- `elm-pages init` template now installs Lamdera 1.5.0.
+- `elm-pages init` template now installs Lamdera 1.5.0 and
+  `dillonkearns/elm-pages` 12.3.1, with its other Elm and npm
+  dependencies updated to match.
+- npm dependencies updated to their latest versions, including
+  `elm-optimize-level-2` 0.4.0, which no longer prints TypeScript
+  deprecation warnings during a production build.
 - **Breaking:** elm-review 2.13.3 or later is now required, and checked
   at startup. With older versions, elm-review found nothing when its
   rules were built with Lamdera, so builds skipped frozen views and dead
@@ -59,6 +84,19 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   started, and after client-side navigation, with the safe virtual DOM
   that Lamdera 1.5.0 uses. They are now drawn from the server-rendered
   HTML in both cases.
+- `elm-pages dev` failed to render a page with a lazy node (`Html.Lazy`,
+  or anything built on it, such as a `Pages.Form`) inside an
+  `Html.Keyed` node. The page showed `Error pre-rendering HTML in
+  HtmlPrinter.elm` instead. `elm-pages build` and `elm-pages dev --debug`
+  were not affected. See
+  [#622](https://github.com/dillonkearns/elm-pages/issues/622).
+- `BackendTask.Time.zone`, `zoneFor` and the other timezone lookups
+  crashed on Node 26, which ships the final Temporal API without
+  `Temporal.TimeZone`.
+- Timezone lookups missed a daylight saving change in the last two weeks
+  of the requested range on Node versions without Temporal, and failed
+  for zones whose past offsets were not whole minutes (for example
+  `Africa/Monrovia` before 1972).
 
 ## [3.5.1] - 2026-05-11
 

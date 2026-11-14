@@ -9,6 +9,7 @@ import { rewriteElmJson } from "./rewrite-elm-json-help.js";
 import { patchFrozenViews } from "./frozen-view-codemod.js";
 import { requireLamdera } from "./commands/shared.js";
 import { patchCompiledCliApp } from "./patch-compiled-cli-app.js";
+import { withTypeFingerprint } from "./type-fingerprint.js";
 import { transform as eol2Transform } from "elm-optimize-level-2";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -50,6 +51,8 @@ export async function compileElmForBrowser(options, config = {}) {
   // Apply transforms in sequence:
   // 1. Form data stringify replacement
   // 2. Frozen view adoption patch
+  // 3. Record the fingerprint of the app's types, which `hmr.js` uses to
+  //    decide between hot reloading and loading the page again
   let transformedCode = rawElmCode;
 
   transformedCode = transformedCode.replace(
@@ -63,6 +66,8 @@ export async function compileElmForBrowser(options, config = {}) {
 
   // Patch the virtual DOM so it can draw frozen views
   transformedCode = patchFrozenViews(transformedCode);
+
+  transformedCode = withTypeFingerprint(transformedCode);
 
   return fs.promises.writeFile("./.elm-pages/cache/elm.js", transformedCode);
 }

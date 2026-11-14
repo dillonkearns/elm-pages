@@ -18,8 +18,11 @@ const __dirname = path.dirname(__filename);
 
 /**
  * @param {string} basePath
+ * @param {{ keepTypesForHotReload?: boolean }} [options] - the dev server sets
+ *   `keepTypesForHotReload`, so the client code keeps what is needed to tell
+ *   when the app's types change (see `type-fingerprint.js`)
  */
-export async function generate(basePath) {
+export async function generate(basePath, options = {}) {
   // In dev mode, skip ephemeral field analysis since the server-review codemod
   // that creates Ephemeral types in route modules isn't run.
   // Ephemeral type optimization only matters for production builds.
@@ -28,7 +31,7 @@ export async function generate(basePath) {
   });
   const browserCode = await generateTemplateModuleConnector(
     basePath,
-    "browser"
+    options.keepTypesForHotReload ? "browser-dev" : "browser"
   );
   ensureDirSync("./elm-stuff");
   ensureDirSync("./.elm-pages");
