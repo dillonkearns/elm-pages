@@ -110,8 +110,9 @@ jobs:
       # Stop it, so only one dev server at a time compiles into elm-stuff
       - name: Stop the --debug dev server
         run: pkill -f "cli.js dev --debug" || true
-      # Plain `elm-pages dev` compiles with --optimize. Some bugs only show up
-      # there, so a few tests run against it too (cypress/dev-default).
+      # Plain `elm-pages dev` is how most people run the dev server. Some bugs
+      # only show up without --debug, so the hot reloading tests and a few
+      # others run against it too (cypress.dev-default.config.js).
       - name: Cypress tests (dev server without --debug)
         uses: cypress-io/github-action@v7
         with:

@@ -42,6 +42,12 @@ const __dirname = path.dirname(__filename);
  * @param {{ port: string; base: string; https: boolean; debug: boolean; }} options
  */
 export async function start(options) {
+  // The dev server never compiles with `--optimize`. Lamdera only builds hot
+  // reloading into code compiled without it (optimized code shortens record
+  // field names, which can differ from one compile to the next, so an old
+  // model would not be safe to hand to new code). This is also what lets you
+  // use `Debug.log` while developing. `--debug` still turns on the debugger.
+  options = { ...options, optimize: false };
   console.error = function (...messages) {
     if (
       messages &&

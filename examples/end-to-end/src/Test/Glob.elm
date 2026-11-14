@@ -363,7 +363,7 @@ globTestCase { glob, name, expected } =
 {-| Passes when both lists hold the same items, in any order.
 
 This does not sort with `Debug.toString`, because the app must also compile
-with `--optimize` (plain `elm-pages dev`), where `Debug` is not allowed.
+with `--optimize` (`elm-pages build`), where `Debug` is not allowed.
 
 -}
 expectSameItems : List value -> List value -> Expect.Expectation

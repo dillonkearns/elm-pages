@@ -1,9 +1,9 @@
 // The HTML that the dev server sends, when it runs the way most people run it:
-// plain `elm-pages dev`, which compiles with `--optimize`.
+// plain `elm-pages dev`.
 //
 // The other dev server tests (cypress/e2e) run against `elm-pages dev --debug`.
-// Some bugs only show up in one of the two modes, because compiled Elm values
-// look different in each. See https://github.com/dillonkearns/elm-pages/issues/622
+// Some bugs only show up in one of the two modes.
+// See https://github.com/dillonkearns/elm-pages/issues/622
 //
 // These tests use `cy.request` so they see the server's HTML, before the
 // browser runs the app and draws the page again.

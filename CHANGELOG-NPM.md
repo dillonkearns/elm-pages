@@ -28,9 +28,18 @@ Use with the `dillonkearns/elm-pages` Elm package 12.3.1 or later.
   `elm-pages`.
 - Hot reloading in `elm-pages dev` now uses the hot reloading that
   Lamdera 1.5.0 builds into compiled code, instead of `elm-hot`. The
-  running app keeps its model and ports when new code arrives. If the
-  new code cannot be swapped in (for example the model changed shape),
-  the page reloads instead. The `elm-hot` dependency is gone.
+  running app keeps its model, its ports and the page's DOM when new
+  code arrives. If swapping in the new code fails with an error, the
+  page reloads instead. The `elm-hot` dependency is gone.
+- `elm-pages dev` no longer compiles with `--optimize`. Lamdera only
+  builds hot reloading into code compiled without it, the same as its
+  own dev server: optimized code shortens record field names, and those
+  can differ from one compile to the next, so a running app's model
+  could not be handed to new code safely. This also means `Debug.log`
+  and the rest of `Debug` now work in plain `elm-pages dev`, not only
+  with `--debug`. `elm-pages build` still compiles with `--optimize`
+  and still rejects `Debug`, so a project that uses it runs in the dev
+  server but does not build until it is removed.
 - The frozen view patch for the older virtual DOM is removed, along with
   the detection that chose between the two. If the compiled code is not
   what elm-pages expects, the build now stops instead of shipping pages
