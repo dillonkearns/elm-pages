@@ -11,7 +11,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [3.6.0] - 2026-11-14
 
-Use with the `dillonkearns/elm-pages` Elm package 12.3.1 or later.
+Use with the `dillonkearns/elm-pages` Elm package 12.4.0 or later. The
+two check that they match (Compatibility Key 30) and tell you if they
+do not.
 
 ### Changed
 
@@ -58,7 +60,7 @@ Use with the `dillonkearns/elm-pages` Elm package 12.3.1 or later.
   views: the browser app does not redraw those, so their elements keep
   it.
 - `elm-pages init` template now installs Lamdera 1.5.0 and
-  `dillonkearns/elm-pages` 12.3.1, with its other Elm and npm
+  `dillonkearns/elm-pages` 12.4.0, with its other Elm and npm
   dependencies updated to match.
 - npm dependencies updated to their latest versions, including
   `elm-optimize-level-2` 0.4.0, which no longer prints TypeScript
@@ -99,6 +101,13 @@ Use with the `dillonkearns/elm-pages` Elm package 12.3.1 or later.
   of the requested range on Node versions without Temporal, and failed
   for zones whose past offsets were not whole minutes (for example
   `Africa/Monrovia` before 1972).
+- The browser tab's title showed "Page Data Error" for a moment while a
+  page loaded, and kept showing it in a background tab until you
+  switched to that tab. The app also threw away the server-rendered
+  page and built it again. The page data is now passed to the app when
+  it starts, so its first render is the real page and it keeps the
+  server-rendered elements, frozen views included. This needs the
+  matching version of the Elm package.
 
 ## [3.5.1] - 2026-05-11
 

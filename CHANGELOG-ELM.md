@@ -9,12 +9,22 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [12.3.1] - 2026-11-14
+## [12.4.0] - 2026-11-14
 
 This is the first version that compiles with Lamdera 1.5.0, so it is
 required for the `elm-pages` npm package 3.6.0 and later (which needs
 Lamdera 1.5.0). 12.3.0 and older make the Lamdera 1.5.0 compiler crash
 when it builds the package, even if you do not use `Test.PagesProgram`.
+
+Use it with the `elm-pages` npm package 3.6.0. The two check that they
+match (Compatibility Key 30) and tell you if they do not.
+
+### Added
+
+- `Pages.Internal.Platform.applicationWithPageData`,
+  `initWithPageData` and `FlagsWithPageData`, for the generated code
+  to start the app with its page data. Like the rest of that module,
+  they are for internal use only. They are why this is a minor version.
 
 ### Changed
 
@@ -28,6 +38,13 @@ when it builds the package, even if you do not use `Test.PagesProgram`.
 - `Test.PagesProgram` made the Lamdera 1.5.0 compiler crash with
   `index out of bounds (3,3)`. A type annotation on an internal helper
   avoids the compiler bug.
+- The app's first render is now the real page instead of a "Page Data
+  Error" placeholder, so the tab title is right from the start (also in
+  a background tab) and the server-rendered page is kept instead of
+  built again. This needs the matching version of the npm package.
+- After client-side navigation, screen readers were told "Navigated to
+  Page not found" (or the title of the wrong page). The announcement
+  now uses the title of the page that was navigated to.
 
 ## [12.3.0] - 2026-05-10
 
