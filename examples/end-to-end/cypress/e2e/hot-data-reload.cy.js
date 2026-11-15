@@ -9,7 +9,7 @@ const notesDir = "hot-data/notes";
 // These two names have characters that mean something in a glob pattern.
 // The files must be watched like any other.
 const archiveDir = "hot-data/archive [2024]";
-const frozenFile = "hot-data/frozen [draft].txt";
+const frozenFile = "hot-data/frozen/lines [draft].txt";
 const routeFile = "app/Route/HotData.elm";
 
 const originalNotes = { a: "First note", b: "Second note" };

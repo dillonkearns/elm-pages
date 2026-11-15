@@ -79,7 +79,7 @@ data =
     BackendTask.map3 Data
         notes
         archive
-        (BackendTask.File.rawFile "hot-data/frozen [draft].txt"
+        (BackendTask.File.rawFile "hot-data/frozen/lines [draft].txt"
             |> BackendTask.allowFatal
             |> BackendTask.map nonEmptyLines
         )
