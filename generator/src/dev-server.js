@@ -32,6 +32,12 @@ import { resolveConfig } from "./config.js";
 import { extractAndReplaceFrozenViews, replaceFrozenViewPlaceholders } from "./extract-frozen-views.js";
 import { packageVersion } from "./compatibility-key.js";
 import { toExactBuffer } from "./binary-helpers.js";
+import { coalesce } from "./coalesce.js";
+import {
+  globWatcherIgnores,
+  matchesAnyGlob,
+  parseWatchEntry,
+} from "./glob-watch.js";
 import * as globby from "globby";
 import { fileURLToPath } from "url";
 
@@ -117,12 +123,63 @@ export async function start(options) {
   /** @type {{ id: number, response: http.ServerResponse }[]} */
   let clients = [];
 
+  // One save can change several watched files (a formatter, a script, git),
+  // and each change tells us to reload. Wait a moment for the changes to stop
+  // coming, so the browser reloads the data once instead of once per file.
+  const tellClientsToReloadData = coalesce(() => {
+    clients.forEach((client) => {
+      client.response.write(`data: content.dat\n\n`);
+    });
+  }, 30);
+
   // TODO check source-directories for what to watch?
   const watcher = chokidar.watch(["elm.json"], {
     persistent: true,
     ignored: [/\.swp$/],
     ignoreInitial: true,
   });
+
+  // The glob patterns that pages' BackendTasks have run. chokidar does not
+  // watch glob patterns, so this second watcher watches the directories that
+  // their matches are in, to reload page data when a matching file is added
+  // or removed. (Changes to a file that a page reads are covered by `watcher`.)
+  /** @type {Set<string>} */
+  const watchedGlobs = new Set();
+  const globWatcher = chokidar.watch([], {
+    persistent: true,
+    ignoreInitial: true,
+    ignored: (watchedPath, stats) =>
+      globWatcherIgnores(
+        watchedGlobs,
+        process.cwd(),
+        path.resolve(watchedPath),
+        stats
+      ),
+  });
+  globWatcher.on("all", (eventName, pathThatChanged) => {
+    if (
+      eventName !== "change" &&
+      matchesAnyGlob(watchedGlobs, path.resolve(pathThatChanged))
+    ) {
+      tellClientsToReloadData();
+    }
+  });
+
+  /**
+   * Watch something a page's BackendTask depends on: a file it read, or a
+   * glob pattern it ran.
+   *
+   * @param {string} entry - see `parseWatchEntry`
+   */
+  function watchDataDependency(entry) {
+    const dependency = parseWatchEntry(entry);
+    if (dependency.kind === "file") {
+      watcher.add(dependency.path);
+    } else if (!watchedGlobs.has(dependency.pattern)) {
+      watchedGlobs.add(dependency.pattern);
+      globWatcher.add(dependency.baseDirectory);
+    }
+  }
 
   // Run independent startup tasks in parallel
   let config;
@@ -256,9 +313,7 @@ export async function start(options) {
             try {
               global.portsFilePath = Object.keys(result.metafile.outputs)[0];
 
-              clients.forEach((client) => {
-                client.response.write(`data: content.dat\n\n`);
-              });
+              tellClientsToReloadData();
             } catch (e) {
               const portBackendTaskFileFound =
                 globby.globbySync("./custom-backend-task.*").length > 0;
@@ -275,9 +330,7 @@ export async function start(options) {
                   __internalElmPagesError: messages,
                 };
 
-                clients.forEach((client) => {
-                  client.response.write(`data: content.dat\n\n`);
-                });
+                tellClientsToReloadData();
               } else {
                 global.portsFilePath = null;
               }
@@ -1219,9 +1272,7 @@ main =
           .catch(() => {
             elmMakeRunning = false;
           });
-        clients.forEach((client) => {
-          client.response.write(`data: content.dat\n\n`);
-        });
+        tellClientsToReloadData();
       }
     } else {
       // TODO use similar logic in the workers? Or don't use cache at all?
@@ -1241,9 +1292,7 @@ main =
       //     delete global.staticHttpCache[backendTaskKey];
       //   }
       // });
-      clients.forEach((client) => {
-        client.response.write(`data: content.dat\n\n`);
-      });
+      tellClientsToReloadData();
     }
   });
 
@@ -1301,8 +1350,7 @@ main =
         if (message.tag === "done") {
           resolve(message.data);
         } else if (message.tag === "watch") {
-          // console.log("@@@ WATCH", message.data);
-          message.data.forEach((pattern) => watcher.add(pattern));
+          message.data.forEach(watchDataDependency);
         } else if (message.tag === "error") {
           reject(message.data);
         } else {
