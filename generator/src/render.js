@@ -13,6 +13,7 @@ import { compatibilityKey } from "./compatibility-key.js";
 import * as fs from "node:fs";
 import * as crypto from "node:crypto";
 import { restoreColorSafe } from "./error-formatter.js";
+import { absoluteGlobPattern } from "./glob-watch.js";
 import {
   runTuiInit,
   runTuiRender,
@@ -2187,7 +2188,7 @@ async function runGlobNew(req, patternsToWatch) {
       stats: true,
       cwd,
     });
-    patternsToWatch.add(pattern);
+    patternsToWatch.add(absoluteGlobPattern(cwd, pattern));
 
     return jsonResponse(
       req,

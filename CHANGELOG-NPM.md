@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- `elm-pages dev` reloads a page's data again when a file that matches
+  one of its `BackendTask.Glob` patterns is added or removed. The file
+  watcher (`chokidar` 4 and later) no longer takes glob patterns, so
+  those were silently not watched: a new file only showed up after some
+  other change or a page reload. This also works for a glob that runs
+  in another directory with `BackendTask.inDir`.
+
+### Changed
+
+- When several watched files change at the same moment (a formatter, a
+  script, a `git checkout`), `elm-pages dev` now reloads the page's
+  data once, instead of once per changed file.
+
 ## [3.6.0] - 2026-11-14
 
 Use with the `dillonkearns/elm-pages` Elm package 12.4.0 or later. The
