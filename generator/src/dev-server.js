@@ -34,10 +34,9 @@ import { packageVersion } from "./compatibility-key.js";
 import { toExactBuffer } from "./binary-helpers.js";
 import { coalesce } from "./coalesce.js";
 import {
-  globBaseDirectory,
   globWatcherIgnores,
-  isGlobPattern,
   matchesAnyGlob,
+  parseWatchEntry,
 } from "./glob-watch.js";
 import * as globby from "globby";
 import { fileURLToPath } from "url";
@@ -168,18 +167,17 @@ export async function start(options) {
 
   /**
    * Watch something a page's BackendTask depends on: a file it read, or a
-   * glob pattern it ran. Both are absolute.
+   * glob pattern it ran.
    *
-   * @param {string} pattern
+   * @param {string} entry - see `parseWatchEntry`
    */
-  function watchDataDependency(pattern) {
-    if (isGlobPattern(pattern)) {
-      if (!watchedGlobs.has(pattern)) {
-        watchedGlobs.add(pattern);
-        globWatcher.add(globBaseDirectory(pattern));
-      }
-    } else {
-      watcher.add(pattern);
+  function watchDataDependency(entry) {
+    const dependency = parseWatchEntry(entry);
+    if (dependency.kind === "file") {
+      watcher.add(dependency.path);
+    } else if (!watchedGlobs.has(dependency.pattern)) {
+      watchedGlobs.add(dependency.pattern);
+      globWatcher.add(dependency.baseDirectory);
     }
   }
 

@@ -6,8 +6,10 @@
 // shows exactly the new data: nothing left over from before, nothing twice.
 
 const notesDir = "hot-data/notes";
-const archiveDir = "hot-data/archive";
-const frozenFile = "hot-data/frozen.txt";
+// These two names have characters that mean something in a glob pattern.
+// The files must be watched like any other.
+const archiveDir = "hot-data/archive [2024]";
+const frozenFile = "hot-data/frozen [draft].txt";
 const routeFile = "app/Route/HotData.elm";
 
 const originalNotes = { a: "First note", b: "Second note" };

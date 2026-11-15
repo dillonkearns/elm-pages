@@ -21,23 +21,44 @@ const noisyDirectories = new Set([
   "dist",
 ]);
 
-/**
- * @param {string} pattern
- * @returns {boolean}
- */
-export function isGlobPattern(pattern) {
-  return mm.scan(pattern).isGlob;
-}
+const globEntryPrefix = "glob:";
 
 /**
- * The directory that everything the pattern matches is inside: the part of
- * the pattern before its first wildcard.
+ * What the code that runs a glob reports, so the dev server can watch it.
  *
+ * Files to watch are reported as their absolute path. A glob is reported as
+ * this instead, so the two cannot be mixed up: a file's name can have
+ * characters that mean something in a pattern, like "[slug].md".
+ *
+ * @param {string} directory - the absolute path of the directory the glob runs in
  * @param {string} pattern
  * @returns {string}
  */
-export function globBaseDirectory(pattern) {
-  return mm.scan(pattern).base || ".";
+export function globWatchEntry(directory, pattern) {
+  return globEntryPrefix + JSON.stringify([directory, pattern]);
+}
+
+/**
+ * @param {string} entry - a file's absolute path, or what `globWatchEntry` returns
+ * @returns {{ kind: "file", path: string } | { kind: "glob", pattern: string, baseDirectory: string }}
+ *   For a glob: its absolute pattern (see `absoluteGlobPattern`), and the
+ *   directory that everything it matches is inside, which is the directory
+ *   to watch.
+ */
+export function parseWatchEntry(entry) {
+  if (!entry.startsWith(globEntryPrefix)) {
+    return { kind: "file", path: entry };
+  }
+  const [directory, pattern] = JSON.parse(entry.slice(globEntryPrefix.length));
+  // The part of the pattern before its first wildcard.
+  const patternBase = mm.scan(pattern).base;
+  return {
+    kind: "glob",
+    pattern: absoluteGlobPattern(directory, pattern),
+    baseDirectory: [withoutTrailingSlash(directory), patternBase]
+      .filter((part) => part !== "" && part !== ".")
+      .join("/"),
+  };
 }
 
 /**
@@ -50,7 +71,13 @@ export function globBaseDirectory(pattern) {
  * @returns {string}
  */
 export function absoluteGlobPattern(directory, pattern) {
-  return `${withForwardSlashes(directory).replace(/\/+$/, "")}/${pattern}`;
+  // The directory is a real path, not a pattern, so characters in it that
+  // mean something in a pattern are escaped.
+  const literalDirectory = withoutTrailingSlash(directory).replace(
+    /[*?[\]{}()!+@|]/g,
+    "\\$&"
+  );
+  return `${literalDirectory}/${pattern}`;
 }
 
 /**
@@ -90,6 +117,11 @@ export function globWatcherIgnores(
     return true;
   }
   return Boolean(stats?.isFile()) && !matchesAnyGlob(patterns, absolutePath);
+}
+
+/** @param {string} directory */
+function withoutTrailingSlash(directory) {
+  return withForwardSlashes(directory).replace(/\/+$/, "");
 }
 
 /** @param {string} somePath */

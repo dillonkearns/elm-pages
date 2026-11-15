@@ -4,6 +4,9 @@ module Route.HotData exposing (ActionData, Data, Model, Msg, route)
 (`cypress/e2e/hot-data-reload.cy.js`). Those tests edit the files under
 `hot-data/` while the page is open and check that the page shows exactly the
 new data.
+
+Some of the names have characters that mean something in a glob pattern
+(`[2024]`, `[draft]`), to check that those files are watched like any other.
 -}
 
 import BackendTask exposing (BackendTask)
@@ -62,8 +65,8 @@ type alias Note =
 type alias Data =
     { notes : List Note
 
-    -- The names of the files in `hot-data/archive`, from a glob that runs in
-    -- that directory (`BackendTask.inDir`).
+    -- The names of the files in `hot-data/archive [2024]`, from a glob that
+    -- runs in that directory (`BackendTask.inDir`).
     , archive : List String
 
     -- Only used inside `View.freeze`.
@@ -76,7 +79,7 @@ data =
     BackendTask.map3 Data
         notes
         archive
-        (BackendTask.File.rawFile "hot-data/frozen.txt"
+        (BackendTask.File.rawFile "hot-data/frozen [draft].txt"
             |> BackendTask.allowFatal
             |> BackendTask.map nonEmptyLines
         )
@@ -105,7 +108,7 @@ archive =
         |> Glob.capture Glob.wildcard
         |> Glob.match (Glob.literal ".txt")
         |> Glob.toBackendTask
-        |> BackendTask.inDir "hot-data/archive"
+        |> BackendTask.inDir "hot-data/archive [2024]"
         |> BackendTask.map List.sort
 
 

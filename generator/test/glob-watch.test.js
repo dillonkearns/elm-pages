@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   absoluteGlobPattern,
-  isGlobPattern,
-  globBaseDirectory,
+  globWatchEntry,
+  parseWatchEntry,
   matchesAnyGlob,
   globWatcherIgnores,
 } from "../src/glob-watch.js";
@@ -10,27 +10,44 @@ import {
 const file = { isFile: () => true, isDirectory: () => false };
 const directory = { isFile: () => false, isDirectory: () => true };
 
-describe("isGlobPattern", () => {
-  it("is false for a plain file path", () => {
-    expect(isGlobPattern("content/blog/hello.md")).toBe(false);
+describe("globWatchEntry and parseWatchEntry", () => {
+  it("gives a glob's absolute pattern and the directory to watch for it", () => {
+    expect(parseWatchEntry(globWatchEntry("/project", "content/blog/*.md"))).toEqual({
+      kind: "glob",
+      pattern: "/project/content/blog/*.md",
+      baseDirectory: "/project/content/blog",
+    });
+    expect(parseWatchEntry(globWatchEntry("/project/content", "**/index.md"))).toEqual({
+      kind: "glob",
+      pattern: "/project/content/**/index.md",
+      baseDirectory: "/project/content",
+    });
   });
 
-  it("is true for a pattern with a wildcard", () => {
-    expect(isGlobPattern("content/blog/*.md")).toBe(true);
-    expect(isGlobPattern("content/**/*.md")).toBe(true);
-    expect(isGlobPattern("content/{a,b}.md")).toBe(true);
-  });
-});
-
-describe("globBaseDirectory", () => {
-  it("is the part of the pattern before the first wildcard", () => {
-    expect(globBaseDirectory("content/blog/*.md")).toBe("content/blog");
-    expect(globBaseDirectory("content/**/index.md")).toBe("content");
+  it("treats a path as a file, whatever characters are in it", () => {
+    for (const file of [
+      "/project/content/hello.md",
+      "/project/content/[slug].md",
+      "/project/content/notes (1)/*.md",
+      "/project/{a,b}/hello.md",
+    ]) {
+      expect(parseWatchEntry(file), file).toEqual({ kind: "file", path: file });
+    }
   });
 
-  it("is the current directory when the pattern starts with a wildcard", () => {
-    expect(globBaseDirectory("*.md")).toBe(".");
-    expect(globBaseDirectory("**/*.md")).toBe(".");
+  it("takes the directory a glob runs in literally, whatever characters are in it", () => {
+    const directory = "/home/me/my {old,new} project (1)/posts [2024]";
+    const entry = parseWatchEntry(globWatchEntry(directory, "drafts/*.md"));
+
+    expect(entry.kind).toBe("glob");
+    expect(entry.baseDirectory).toBe(`${directory}/drafts`);
+    const patterns = new Set([entry.pattern]);
+    expect(matchesAnyGlob(patterns, `${directory}/drafts/a.md`)).toBe(true);
+    expect(matchesAnyGlob(patterns, `${directory}/drafts/a.txt`)).toBe(false);
+    // Not what the directory's name would match if it were read as a pattern.
+    expect(
+      matchesAnyGlob(patterns, "/home/me/my old project (1)/posts 2/drafts/a.md")
+    ).toBe(false);
   });
 });
 
