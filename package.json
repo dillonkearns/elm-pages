@@ -71,7 +71,7 @@
     "elm-test": "0.19.3-0",
     "elm-tooling": "^1.21.0",
     "elm-verify-examples": "^6.0.3",
-    "lamdera": "0.19.3-1.5.0",
+    "lamdera": "0.19.3-1.5.1",
     "prettier": "^3.9.10",
     "typescript": "^6.0.3",
     "vitest": "^5.1.0"
