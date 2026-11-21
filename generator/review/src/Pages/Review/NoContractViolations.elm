@@ -62,6 +62,7 @@ rule =
         |> Rule.withModuleVisitor
             (Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
                 >> Rule.withDeclarationVisitor declarationVisitor
+                >> Rule.withFinalModuleEvaluation finalModuleEvaluation
             )
         |> Rule.withModuleContext
             { foldProjectContexts = \a b -> { visitedCoreModules = Set.union a.visitedCoreModules b.visitedCoreModules }
@@ -80,6 +81,11 @@ rule =
                                     (\requiredExposes ->
                                         CoreModule { requiredExposes = requiredExposes }
                                     )
+                    , isStatelessRoute = False
+                    , modelRange = Nothing
+                    , modelIsRecord = True
+                    , msgRange = Nothing
+                    , msgIsUnit = True
                     }
             }
         |> Rule.withFinalProjectEvaluation
@@ -193,6 +199,11 @@ checkFreezeContract exposed range =
 type alias Context =
     { moduleName : List String
     , isRouteModule : Maybe SpecialModule
+    , isStatelessRoute : Bool
+    , modelRange : Maybe Range
+    , modelIsRecord : Bool
+    , msgRange : Maybe Range
+    , msgIsUnit : Bool
     }
 
 
@@ -424,17 +435,134 @@ declarationVisitor : Node Declaration -> Direction -> Context -> ( List (Error {
 declarationVisitor node direction context =
     case ( direction, Node.value node ) of
         ( Rule.OnEnter, Declaration.AliasDeclaration { name, typeAnnotation } ) ->
-            -- TODO check that generics is empty
-            if context.isRouteModule == Just RouteModule && Node.value name == "RouteParams" then
-                ( routeParamsMatchesNameOrError typeAnnotation context.moduleName
-                , context
-                )
+            if context.isRouteModule == Just RouteModule then
+                case Node.value name of
+                    "RouteParams" ->
+                        ( routeParamsMatchesNameOrError typeAnnotation context.moduleName
+                        , context
+                        )
+
+                    "Model" ->
+                        ( []
+                        , { context
+                            | modelRange = Just (Node.range typeAnnotation)
+                            , modelIsRecord = isEmptyRecord (Node.value typeAnnotation)
+                          }
+                        )
+
+                    "Msg" ->
+                        ( []
+                        , { context
+                            | msgRange = Just (Node.range typeAnnotation)
+                            , msgIsUnit = isUnitType (Node.value typeAnnotation)
+                          }
+                        )
+
+                    _ ->
+                        ( [], context )
+
+            else
+                ( [], context )
+
+        ( Rule.OnEnter, Declaration.FunctionDeclaration { signature } ) ->
+            if context.isRouteModule == Just RouteModule then
+                let
+                    isStateless =
+                        signature
+                            |> Maybe.map Node.value
+                            |> Maybe.andThen (\sig -> if Node.value sig.name == "route" then Just sig else Nothing)
+                            |> Maybe.map (.typeAnnotation >> Node.value >> hasStatelessRouteAnnotation)
+                            |> Maybe.withDefault False
+                in
+                ( [], { context | isStatelessRoute = context.isStatelessRoute || isStateless } )
 
             else
                 ( [], context )
 
         _ ->
             ( [], context )
+
+
+finalModuleEvaluation : Context -> List (Error {})
+finalModuleEvaluation context =
+    if context.isRouteModule /= Just RouteModule || not context.isStatelessRoute then
+        []
+
+    else
+        let
+            modelError =
+                if context.modelIsRecord then
+                    []
+
+                else
+                    context.modelRange
+                        |> Maybe.map
+                            (\range ->
+                                [ Rule.error
+                                    { message = "Stateless route has incorrect Model type"
+                                    , details =
+                                        [ "Routes using `buildNoState` must have `type alias Model = {}`."
+                                        , "The generated code expects this exact type. Using a different type (like `()`) will cause internal compilation errors in the generated Main.elm."
+                                        ]
+                                    }
+                                    range
+                                ]
+                            )
+                        |> Maybe.withDefault []
+
+            msgError =
+                if context.msgIsUnit then
+                    []
+
+                else
+                    context.msgRange
+                        |> Maybe.map
+                            (\range ->
+                                [ Rule.error
+                                    { message = "Stateless route has incorrect Msg type"
+                                    , details =
+                                        [ "Routes using `buildNoState` must have `type alias Msg = ()`."
+                                        , "The generated code expects this exact type. Using a different type (like `Never`) will cause internal compilation errors in the generated Main.elm."
+                                        ]
+                                    }
+                                    range
+                                ]
+                            )
+                        |> Maybe.withDefault []
+        in
+        modelError ++ msgError
+
+
+isEmptyRecord : TypeAnnotation -> Bool
+isEmptyRecord typeAnnotation =
+    case typeAnnotation of
+        TypeAnnotation.Record fields ->
+            List.isEmpty fields
+
+        _ ->
+            False
+
+
+isUnitType : TypeAnnotation -> Bool
+isUnitType typeAnnotation =
+    case typeAnnotation of
+        TypeAnnotation.Unit ->
+            True
+
+        _ ->
+            False
+
+
+hasStatelessRouteAnnotation : TypeAnnotation -> Bool
+hasStatelessRouteAnnotation typeAnnotation =
+    case typeAnnotation of
+        TypeAnnotation.Typed nameNode _ ->
+            Node.value nameNode
+                |> Tuple.second
+                |> (==) "StatelessRoute"
+
+        _ ->
+            False
 
 
 exposedNames : List (Node Exposing.TopLevelExpose) -> Set String
