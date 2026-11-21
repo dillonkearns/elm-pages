@@ -22,10 +22,12 @@ type alias Request =
 hash : Request -> String
 hash requestDetails =
     Encode.object
-        [ ( "method", Encode.string requestDetails.method )
-        , ( "url", Encode.string requestDetails.url )
+        [ ( "url", Encode.string requestDetails.url )
+        , ( "method", Encode.string requestDetails.method )
         , ( "headers", Encode.list hashHeader requestDetails.headers )
         , ( "body", StaticHttpBody.encode requestDetails.body )
+        , ( "env", Encode.dict identity Encode.string requestDetails.env )
+        , ( "dir", Encode.list Encode.string requestDetails.dir )
         ]
         |> Encode.encode 0
         |> FNV1a.hash
