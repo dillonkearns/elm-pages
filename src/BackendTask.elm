@@ -113,7 +113,6 @@ of a `BackendTask` at any point before you pass it to and it will be applied whe
 
 import Dict
 import FatalError exposing (FatalError)
-import List.Chunks
 import Pages.StaticHttpRequest exposing (RawRequest(..))
 import RequestsAndPending
 
@@ -336,25 +335,45 @@ resolve =
 
 -}
 combine : List (BackendTask error value) -> BackendTask error (List value)
-combine items =
-    items
-        |> List.Chunks.chunk 100
-        |> List.map combineHelp
-        |> List.Chunks.chunk 100
-        |> List.map combineHelp
-        |> List.Chunks.chunk 100
-        |> List.map combineHelp
-        |> combineHelp
-        |> map (List.concat >> List.concat >> List.concat)
+combine inputs =
+    combineStep inputs
 
 
-{-| `combineHelp` on its own will overflow the stack with larger lists of tasks
+combineStep : List (BackendTask error value) -> BackendTask error (List value)
+combineStep inputs =
+    let
+        (T4 _ lastChunk finalChunkCount almostAllChunks) =
+            List.foldl
+                (\t (T4 chunkSize chunk chunkCount chunks) ->
+                    let
+                        newChunk : BackendTask error (List value)
+                        newChunk =
+                            map2 (::) t chunk
+                    in
+                    if chunkSize > 100 then
+                        T4 1 (succeed []) (chunkCount + 1) (newChunk :: chunks)
 
-dividing the tasks into smaller nested chunks and recombining makes `combine` stack safe
+                    else
+                        T4 (chunkSize + 1) newChunk chunkCount chunks
+                )
+                (T4 0 (succeed []) 0 [])
+                inputs
 
-There's probably a way of doing this without the Lists but it's a neat trick to safely combine lots of tasks!
+        allChunks : List (BackendTask error (List value))
+        allChunks =
+            lastChunk :: almostAllChunks
+    in
+    if finalChunkCount > 100 then
+        allChunks |> combine |> map (\r -> r |> List.concat |> List.reverse)
 
--}
+    else
+        allChunks |> combineHelp |> map (\r -> r |> List.concat |> List.reverse)
+
+
+type T4 a b c d
+    = T4 a b c d
+
+
 combineHelp : List (BackendTask error value) -> BackendTask error (List value)
 combineHelp items =
     List.foldl (map2 (::)) (succeed []) items |> map List.reverse
@@ -386,10 +405,9 @@ typically a better default when you aren't sure which you want.
 Same as [`doEach`](#doEach), except it ignores the resulting value of each `BackendTask`.
 
 -}
-sequence : List (BackendTask error value) -> BackendTask error (List value)
-sequence items =
-    items
-        |> sequenceHelp
+sequence : List (BackendTask error a) -> BackendTask error (List a)
+sequence inputs =
+    sequenceHelp inputs
 
 
 sequenceHelp : List (BackendTask error value) -> BackendTask error (List value)
