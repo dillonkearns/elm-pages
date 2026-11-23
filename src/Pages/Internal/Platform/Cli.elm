@@ -374,6 +374,9 @@ isActionDecoder =
                     "GET" ->
                         Nothing
 
+                    "HEAD" ->
+                        Nothing
+
                     "OPTIONS" ->
                         Nothing
 
